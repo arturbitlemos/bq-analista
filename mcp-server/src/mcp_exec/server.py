@@ -11,9 +11,12 @@ from typing import Callable, Optional
 
 from mcp.server.fastmcp import FastMCP
 
+from mcp_exec.allowlist import Allowlist
+from mcp_exec.auth_middleware import AuthContext, AuthError, extract_exec_email
 from mcp_exec.bq_client import BqClient
 from mcp_exec.context_loader import load_exec_context
 from mcp_exec.git_ops import GitOps
+from mcp_exec.jwt_tokens import TokenIssuer
 from mcp_exec.library import LibraryEntry, prepend_entry
 from mcp_exec.sandbox import PathSandboxError, exec_analysis_path, exec_library_path
 from mcp_exec.settings import load_settings
@@ -69,9 +72,33 @@ def consultar_bq_impl(
     }
 
 
+def _auth_context() -> AuthContext:
+    settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
+    settings = load_settings(settings_path)
+    secret = os.environ["MCP_JWT_SECRET"]
+    issuer = TokenIssuer(
+        secret=secret,
+        issuer=settings.auth.jwt_issuer,
+        access_ttl_s=settings.auth.access_token_ttl_s,
+        refresh_ttl_s=settings.auth.refresh_token_ttl_s,
+    )
+    allowlist = Allowlist(
+        path=Path(os.environ.get("MCP_ALLOWLIST", "/app/config/allowed_execs.json"))
+    )
+    return AuthContext(issuer=issuer, allowlist=allowlist)
+
+
 def _current_exec_email(ctx) -> str:
-    # Stub until Phase 5 wires real Azure AD auth. Always returns the test exec.
-    return os.environ.get("MCP_DEV_EXEC_EMAIL", "artur.lemos@somagrupo.com.br")
+    # Dev shortcut: short-circuit auth when MCP_DEV_EXEC_EMAIL is set.
+    if os.environ.get("MCP_DEV_EXEC_EMAIL"):
+        return os.environ["MCP_DEV_EXEC_EMAIL"]
+
+    headers = getattr(ctx.request_context.request, "headers", {}) or {}
+    auth = headers.get("authorization") or headers.get("Authorization") or ""
+    if not auth.lower().startswith("bearer "):
+        raise AuthError("missing bearer token")
+    token = auth.split(None, 1)[1].strip()
+    return extract_exec_email(token=token, ctx=_auth_context())
 
 
 @mcp.tool()

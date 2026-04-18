@@ -33,13 +33,16 @@ def _repo_root() -> Path:
 
 
 @mcp.tool()
-def get_context() -> dict:
+def get_context(ctx) -> dict:
     """Return concatenated docs (schema.md, business-rules.md, SKILL.md) plus allowed tables.
 
     Call once at session start to prime Claude with the analytics context.
+    Requires a valid bearer token (same auth gate as other tools) so the
+    schema and business rules are not exposed to unauthenticated callers.
     """
-    ctx = load_exec_context(_repo_root())
-    return {"text": ctx.text, "allowed_tables": ctx.allowed_tables}
+    _current_exec_email(ctx)  # enforces bearer + allowlist, raises AuthError otherwise
+    loaded = load_exec_context(_repo_root())
+    return {"text": loaded.text, "allowed_tables": loaded.allowed_tables}
 
 
 def _build_bq_client() -> BqClient:

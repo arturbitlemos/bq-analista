@@ -15,6 +15,8 @@ class BigQuerySettings(BaseModel):
     max_bytes_billed: int
     query_timeout_s: int
     max_rows: int
+    # Documentary only — dataset access is enforced by IAM on the service account,
+    # not by Python code. Listed here so operators see the intended scope.
     allowed_datasets: list[str]
 
 

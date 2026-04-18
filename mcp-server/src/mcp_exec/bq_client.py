@@ -1,12 +1,30 @@
 from __future__ import annotations
 
+import json
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from google.cloud import bigquery
+from google.oauth2 import service_account
 
 from mcp_exec.settings import BigQuerySettings
+
+
+def _bq_credentials_from_env() -> service_account.Credentials | None:
+    """Parse MCP_BQ_SA_KEY (JSON content or path) into Credentials. Returns None if unset."""
+    raw = os.environ.get("MCP_BQ_SA_KEY")
+    if not raw:
+        return None
+    raw = raw.strip()
+    if raw.startswith("{"):
+        info = json.loads(raw)
+    else:
+        # Treat as file path
+        with open(raw) as f:
+            info = json.load(f)
+    return service_account.Credentials.from_service_account_info(info)
 
 
 def _label_sanitize(email: str) -> str:
@@ -34,7 +52,11 @@ class BqClient:
 
     def __post_init__(self) -> None:
         if self.bq is None:
-            self.bq = bigquery.Client(project=self.settings.project_id)
+            creds = _bq_credentials_from_env()
+            self.bq = bigquery.Client(
+                project=self.settings.project_id,
+                credentials=creds,  # None falls back to ADC
+            )
 
     def run_query(self, sql: str, exec_email: str) -> QueryResult:
         cfg = bigquery.QueryJobConfig(

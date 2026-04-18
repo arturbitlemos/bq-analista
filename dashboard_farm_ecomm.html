@@ -205,18 +205,24 @@
     .trend-labels {
       display: flex;
       justify-content: space-between;
-      margin-top: .65rem;
+      margin-top: 0.65rem;
     }
 
     .trend-label {
-      font-family: var(--font-mono);
-      font-size: .55rem;
-      color: var(--cream-dim);
+      font-family: var(--font-primary);
+      font-size: 0.55rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--on-bg-dim);
       text-align: center;
       flex: 1;
     }
 
-    .trend-label.peak { color: var(--sage); font-weight: 500; }
+    .trend-label.peak {
+      color: var(--blue-soft);
+      font-weight: 600;
+    }
 
     /* ── PRODUCT GROUPS ──────────────────────────────────────────── */
     .groups-list {
@@ -786,8 +792,8 @@
 
       /* gradient area */
       const grad = ctx.createLinearGradient(0, padT, 0, H);
-      grad.addColorStop(0, 'rgba(109,168,130,.35)');
-      grad.addColorStop(1, 'rgba(109,168,130,.0)');
+      grad.addColorStop(0, 'rgba(161,198,237,.4)');
+      grad.addColorStop(1, 'rgba(161,198,237,0)');
 
       ctx.beginPath();
       ctx.moveTo(points[0].x, H);
@@ -808,7 +814,7 @@
         const mx = (points[i - 1].x + points[i].x) / 2;
         ctx.bezierCurveTo(mx, points[i - 1].y, mx, points[i].y, points[i].x, points[i].y);
       }
-      ctx.strokeStyle = '#6DA882';
+      ctx.strokeStyle = '#A1C6ED';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
@@ -817,15 +823,15 @@
       const pp = points[peakIdx];
       ctx.beginPath();
       ctx.arc(pp.x, pp.y, 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#D9A84E';
+      ctx.fillStyle = '#FFFFFF';
       ctx.fill();
 
       /* value labels for first, peak, last */
       function fmt(v) { return 'R$' + (v / 1e6).toFixed(1) + 'M'; }
-      ctx.font = `${9 * dpr / dpr}px 'DM Mono', monospace`;
+      ctx.font = `10px 'Red Hat Display', sans-serif`;
       ctx.textAlign = 'center';
 
-      [[0, '#6DA882'], [peakIdx, '#D9A84E'], [n - 1, 'rgba(242,232,213,.55)']].forEach(([i, color]) => {
+      [[0, 'rgba(255,255,255,.55)'], [peakIdx, '#A1C6ED'], [n - 1, 'rgba(255,255,255,.55)']].forEach(([i, color]) => {
         if (i === peakIdx || i === 0 || i === n - 1) {
           ctx.fillStyle = color;
           const yOff = points[i].y > 20 ? -6 : 14;

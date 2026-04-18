@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from mcp_exec.allowlist import Allowlist
 from mcp_exec.azure_auth import AzureAuth, AzureAuthError
-from mcp_exec.jwt_tokens import TokenInvalidError, TokenIssuer
+from mcp_exec.jwt_tokens import TokenError, TokenIssuer
 
 
 def build_auth_app(
@@ -41,10 +41,14 @@ def build_auth_app(
 
     @app.post("/auth/refresh")
     async def refresh(req: Request) -> JSONResponse:
-        body = await req.json()
         try:
-            access = issuer.refresh(body["refresh_token"])
-        except TokenInvalidError as e:
+            body = await req.json()
+            refresh_token = body["refresh_token"]
+        except (ValueError, KeyError, TypeError):
+            raise HTTPException(status_code=422, detail="refresh_token required")
+        try:
+            access = issuer.refresh(refresh_token)
+        except TokenError as e:
             raise HTTPException(status_code=401, detail=str(e))
         return JSONResponse({"access_token": access})
 

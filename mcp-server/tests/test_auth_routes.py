@@ -57,3 +57,15 @@ def test_refresh_returns_new_access() -> None:
     r2 = c.post("/auth/refresh", json={"refresh_token": refresh})
     assert r2.status_code == 200
     assert r2.json()["access_token"]
+
+
+def test_refresh_missing_token_returns_422() -> None:
+    c = _app(["exec@azzas.com.br"])
+    r = c.post("/auth/refresh", json={"other": "field"})
+    assert r.status_code == 422
+
+
+def test_refresh_invalid_token_returns_401() -> None:
+    c = _app(["exec@azzas.com.br"])
+    r = c.post("/auth/refresh", json={"refresh_token": "not-a-jwt"})
+    assert r.status_code == 401

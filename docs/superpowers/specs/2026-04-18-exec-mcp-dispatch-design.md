@@ -99,6 +99,133 @@ Claude responde no chat com resumo + link (total: ~3-5 min com feedback contínu
 
 Claude do exec decide, em cada turno, quais tools chamar — baseado no system prompt do conector (que inclui uma versão enxuta do SKILL.md focada em executivos).
 
+### 4.4 Infrastructure — Docker + launchd
+
+**Dockerfile** (base: Python 3.13, por proximidade com BigQuery SDK):
+
+```dockerfile
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Dependências
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Código do MCP
+COPY src/ .
+
+# User não-root
+RUN useradd -m -u 1000 mcp && chown -R mcp:mcp /app
+USER mcp
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:3000/health')"
+
+EXPOSE 3000
+
+# Entrypoint: uvicorn ou equivalente
+CMD ["python", "-m", "mcp.server"]
+```
+
+**Volumes e mounts**:
+- `/app/analyses` → `$HOME/bq-analista/analyses` (read-write, local repo)
+- `/app/library` → `$HOME/bq-analista/library` (read-write, local repo)
+- `/app/config` → `/etc/mcp/config` (read-only, allowlist + settings)
+- `/var/mcp/audit.db` → local SQLite (read-write, audit log)
+
+**Secrets (injeção via launchd)**:
+
+```bash
+# No Mac mini, via launchd EnvironmentVariables:
+# - MCP_BQ_SA_KEY: conteúdo do JSON da service account (ou path)
+# - MCP_GITHUB_PAT: fine-grained token
+# - MCP_AZURE_TENANT_ID: tenant ID do Azure AD
+# - MCP_AZURE_CLIENT_ID: application ID
+# - MCP_AZURE_CLIENT_SECRET: client secret
+```
+
+Secrets são injetados no container via variáveis de ambiente, **nunca** hardcoded na imagem.
+
+**plist (launchd agent — `com.azzas.mcp.plist`)**:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.azzas.mcp</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>docker</string>
+        <string>run</string>
+        <string>--rm</string>
+        <string>--name</string>
+        <string>mcp-server</string>
+        <string>-p</string>
+        <string>3000:3000</string>
+        <string>-v</string>
+        <string>/Users/artur/bq-analista/analyses:/app/analyses</string>
+        <string>-v</string>
+        <string>/Users/artur/bq-analista/library:/app/library</string>
+        <string>-v</string>
+        <string>/var/mcp/audit.db:/var/mcp/audit.db</string>
+        <string>-e</string>
+        <string>MCP_BQ_SA_KEY=$MCP_BQ_SA_KEY</string>
+        <string>-e</string>
+        <string>MCP_GITHUB_PAT=$MCP_GITHUB_PAT</string>
+        <string>-e</string>
+        <string>MCP_AZURE_TENANT_ID=$MCP_AZURE_TENANT_ID</string>
+        <string>mcp-azzas:latest</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/var/log/mcp/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/mcp/stderr.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>MCP_BQ_SA_KEY</key>
+        <string>$(security find-generic-password -w -a mcp -s bq_sa_key)</string>
+        <key>MCP_GITHUB_PAT</key>
+        <string>$(security find-generic-password -w -a mcp -s github_pat)</string>
+        <key>MCP_AZURE_TENANT_ID</key>
+        <string>...</string>
+        <key>MCP_AZURE_CLIENT_ID</key>
+        <string>...</string>
+        <key>MCP_AZURE_CLIENT_SECRET</key>
+        <string>$(security find-generic-password -w -a mcp -s azure_secret)</string>
+    </dict>
+</dict>
+</plist>
+```
+
+**Build e deploy no Mac mini**:
+
+```bash
+# Build imagem
+docker build -t mcp-azzas:latest .
+
+# Load plist em ~/Library/LaunchAgents/
+cp com.azzas.mcp.plist ~/Library/LaunchAgents/
+
+# Registrar e startar
+launchctl load ~/Library/LaunchAgents/com.azzas.mcp.plist
+launchctl start com.azzas.mcp
+
+# Logs
+tail -f /var/log/mcp/stdout.log
+```
+
+**Cloudflare Tunnel integration**:
+
+Tunnel é registrado via `cloudflare/cloudflared` CLI separado, apontando pra `http://localhost:3000`. Não precisa estar no plist do MCP — é um serviço orthogonal.
+
 ## 5. Segurança — 7 camadas
 
 ### 5.1 Autenticação

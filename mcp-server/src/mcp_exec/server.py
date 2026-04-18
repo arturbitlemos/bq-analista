@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import os
+import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -8,6 +11,9 @@ from mcp.server.fastmcp import FastMCP
 
 from mcp_exec.bq_client import BqClient
 from mcp_exec.context_loader import load_exec_context
+from mcp_exec.git_ops import GitOps
+from mcp_exec.library import LibraryEntry, prepend_entry
+from mcp_exec.sandbox import PathSandboxError, exec_analysis_path, exec_library_path
 from mcp_exec.settings import load_settings
 from mcp_exec.sql_validator import SqlValidationError, validate_readonly_sql
 
@@ -93,6 +99,99 @@ async def consultar_bq(sql: str, ctx) -> dict:
         "bytes_processed": result.bytes_processed,
         "truncated": result.truncated,
     }
+
+
+def _slugify(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60] or "analise"
+
+
+def publicar_dashboard_impl(
+    *,
+    title: str,
+    brand: str,
+    period: str,
+    description: str,
+    html_content: str,
+    tags: list[str],
+    exec_email: str,
+    progress,
+) -> dict:
+    settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
+    settings = load_settings(settings_path)
+    repo_root = _repo_root()
+
+    today = datetime.now(timezone.utc).date().isoformat()
+    short_hash = hashlib.sha1(
+        f"{exec_email}{title}{datetime.now(timezone.utc).isoformat()}".encode()
+    ).hexdigest()[:8]
+    slug = _slugify(title)
+    filename = f"{slug}-{today}-{short_hash}.html"
+
+    try:
+        analysis_path = exec_analysis_path(repo_root, exec_email, filename)
+        library_path = exec_library_path(repo_root, exec_email)
+    except PathSandboxError as e:
+        return {"error": f"path_sandbox: {e}"}
+
+    if progress:
+        progress("rendering dashboard...")
+    analysis_path.parent.mkdir(parents=True, exist_ok=True)
+    analysis_path.write_text(html_content)
+
+    entry_id = f"{slug}-{short_hash}"
+    link = f"/analyses/{exec_email}/{filename}"
+    prepend_entry(
+        library_path,
+        LibraryEntry(
+            id=entry_id, title=title, brand=brand, date=today,
+            link=link, description=description, tags=tags, filename=filename,
+        ),
+    )
+
+    if progress:
+        progress("publishing to Vercel...")
+    git = GitOps(
+        repo_path=repo_root,
+        author_name=settings.github.author_name,
+        author_email=settings.github.author_email,
+        branch=settings.github.branch,
+        push=os.environ.get("MCP_GIT_PUSH", "0") == "1",
+    )
+    sha = git.commit_paths(
+        paths=[analysis_path, library_path],
+        message=f"análise dispatched para {exec_email}: {title}",
+    )
+    return {
+        "id": entry_id,
+        "link": link,
+        "published_at": today,
+        "commit_sha": sha,
+    }
+
+
+@mcp.tool()
+async def publicar_dashboard(
+    title: str,
+    brand: str,
+    period: str,
+    description: str,
+    html_content: str,
+    tags: list[str],
+    ctx,
+) -> dict:
+    """Publish an HTML dashboard to the exec's analysis sandbox + update library."""
+    exec_email = _current_exec_email(ctx)
+    await ctx.report_progress(progress=0.0, total=1.0, message="rendering dashboard...")
+    result = publicar_dashboard_impl(
+        title=title, brand=brand, period=period, description=description,
+        html_content=html_content, tags=tags,
+        exec_email=exec_email, progress=None,
+    )
+    if "error" in result:
+        return result
+    await ctx.report_progress(progress=0.5, total=1.0, message="publishing to Vercel...")
+    await ctx.report_progress(progress=1.0, total=1.0, message="dashboard published")
+    return result
 
 
 def main() -> None:

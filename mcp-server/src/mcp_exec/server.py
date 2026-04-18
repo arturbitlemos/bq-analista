@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -197,6 +198,24 @@ async def publicar_dashboard(
     await ctx.report_progress(progress=0.5, total=1.0, message="publishing to Vercel...")
     await ctx.report_progress(progress=1.0, total=1.0, message="dashboard published")
     return result
+
+
+def listar_analises_impl(escopo: str, exec_email: str) -> dict:
+    if escopo not in {"mine", "public"}:
+        return {"error": "escopo must be 'mine' or 'public'"}
+    repo_root = _repo_root()
+    email_key = exec_email if escopo == "mine" else "public"
+    lib = repo_root / "library" / f"{email_key}.json"
+    if not lib.exists():
+        return {"items": []}
+    data = json.loads(lib.read_text() or "[]")
+    return {"items": data}
+
+
+@mcp.tool()
+async def listar_analises(escopo: str, ctx) -> dict:
+    """List analyses. escopo: 'mine' (own sandbox) or 'public' (shared library)."""
+    return listar_analises_impl(escopo=escopo, exec_email=_current_exec_email(ctx))
 
 
 def main() -> None:

@@ -87,27 +87,59 @@
       color: rgba(255, 255, 255, 0.5);
     }
 
+    .hero {
+      background: var(--navy);
+      color: var(--surface);
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+    .hero-eyebrow {
+      font-family: var(--font-primary);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--blue-soft);
+      margin-bottom: 0.85rem;
+    }
+    .hero-title {
+      font-family: var(--font-primary);
+      font-weight: 400;
+      font-size: clamp(2rem, 4vw, 3rem);
+      letter-spacing: 0.03em;
+      line-height: 1.1;
+    }
+
     .filters {
-      padding: 16px 24px;
+      padding: 0.85rem 1.5rem;
+      background: var(--surface-warm);
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      border-bottom: 1px solid var(--border);
+      gap: 0.5rem;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     }
     .chip {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
+      font-family: var(--font-primary);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      background: transparent;
+      border: 1px solid rgba(39, 69, 102, 0.25);
+      color: var(--ink-soft);
       cursor: pointer;
       transition: all 0.15s;
     }
-    .chip:hover, .chip.active {
-      border-color: var(--green-light);
-      color: var(--green-light);
-      background: rgba(76, 175, 80, 0.08);
+    .chip:hover {
+      border-color: var(--navy);
+      color: var(--navy);
+    }
+    .chip.active {
+      background: var(--navy);
+      color: var(--surface);
+      border-color: var(--navy);
     }
 
     #grid {
@@ -230,6 +262,10 @@
     <h1>Azzas 2154</h1>
     <span id="user-email"></span>
   </header>
+  <section class="hero">
+    <div class="hero-eyebrow">Biblioteca de Análises</div>
+    <h2 class="hero-title">Inteligência de Negócio</h2>
+  </section>
   <div class="filters" id="filters">
     <button class="chip active" data-filter="all">Todas</button>
   </div>

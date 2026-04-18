@@ -34,7 +34,8 @@ async function validateToken(token, clientId, tenantId) {
   if (payload.aud !== clientId) throw new Error('Audience inválido')
   const validIssuer = `https://login.microsoftonline.com/${tenantId}/v2.0`
   if (payload.iss !== validIssuer) throw new Error('Issuer inválido')
-  if (!payload.oid) throw new Error('Claim OID ausente')
+  const identity = (payload.preferred_username || payload.email || '').toLowerCase().trim()
+  if (!identity) throw new Error('Claim preferred_username/email ausente')
 
   const keys = await getJwks(tenantId)
   let jwk = keys.find(k => k.kid === header.kid)
@@ -51,12 +52,12 @@ async function validateToken(token, clientId, tenantId) {
   const valid = crypto.verify('RSA-SHA256', data, publicKey, signature)
   if (!valid) throw new Error('Assinatura inválida')
 
-  return payload.oid
+  return identity
 }
 
-function createSessionCookie(oid, secret) {
+function createSessionCookie(identity, secret) {
   const expiry = Math.floor(Date.now() / 1000) + 8 * 3600
-  const payload = `${oid}~${expiry}`
+  const payload = `${identity}~${expiry}`
   const hmac = crypto.createHmac('sha256', secret).update(payload).digest('base64url')
   return `${payload}~${hmac}`
 }
@@ -75,12 +76,12 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const oid = await validateToken(idToken, AZURE_CLIENT_ID, AZURE_TENANT_ID)
-    const cookieValue = createSessionCookie(oid, SESSION_SECRET)
+    const identity = await validateToken(idToken, AZURE_CLIENT_ID, AZURE_TENANT_ID)
+    const cookieValue = createSessionCookie(identity, SESSION_SECRET)
     res.setHeader('Set-Cookie',
       `session=${cookieValue}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=28800`
     )
-    res.status(200).json({ oid })
+    res.status(200).json({ identity })
   } catch (err) {
     res.status(401).json({ error: err.message })
   }

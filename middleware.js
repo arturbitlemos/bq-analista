@@ -15,8 +15,10 @@ function b64urlToBytes(str) {
 
 async function verifySession(cookieValue, secret) {
   const parts = cookieValue.split('~')
-  if (parts.length !== 3) return null
-  const [oid, expiry, signature] = parts
+  if (parts.length < 3) return null
+  const signature = parts.pop()
+  const expiry = parts.pop()
+  const identity = parts.join('~')
 
   if (parseInt(expiry) < Date.now() / 1000) return null
 
@@ -27,11 +29,11 @@ async function verifySession(cookieValue, secret) {
     false,
     ['verify']
   )
-  const data = new TextEncoder().encode(`${oid}~${expiry}`)
+  const data = new TextEncoder().encode(`${identity}~${expiry}`)
   const sigBytes = b64urlToBytes(signature)
   const valid = await crypto.subtle.verify('HMAC', key, sigBytes, data)
 
-  return valid ? oid : null
+  return valid ? identity : null
 }
 
 export default async function middleware(request) {
@@ -42,30 +44,30 @@ export default async function middleware(request) {
     return new Response('Não autenticado', { status: 401 })
   }
 
-  const sessionOid = await verifySession(sessionCookie, process.env.SESSION_SECRET)
-  if (!sessionOid) {
+  const sessionIdentity = await verifySession(sessionCookie, process.env.SESSION_SECRET)
+  if (!sessionIdentity) {
     return new Response('Sessão inválida ou expirada', { status: 401 })
   }
 
   const url = new URL(request.url)
-  const { pathname } = url
+  const pathname = decodeURIComponent(url.pathname)
 
-  // Proteção de /library/{oid}.json
+  // Proteção de /library/{identity}.json
   if (pathname.startsWith('/library/')) {
-    const filename = pathname.slice('/library/'.length) // e.g. "abc123.json" or "public.json"
-    const fileOid = filename.replace(/\.json$/, '')
-    if (fileOid === 'public') return // qualquer autenticado: deixa passar
-    if (fileOid !== sessionOid) return new Response('Acesso negado', { status: 403 })
-    return // OID bate: deixa passar
+    const filename = pathname.slice('/library/'.length) // e.g. "user@corp.com.json" or "public.json"
+    const fileIdentity = filename.replace(/\.json$/, '')
+    if (fileIdentity === 'public') return // qualquer autenticado: deixa passar
+    if (fileIdentity !== sessionIdentity) return new Response('Acesso negado', { status: 403 })
+    return // identidade bate: deixa passar
   }
 
-  // url.pathname = /analyses/public/... ou /analyses/{oid}/...
+  // url.pathname = /analyses/public/... ou /analyses/{identity}/...
   const segment = pathname.split('/')[2]
 
   if (!segment) return new Response('Not Found', { status: 404 })
   if (segment === 'public') return // qualquer autenticado: deixa passar
-  if (segment !== sessionOid) return new Response('Acesso negado', { status: 403 })
-  // OID bate: deixa passar
+  if (segment !== sessionIdentity) return new Response('Acesso negado', { status: 403 })
+  // identidade bate: deixa passar
 }
 
 export const config = { matcher: ['/analyses/:path*', '/library/:path*'] }

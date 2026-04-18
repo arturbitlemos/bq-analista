@@ -90,26 +90,26 @@ After building the HTML dashboard, always publish it to the analytics library.
 
 ### Step 1 — Load user config
 ```bash
-# Load USER_OID from .env (must exist in project root)
+# Load USER_EMAIL from .env (must exist in project root)
 source .env
-echo "Publishing as OID: $USER_OID"
+echo "Publishing as: $USER_EMAIL"
 ```
 
-If `.env` doesn't exist or `USER_OID` is empty, stop and ask the user to run:
+If `.env` doesn't exist or `USER_EMAIL` is empty, stop and ask the user to run:
 ```bash
-# User finds their OID at: https://portal.azure.com → Azure AD → Users → [your name] → Object ID
-echo 'USER_OID=paste-your-oid-here' >> .env
+# Usa o email corporativo que você usa pra logar no portal (em minúsculo)
+echo 'USER_EMAIL=fulano@suaempresa.com' >> .env
 ```
 
 ### Step 2 — Save the analysis file
 ```bash
 ANALYSIS_ID="{brand}-{topic}-{YYYY-MM-DD}"   # e.g. farm-produto-ecomm-2026-04-17
-mkdir -p analyses/$USER_OID
-# Write HTML to: analyses/$USER_OID/$ANALYSIS_ID.html
+mkdir -p "analyses/$USER_EMAIL"
+# Write HTML to: analyses/$USER_EMAIL/$ANALYSIS_ID.html
 ```
 
 ### Step 3 — Update personal library index
-Read `library/$USER_OID.json` (create as `[]` if it doesn't exist), prepend new entry:
+Read `library/$USER_EMAIL.json` (create as `[]` if it doesn't exist), prepend new entry:
 
 ```json
 {
@@ -119,7 +119,7 @@ Read `library/$USER_OID.json` (create as `[]` if it doesn't exist), prepend new 
   "period": "{human-readable period}",
   "date": "{YYYY-MM-DD}",
   "description": "{1-sentence summary}",
-  "file": "analyses/{USER_OID}/{ANALYSIS_ID}.html",
+  "file": "analyses/{USER_EMAIL}/{ANALYSIS_ID}.html",
   "public": false,
   "tags": ["{tag1}", "{tag2}"]
 }
@@ -127,7 +127,7 @@ Read `library/$USER_OID.json` (create as `[]` if it doesn't exist), prepend new 
 
 ### Step 4 — Commit and push
 ```bash
-git add analyses/$USER_OID/$ANALYSIS_ID.html library/$USER_OID.json
+git add "analyses/$USER_EMAIL/$ANALYSIS_ID.html" "library/$USER_EMAIL.json"
 git commit -m "análise: $ANALYSIS_ID"
 git push
 ```
@@ -138,12 +138,12 @@ Vercel rebuilds automatically (~60s). Analysis is live.
 When the user says "torna pública" or "compartilha":
 ```bash
 # Copy to public folder
-cp analyses/$USER_OID/$ANALYSIS_ID.html analyses/public/$ANALYSIS_ID.html
+cp "analyses/$USER_EMAIL/$ANALYSIS_ID.html" "analyses/public/$ANALYSIS_ID.html"
 
 # Add entry to library/public.json (same structure, public: true)
 # Update library/public.json
 
-git add analyses/public/$ANALYSIS_ID.html library/public.json
+git add "analyses/public/$ANALYSIS_ID.html" library/public.json
 git commit -m "publica análise: $ANALYSIS_ID"
 git push
 ```

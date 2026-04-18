@@ -322,7 +322,7 @@ import { initMsal, getMsalInstance, InteractionRequiredAuthError } from './msal-
 
 // ────────────────────────────────────────────────────────────────────────────
 
-let userOid = null
+let userIdentity = null
 let allAnalyses = []
 let activeFilter = 'all'
 
@@ -363,8 +363,8 @@ async function init() {
       credentials: 'include'
     })
     if (!authResult.ok) throw new Error('Falha na autenticação com o servidor')
-    const { oid } = await authResult.json()
-    userOid = oid
+    const { identity } = await authResult.json()
+    userIdentity = identity
 
     const accounts = msalInstance.getAllAccounts()
     if (accounts[0]?.username) {
@@ -381,7 +381,7 @@ async function init() {
 async function loadLibrary() {
   const [publicRes, privateRes] = await Promise.allSettled([
     fetch('library/public.json').then(r => r.json()),
-    fetch(`library/${userOid}.json`).then(r => r.json())
+    fetch(`library/${encodeURIComponent(userIdentity)}.json`).then(r => r.json())
   ])
 
   const publicList = publicRes.status === 'fulfilled' ? publicRes.value : []

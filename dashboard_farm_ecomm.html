@@ -386,20 +386,63 @@
     .disc-mid  { background: rgba(181, 175, 168, 0.2);  color: var(--surface-warm); }
     .disc-high { background: var(--ink); color: var(--on-bg); }
 
+    /* ── INSIGHTS ───────────────────────────────────────────────── */
+    .insights-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .insight {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 0.9rem 1rem;
+    }
+
+    .insight.positive  { border-left-color: var(--blue-soft); }
+    .insight.alert     { border-left-color: var(--on-bg); }
+    .insight.highlight { border-left-color: var(--blue-light); }
+    .insight.neutral   { border-left-color: rgba(255, 255, 255, 0.25); }
+
+    .insight-label {
+      font-family: var(--font-primary);
+      font-size: 0.58rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 0.35rem;
+    }
+
+    .insight.positive  .insight-label { color: var(--blue-soft); }
+    .insight.alert     .insight-label { color: var(--on-bg); }
+    .insight.highlight .insight-label { color: var(--blue-light); }
+    .insight.neutral   .insight-label { color: var(--on-bg-dim); }
+
+    .insight-text {
+      font-family: var(--font-editorial);
+      font-weight: 400;
+      font-size: 0.95rem;
+      color: var(--on-bg);
+      line-height: 1.5;
+    }
+
     /* ── FOOTER ──────────────────────────────────────────────────── */
     footer {
       padding: 2rem 1.25rem 0;
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-end;
       animation: fadeUp .6s .5s ease both;
     }
 
     .footer-note {
-      font-family: var(--font-mono);
-      font-size: .55rem;
-      color: rgba(242,232,213,.25);
-      letter-spacing: .06em;
+      font-family: var(--font-primary);
+      font-size: 0.6rem;
+      font-weight: 300;
+      color: var(--on-bg-faint);
+      letter-spacing: 0.04em;
       line-height: 1.6;
     }
 
@@ -731,32 +774,32 @@
   <!-- INSIGHTS -->
   <section class="section" style="animation: fadeUp .6s .4s ease both; padding-bottom: 0;">
     <div class="section-label">Insights do período</div>
-    <div style="display:flex; flex-direction:column; gap:.65rem;">
+    <div class="insights-list">
 
-      <div style="background:var(--card); border:1px solid var(--border); border-left: 3px solid var(--sage); border-radius:6px; padding:.9rem 1rem;">
-        <div style="font-family:var(--font-mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sage);margin-bottom:.35rem;">Coleção dominante</div>
-        <div style="font-family:var(--font-serif);font-size:.95rem;color:var(--cream);line-height:1.45;">
+      <div class="insight positive">
+        <div class="insight-label">Coleção dominante</div>
+        <div class="insight-text">
           <em>Jardim Majestoso</em> e <em>Voo em Flor</em> concentram 6 dos 10 produtos no ranking — sinal claro de sell-through saudável nessas coleções.
         </div>
       </div>
 
-      <div style="background:var(--card); border:1px solid var(--border); border-left: 3px solid var(--coral); border-radius:6px; padding:.9rem 1rem;">
-        <div style="font-family:var(--font-mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--coral);margin-bottom:.35rem;">Alerta de desconto</div>
-        <div style="font-family:var(--font-serif);font-size:.95rem;color:var(--cream);line-height:1.45;">
+      <div class="insight alert">
+        <div class="insight-label">Alerta de desconto</div>
+        <div class="insight-text">
           Vestido Longo Rio Antigo (#7) opera com 35,5% de desconto — quase o dobro da média do top 10. Investigar se é ação promocional planejada ou clearance.
         </div>
       </div>
 
-      <div style="background:var(--card); border:1px solid var(--border); border-left: 3px solid var(--gold); border-radius:6px; padding:.9rem 1rem;">
-        <div style="font-family:var(--font-mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:.35rem;">Maior receita ≠ Mais vendido</div>
-        <div style="font-family:var(--font-serif);font-size:.95rem;color:var(--cream);line-height:1.45;">
+      <div class="insight highlight">
+        <div class="insight-label">Maior receita ≠ Mais vendido</div>
+        <div class="insight-text">
           O produto #8 (Vestido Longo Voo em Flor var. 2) gerou R$133K com 220 peças (R$605/pç), superando o #1 em receita. Ticket alto com desconto controlado de 12,3%.
         </div>
       </div>
 
-      <div style="background:var(--card); border:1px solid var(--border); border-left: 3px solid rgba(255,255,255,.2); border-radius:6px; padding:.9rem 1rem;">
-        <div style="font-family:var(--font-mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--cream-dim);margin-bottom:.35rem;">Produto sem cadastro</div>
-        <div style="font-family:var(--font-serif);font-size:.95rem;color:var(--cream);line-height:1.45;">
+      <div class="insight neutral">
+        <div class="insight-label">Produto sem cadastro</div>
+        <div class="insight-text">
           Cód. 370480 aparece em 4º lugar (243 peças, R$78K) sem registro em <em>refined_produtos</em>. Verificar carga de cadastro no data warehouse.
         </div>
       </div>
@@ -764,14 +807,13 @@
     </div>
   </section>
 
-  <!-- FOOTER -->
   <footer>
     <div class="footer-note">
       Fonte: soma-dl-refined-online<br>
       soma_online_refined.refined_captacao<br>
       Gerado em 17/04/2026
     </div>
-    <div style="font-family:var(--font-serif);font-style:italic;font-size:1.4rem;color:rgba(242,232,213,.15);">farm</div>
+    <div style="font-family: var(--font-editorial); font-style: italic; font-size: 1.4rem; color: rgba(255, 255, 255, 0.15);">farm</div>
   </footer>
 
   <script>

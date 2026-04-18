@@ -1,0 +1,10 @@
+# Rename to config.yml and run: cloudflared tunnel run mcp-azzas
+tunnel: <TUNNEL_ID>
+credentials-file: /Users/artur/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: mcp-azzas.<your-corp-domain>
+    service: http://localhost:3000
+    originRequest:
+      noTLSVerify: false
+  - service: http_status:404

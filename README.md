@@ -144,3 +144,13 @@ Variáveis de ambiente no Vercel (`vercel env`):
 | `schema.md` | Schema da tabela principal de vendas (colunas, tipos, semântica) |
 | `identidade-visual-azzas.md` | Guia de estilo dos dashboards (cores, tipografia, tom) |
 | `queries/` | Queries SQL reutilizáveis (ex: `venda_itens.sql`) |
+
+## Exec dispatch via MCP (beta)
+
+This repo also hosts a Python MCP server (`mcp-server/`) that lets Azzas executives run BigQuery analyses and publish dashboards to this portal directly from Claude Team on mobile, gated by Azure AD SSO + allowlist.
+
+- Architecture spec: `docs/superpowers/specs/2026-04-18-exec-mcp-dispatch-design.md`
+- Implementation plan: `docs/superpowers/plans/2026-04-18-exec-mcp-dispatch.md`
+- MCP server code: `mcp-server/`
+
+Running status: built but not yet connected to the Azzas workspace. Connect via `mcp-server/infra/claude-team/connector.md`.

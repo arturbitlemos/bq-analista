@@ -5,6 +5,7 @@ import json
 import os
 import re
 import subprocess
+import time as _time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
@@ -12,6 +13,7 @@ from typing import Callable, Optional
 from mcp.server.fastmcp import FastMCP
 
 from mcp_exec.allowlist import Allowlist
+from mcp_exec.audit import AuditLog
 from mcp_exec.auth_middleware import AuthContext, AuthError, extract_exec_email
 from mcp_exec.bq_client import BqClient
 from mcp_exec.context_loader import load_exec_context
@@ -44,6 +46,18 @@ def _build_bq_client() -> BqClient:
     settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
     settings = load_settings(settings_path)
     return BqClient(settings=settings.bigquery)
+
+
+_AUDIT: AuditLog | None = None
+
+
+def _audit_log() -> AuditLog:
+    global _AUDIT
+    if _AUDIT is None:
+        settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
+        settings = load_settings(settings_path)
+        _AUDIT = AuditLog(db_path=Path(settings.audit.db_path))
+    return _AUDIT
 
 
 def consultar_bq_impl(
@@ -109,18 +123,40 @@ async def consultar_bq(sql: str, ctx) -> dict:
     Returns rows (capped) plus bytes_billed / bytes_processed.
     """
     exec_email = _current_exec_email(ctx)
+    start = _time.time()
     try:
         validate_readonly_sql(sql)
     except SqlValidationError as e:
-        return {"error": f"sql_validation: {e}"}
+        out = {"error": f"sql_validation: {e}"}
+        _audit_log().record(
+            exec_email=exec_email, tool="consultar_bq", sql=sql,
+            bytes_scanned=0, row_count=0,
+            duration_ms=int((_time.time() - start) * 1000),
+            result="error", error=out["error"],
+        )
+        return out
 
     await ctx.report_progress(progress=0.0, total=1.0, message="querying BigQuery...")
     client = _build_bq_client()
     try:
         result = client.run_query(sql=sql, exec_email=exec_email)
     except Exception as e:  # noqa: BLE001
-        return {"error": f"bq_execution: {e}"}
+        out = {"error": f"bq_execution: {e}"}
+        _audit_log().record(
+            exec_email=exec_email, tool="consultar_bq", sql=sql,
+            bytes_scanned=0, row_count=0,
+            duration_ms=int((_time.time() - start) * 1000),
+            result="error", error=out["error"],
+        )
+        return out
     await ctx.report_progress(progress=1.0, total=1.0, message="query complete")
+    _audit_log().record(
+        exec_email=exec_email, tool="consultar_bq", sql=sql,
+        bytes_scanned=result.bytes_processed or 0,
+        row_count=result.row_count,
+        duration_ms=int((_time.time() - start) * 1000),
+        result="ok", error=None,
+    )
     return {
         "rows": result.rows,
         "row_count": result.row_count,
@@ -214,6 +250,7 @@ async def publicar_dashboard(
 ) -> dict:
     """Publish an HTML dashboard to the exec's analysis sandbox + update library."""
     exec_email = _current_exec_email(ctx)
+    start = _time.time()
     await ctx.report_progress(progress=0.0, total=1.0, message="rendering dashboard...")
     result = publicar_dashboard_impl(
         title=title, brand=brand, period=period, description=description,
@@ -221,9 +258,21 @@ async def publicar_dashboard(
         exec_email=exec_email, progress=None,
     )
     if "error" in result:
+        _audit_log().record(
+            exec_email=exec_email, tool="publicar_dashboard", sql=None,
+            bytes_scanned=0, row_count=0,
+            duration_ms=int((_time.time() - start) * 1000),
+            result="error", error=result["error"],
+        )
         return result
     await ctx.report_progress(progress=0.5, total=1.0, message="publishing to Vercel...")
     await ctx.report_progress(progress=1.0, total=1.0, message="dashboard published")
+    _audit_log().record(
+        exec_email=exec_email, tool="publicar_dashboard", sql=None,
+        bytes_scanned=0, row_count=0,
+        duration_ms=int((_time.time() - start) * 1000),
+        result="ok", error=None,
+    )
     return result
 
 
@@ -245,7 +294,24 @@ def listar_analises_impl(escopo: str, exec_email: str) -> dict:
 @mcp.tool()
 async def listar_analises(escopo: str, ctx) -> dict:
     """List analyses. escopo: 'mine' (own sandbox) or 'public' (shared library)."""
-    return listar_analises_impl(escopo=escopo, exec_email=_current_exec_email(ctx))
+    exec_email = _current_exec_email(ctx)
+    start = _time.time()
+    result = listar_analises_impl(escopo=escopo, exec_email=exec_email)
+    if "error" in result:
+        _audit_log().record(
+            exec_email=exec_email, tool="listar_analises", sql=None,
+            bytes_scanned=0, row_count=0,
+            duration_ms=int((_time.time() - start) * 1000),
+            result="error", error=result["error"],
+        )
+    else:
+        _audit_log().record(
+            exec_email=exec_email, tool="listar_analises", sql=None,
+            bytes_scanned=0, row_count=len(result.get("items", [])),
+            duration_ms=int((_time.time() - start) * 1000),
+            result="ok", error=None,
+        )
+    return result
 
 
 def main() -> None:

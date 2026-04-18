@@ -11,3 +11,10 @@ cd mcp-server
 uv sync --all-extras
 uv run pytest
 ```
+
+## Cron jobs
+
+Host runs two cron jobs (via launchd `StartCalendarInterval` — plists land in Phase 7):
+
+- **Hourly anomaly check**: `python -m mcp_exec.alerts`. Exit code 1 on alert.
+- **Daily audit purge**: `python scripts/purge_audit.py`.

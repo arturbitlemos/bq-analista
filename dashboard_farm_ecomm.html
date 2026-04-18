@@ -228,11 +228,11 @@
     .groups-list {
       display: flex;
       flex-direction: column;
-      gap: .55rem;
+      gap: 0.55rem;
       animation: fadeUp .6s .3s ease both;
     }
 
-    .group-row { display: flex; flex-direction: column; gap: .3rem; }
+    .group-row { display: flex; flex-direction: column; gap: 0.3rem; }
 
     .group-meta {
       display: flex;
@@ -241,30 +241,31 @@
     }
 
     .group-name {
-      font-family: var(--font-sans);
-      font-size: .75rem;
-      font-weight: 500;
-      letter-spacing: .06em;
+      font-family: var(--font-primary);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--cream);
+      color: var(--on-bg);
     }
 
     .group-stats {
-      font-family: var(--font-mono);
-      font-size: .62rem;
-      color: var(--cream-dim);
+      font-family: var(--font-primary);
+      font-size: 0.62rem;
+      font-weight: 300;
+      color: var(--on-bg-dim);
     }
 
     .bar-track {
       height: 4px;
-      background: rgba(255,255,255,.07);
+      background: rgba(255, 255, 255, 0.07);
       border-radius: 2px;
       overflow: hidden;
     }
 
     .bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--sage), var(--gold));
+      background: var(--blue-soft);
       border-radius: 2px;
       transform-origin: left;
       transform: scaleX(0);
@@ -286,56 +287,60 @@
       display: grid;
       grid-template-columns: 1.8rem 1fr auto;
       align-items: start;
-      gap: .6rem;
-      padding: .9rem 1rem;
+      gap: 0.6rem;
+      padding: 0.9rem 1rem;
       border-bottom: 1px solid var(--border);
-      background: var(--card);
-      transition: background .15s;
+      background: var(--card-strong);
+      transition: background 0.15s;
     }
 
     .product-row:last-child { border-bottom: none; }
-    .product-row:active { background: rgba(255,255,255,.04); }
+    .product-row:active { background: rgba(255, 255, 255, 0.06); }
 
     .rank {
-      font-family: var(--font-mono);
-      font-size: .65rem;
-      color: var(--cream-dim);
-      padding-top: .1rem;
+      font-family: var(--font-primary);
+      font-size: 0.7rem;
+      font-weight: 300;
+      color: var(--on-bg-dim);
+      padding-top: 0.15rem;
       text-align: right;
     }
 
-    .rank.top3 { color: var(--gold); font-weight: 500; }
+    .rank.top3 { color: var(--blue-soft); font-weight: 600; }
 
-    .product-info { display: flex; flex-direction: column; gap: .2rem; }
+    .product-info { display: flex; flex-direction: column; gap: 0.2rem; }
 
     .product-name {
-      font-family: var(--font-serif);
-      font-size: .95rem;
+      font-family: var(--font-editorial);
+      font-size: 0.95rem;
       font-weight: 400;
-      color: var(--cream);
+      color: var(--on-bg);
       line-height: 1.3;
-      letter-spacing: .01em;
+      letter-spacing: 0.01em;
     }
 
     .product-cor {
-      font-family: var(--font-mono);
-      font-size: .58rem;
-      color: var(--cream-dim);
-      letter-spacing: .04em;
+      font-family: var(--font-primary);
+      font-size: 0.55rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--on-bg-dim);
+      margin-top: 0.15rem;
     }
 
-    .product-bar-wrap { margin-top: .4rem; }
+    .product-bar-wrap { margin-top: 0.4rem; }
 
     .product-bar-track {
       height: 2px;
-      background: rgba(255,255,255,.07);
+      background: rgba(255, 255, 255, 0.07);
       border-radius: 1px;
       overflow: hidden;
     }
 
     .product-bar-fill {
       height: 100%;
-      background: var(--sage);
+      background: var(--blue-soft);
       border-radius: 1px;
       transform-origin: left;
       transform: scaleX(0);
@@ -346,38 +351,40 @@
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: .2rem;
+      gap: 0.2rem;
       flex-shrink: 0;
     }
 
     .product-revenue {
-      font-family: var(--font-mono);
-      font-size: .75rem;
-      font-weight: 500;
-      color: var(--gold);
+      font-family: var(--font-primary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--blue-soft);
       white-space: nowrap;
     }
 
     .product-units {
-      font-family: var(--font-mono);
-      font-size: .6rem;
-      color: var(--cream-dim);
+      font-family: var(--font-primary);
+      font-size: 0.62rem;
+      font-weight: 300;
+      color: var(--on-bg-dim);
       white-space: nowrap;
     }
 
     .discount-pill {
-      font-family: var(--font-mono);
-      font-size: .55rem;
-      font-weight: 500;
-      padding: .18rem .4rem;
+      font-family: var(--font-primary);
+      font-size: 0.55rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.18rem 0.45rem;
       border-radius: 3px;
-      letter-spacing: .04em;
       white-space: nowrap;
     }
 
-    .disc-low  { background: rgba(109,168,130,.18); color: var(--sage); }
-    .disc-mid  { background: rgba(217,168,78,.18);  color: var(--gold); }
-    .disc-high { background: rgba(217,96,74,.18);   color: var(--coral); }
+    .disc-low  { background: rgba(161, 198, 237, 0.18); color: var(--blue-light); }
+    .disc-mid  { background: rgba(181, 175, 168, 0.2);  color: var(--surface-warm); }
+    .disc-high { background: var(--ink); color: var(--on-bg); }
 
     /* ── FOOTER ──────────────────────────────────────────────────── */
     footer {
@@ -610,7 +617,7 @@
           <div class="product-name">Produto s/ Cadastro</div>
           <div class="product-cor">CÓD. 370480 — VERIFICAR CADASTRO</div>
           <div class="product-bar-wrap">
-            <div class="product-bar-track"><div class="product-bar-fill" style="background:var(--cream-dim);"></div></div>
+            <div class="product-bar-track"><div class="product-bar-fill" style="background: var(--on-bg-dim);"></div></div>
           </div>
         </div>
         <div class="product-numbers">
@@ -658,7 +665,7 @@
           <div class="product-name">Vestido Longo Rio Antigo</div>
           <div class="product-cor">RIO ANTIGO · AZUL SIERRA · VESTIDO</div>
           <div class="product-bar-wrap">
-            <div class="product-bar-track"><div class="product-bar-fill" style="background:var(--coral);"></div></div>
+            <div class="product-bar-track"><div class="product-bar-fill"></div></div>
           </div>
         </div>
         <div class="product-numbers">

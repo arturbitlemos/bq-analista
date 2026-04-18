@@ -36,3 +36,13 @@ def test_invalid_escopo(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("MCP_REPO_ROOT", str(tmp_path))
     out = listar_analises_impl(escopo="everyone", exec_email="e@x.com")
     assert "error" in out
+
+
+def test_corrupt_json_returns_error(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MCP_REPO_ROOT", str(tmp_path))
+    lib = tmp_path / "library" / "e@x.com.json"
+    lib.parent.mkdir(parents=True, exist_ok=True)
+    lib.write_text("{invalid json")
+    out = listar_analises_impl(escopo="mine", exec_email="e@x.com")
+    assert "error" in out
+    assert "library_parse" in out["error"]

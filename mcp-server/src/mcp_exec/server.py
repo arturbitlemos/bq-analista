@@ -208,7 +208,10 @@ def listar_analises_impl(escopo: str, exec_email: str) -> dict:
     lib = repo_root / "library" / f"{email_key}.json"
     if not lib.exists():
         return {"items": []}
-    data = json.loads(lib.read_text() or "[]")
+    try:
+        data = json.loads(lib.read_text() or "[]")
+    except json.JSONDecodeError as e:
+        return {"error": f"library_parse: {e}"}
     return {"items": data}
 
 

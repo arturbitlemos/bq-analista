@@ -315,10 +315,39 @@ async def listar_analises(escopo: str, ctx) -> dict:
 
 
 def main() -> None:
+    import uvicorn
+    from mcp_exec.auth_routes import build_auth_app
+    from mcp_exec.azure_auth import AzureAuth
+
     settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
-    # Load once to fail fast if settings are bad; server doesn't use them yet.
-    load_settings(settings_path)
-    mcp.run()
+    settings = load_settings(settings_path)
+
+    azure = AzureAuth(
+        tenant_id=os.environ["MCP_AZURE_TENANT_ID"],
+        client_id=os.environ["MCP_AZURE_CLIENT_ID"],
+        client_secret=os.environ["MCP_AZURE_CLIENT_SECRET"],
+        redirect_uri=os.environ.get("MCP_AZURE_REDIRECT_URI", "http://localhost:8765/"),
+    )
+    issuer = TokenIssuer(
+        secret=os.environ["MCP_JWT_SECRET"],
+        issuer=settings.auth.jwt_issuer,
+        access_ttl_s=settings.auth.access_token_ttl_s,
+        refresh_ttl_s=settings.auth.refresh_token_ttl_s,
+    )
+    allowlist = Allowlist(
+        path=Path(os.environ.get("MCP_ALLOWLIST", "/app/config/allowed_execs.json"))
+    )
+
+    auth_app = build_auth_app(azure=azure, issuer=issuer, allowlist=allowlist)
+
+    # Mount MCP SSE transport under /mcp path
+    try:
+        auth_app.mount("/mcp", mcp.sse_app())
+    except AttributeError:
+        # Some FastMCP versions expose `.streamable_http_app()` instead
+        auth_app.mount("/mcp", mcp.streamable_http_app())
+
+    uvicorn.run(auth_app, host=settings.server.host, port=settings.server.port)
 
 
 if __name__ == "__main__":

@@ -2,3 +2,4 @@
 .env
 .superpowers/
 node_modules/
+.worktrees/

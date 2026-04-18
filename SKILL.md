@@ -55,15 +55,20 @@ AND NOT (tipo_venda = 'FISICO' AND programa = 'franquia')
 AND TIMESTAMP_TRUNC(data_evento, DAY) >= TIMESTAMP_TRUNC(TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL N DAY), DAY)
 ```
 
-**Core KPIs:**
-- Markup = `venda_liquida / cmv`
-- Ticket Médio = `valor_pago_produto / qtd_transacoes`
-- PA = `qtd_pecas / qtd_transacoes`
-- Margem Bruta = `(valor_pago_produto - cmv) / valor_pago_produto`
-- Taxa de Desconto = `(valor_produto - valor_pago_produto) / valor_produto`
+**Core KPIs (see `business-rules.md` for canonical formulas with sign/key corrections):**
+- Markup = `SUM(valor_pago_produto) / SUM(cmv_liquido)` — use `cmv_liquido` to avoid double-counting in returns
+- Ticket Médio = `SUM(valor_pago_produto) / COUNT(DISTINCT chave_pedido)` — use treated `pacote` as `chave_pedido`
+- PA = `SUM(quantidade) / COUNT(DISTINCT chave_pedido)`
+- Margem Bruta = `(SUM(valor_pago_produto) - SUM(cmv_liquido)) / SUM(valor_pago_produto)`
+- Taxa de Desconto = `(SUM(valor_produto) - SUM(valor_pago_produto)) / SUM(valor_produto)`
+
+**Crítico — sempre consultar `business-rules.md`** antes de análises que envolvam:
+- Canal (§2: mapeamento tipo_venda → Físico/Online)
+- PA, ticket, contagem de atendimentos (§3: chave_pedido via pacote tratado)
+- Markup ou margem (§4: correção de sinal do CMV)
 
 For full schema context → read `schema.md`
-For KPI formulas and analysis patterns → read `business-rules.md`
+For all business rules, canonical formulas, and analysis templates → read `business-rules.md`
 
 ## Workflow for Analytics Questions
 

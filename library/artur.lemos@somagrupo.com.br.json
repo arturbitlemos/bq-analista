@@ -1,5 +1,16 @@
 [
   {
+    "id": "canal-marcas-ytd-2026-04-18",
+    "title": "Canal × Marca — YTD 2026",
+    "brand": "TODAS",
+    "period": "01/jan — 18/abr 2026",
+    "date": "2026-04-18",
+    "description": "Comparativo físico × online por marca: venda líquida, peças, PA e markup YTD nas 10 marcas do grupo.",
+    "file": "analyses/artur.lemos@somagrupo.com.br/canal-marcas-ytd-2026-04-18.html",
+    "public": false,
+    "tags": ["canal", "marcas", "markup", "ytd"]
+  },
+  {
     "id": "farm-produto-ecomm-2026-04-18",
     "title": "FARM — Produto · Ecommerce",
     "brand": "FARM",

@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canal × Marca — YTD 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Red+Hat+Display:wght@300;400;600&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:            #000000;
+      --surface:        #FFFFFF;
+      --surface-warm:   #E8E8E4;
+
+      --navy:           #274566;
+      --steel:          #3D5A73;
+      --blue-soft:      #A1C6ED;
+      --blue-light:     #C5D9ED;
+
+      --bg:             #274566;
+      --card:           rgba(255, 255, 255, 0.04);
+      --card-strong:    rgba(255, 255, 255, 0.05);
+      --border:         rgba(255, 255, 255, 0.1);
+      --border-strong:  rgba(255, 255, 255, 0.12);
+      --on-bg:          #FFFFFF;
+      --on-bg-dim:      rgba(255, 255, 255, 0.55);
+      --on-bg-faint:    rgba(255, 255, 255, 0.35);
+
+      --physical:       #A1C6ED;
+      --online:         #E8E8E4;
+
+      --font-primary:   'Red Hat Display', Arial, sans-serif;
+      --font-editorial: 'Playfair Display', Georgia, serif;
+    }
+
+    html {
+      background: var(--bg);
+      color: var(--on-bg);
+      font-family: var(--font-primary);
+      font-size: 16px;
+    }
+
+    body {
+      min-height: 100dvh;
+      padding-bottom: 3rem;
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+    }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 2rem 1.25rem 0;
+      animation: fadeUp .6s ease both;
+    }
+
+    .logo {
+      font-family: var(--font-primary);
+      font-size: 1.75rem;
+      font-weight: 400;
+      letter-spacing: 0.18em;
+      color: var(--on-bg);
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .header-meta { text-align: right; }
+
+    .header-label {
+      font-family: var(--font-primary);
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--on-bg-dim);
+      line-height: 1.6;
+    }
+
+    .header-badge {
+      display: inline-block;
+      margin-top: 0.45rem;
+      background: var(--blue-soft);
+      color: var(--navy);
+      font-family: var(--font-primary);
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .section-label {
+      font-family: var(--font-editorial);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 1rem;
+      color: var(--on-bg-dim);
+      letter-spacing: 0.02em;
+      margin-bottom: 0.85rem;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0 1.25rem;
+    }
+
+    .hero {
+      padding: 2rem 1.25rem 1.5rem;
+      animation: fadeUp .6s .1s ease both;
+    }
+
+    .hero-main-label {
+      font-family: var(--font-primary);
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--blue-soft);
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-value {
+      font-family: var(--font-editorial);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 3.8rem;
+      color: var(--on-bg);
+      line-height: 1;
+      letter-spacing: -0.01em;
+    }
+
+    .hero-sub {
+      font-family: var(--font-primary);
+      font-weight: 300;
+      font-size: 0.85rem;
+      color: var(--on-bg-dim);
+      margin-top: 0.55rem;
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    .kpi-card {
+      background: var(--card-strong);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      padding: 0.9rem 1rem;
+    }
+
+    .kpi-label {
+      font-family: var(--font-primary);
+      font-size: 0.58rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--on-bg-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    .kpi-value {
+      font-family: var(--font-primary);
+      font-size: 1.4rem;
+      font-weight: 400;
+      color: var(--on-bg);
+      line-height: 1;
+    }
+
+    .kpi-value.accent { color: var(--blue-soft); }
+
+    .section { padding: 1.5rem 1.25rem 0; }
+
+    .chart-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem 1rem 1rem;
+      overflow: hidden;
+      animation: fadeUp .6s .25s ease both;
+    }
+
+    /* ── MIX CANAL (donut-like stacked bar) ─────────────────────── */
+    .mix-stack {
+      display: flex;
+      height: 34px;
+      border-radius: 4px;
+      overflow: hidden;
+      background: var(--card-strong);
+      border: 1px solid var(--border);
+    }
+
+    .mix-fisico, .mix-online {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-primary);
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--navy);
+      transition: width 1.1s cubic-bezier(.22,1,.36,1);
+      width: 0;
+    }
+
+    .mix-fisico { background: var(--physical); }
+    .mix-online { background: var(--online); }
+
+    .mix-legend {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.55rem;
+      font-family: var(--font-primary);
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .mix-legend-item { display: flex; align-items: center; gap: 0.4rem; color: var(--on-bg-dim); }
+
+    .mix-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .mix-dot.f { background: var(--physical); }
+    .mix-dot.o { background: var(--online); }
+
+    .mix-value { color: var(--on-bg); font-weight: 600; }
+
+    /* ── BRAND TABLE ─────────────────────────────────────────────── */
+    .brand-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      animation: fadeUp .6s .35s ease both;
+    }
+
+    .brand-row {
+      padding: 0.95rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--card-strong);
+    }
+
+    .brand-row:last-child { border-bottom: none; }
+
+    .brand-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.55rem;
+    }
+
+    .brand-name {
+      font-family: var(--font-primary);
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--on-bg);
+    }
+
+    .brand-total {
+      font-family: var(--font-primary);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--blue-soft);
+    }
+
+    .brand-mix {
+      display: flex;
+      height: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+      background: rgba(255,255,255,.04);
+      margin-bottom: 0.55rem;
+    }
+
+    .brand-mix-f, .brand-mix-o {
+      height: 100%;
+      transition: width 1s cubic-bezier(.22,1,.36,1);
+      width: 0;
+    }
+
+    .brand-mix-f { background: var(--physical); }
+    .brand-mix-o { background: var(--online); }
+
+    .brand-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem 1rem;
+      font-family: var(--font-primary);
+      font-size: 0.62rem;
+      letter-spacing: 0.05em;
+    }
+
+    .bm-row { display: flex; justify-content: space-between; align-items: baseline; }
+
+    .bm-label {
+      color: var(--on-bg-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-size: 0.55rem;
+      font-weight: 600;
+    }
+
+    .bm-value { color: var(--on-bg); font-weight: 400; font-size: 0.72rem; }
+    .bm-value.dim { color: var(--on-bg-dim); }
+    .bm-value.warn { color: var(--surface-warm); font-weight: 600; }
+
+    .bm-channel-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-right: 0.35rem;
+      vertical-align: middle;
+    }
+
+    .bm-channel-dot.f { background: var(--physical); }
+    .bm-channel-dot.o { background: var(--online); }
+
+    /* ── MARKUP CHART ────────────────────────────────────────────── */
+    .markup-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .markup-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .markup-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .markup-brand {
+      font-family: var(--font-primary);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--on-bg);
+    }
+
+    .markup-gap {
+      font-family: var(--font-primary);
+      font-size: 0.6rem;
+      color: var(--on-bg-dim);
+    }
+
+    .markup-dual {
+      display: grid;
+      grid-template-columns: 3.2rem 1fr 3.2rem;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .markup-val {
+      font-family: var(--font-primary);
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .markup-val.f { color: var(--physical); text-align: right; }
+    .markup-val.o { color: var(--on-bg); text-align: left; }
+
+    .markup-track {
+      position: relative;
+      height: 4px;
+      background: rgba(255,255,255,.05);
+      border-radius: 2px;
+    }
+
+    .markup-bar-f, .markup-bar-o {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      border-radius: 2px;
+      transition: width 1.1s cubic-bezier(.22,1,.36,1);
+      width: 0;
+    }
+
+    .markup-bar-f { right: 50%; background: var(--physical); transform-origin: right; }
+    .markup-bar-o { left: 50%; background: var(--online); transform-origin: left; opacity: 0.75; }
+
+    .markup-mid {
+      position: absolute;
+      left: 50%;
+      top: -2px;
+      width: 1px;
+      height: 8px;
+      background: var(--on-bg-faint);
+    }
+
+    /* ── INSIGHTS ───────────────────────────────────────────────── */
+    .insights-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .insight {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 0.9rem 1rem;
+    }
+
+    .insight.positive  { border-left-color: var(--blue-soft); }
+    .insight.alert     { border-left-color: var(--on-bg); }
+    .insight.highlight { border-left-color: var(--blue-light); }
+    .insight.neutral   { border-left-color: rgba(255, 255, 255, 0.25); }
+
+    .insight-label {
+      font-family: var(--font-primary);
+      font-size: 0.58rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      margin-bottom: 0.35rem;
+    }
+
+    .insight.positive  .insight-label { color: var(--blue-soft); }
+    .insight.alert     .insight-label { color: var(--on-bg); }
+    .insight.highlight .insight-label { color: var(--blue-light); }
+    .insight.neutral   .insight-label { color: var(--on-bg-dim); }
+
+    .insight-text {
+      font-family: var(--font-editorial);
+      font-weight: 400;
+      font-size: 0.95rem;
+      color: var(--on-bg);
+      line-height: 1.5;
+    }
+
+    footer {
+      padding: 2rem 1.25rem 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      animation: fadeUp .6s .5s ease both;
+    }
+
+    .footer-note {
+      font-family: var(--font-primary);
+      font-size: 0.6rem;
+      font-weight: 300;
+      color: var(--on-bg-faint);
+      letter-spacing: 0.04em;
+      line-height: 1.6;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (min-width: 600px) {
+      header { padding: 2.5rem 2rem 0; }
+      .logo { font-size: 2.2rem; }
+      .hero { padding: 2.5rem 2rem 2rem; }
+      .hero-value { font-size: 5rem; }
+      .kpi-row { grid-template-columns: repeat(4, 1fr); }
+      .section { padding: 2rem 2rem 0; }
+      .divider { margin: 0 2rem; }
+      footer { padding: 2rem 2rem 0; }
+      .brand-metrics { grid-template-columns: repeat(4, 1fr); }
+      .markup-dual { grid-template-columns: 3.5rem 1fr 3.5rem; }
+    }
+
+    @media (min-width: 900px) {
+      body { max-width: 860px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">CANAL × MARCA</div>
+    <div class="header-meta">
+      <div class="header-label">Análise de Canal<br>Físico vs Ecommerce</div>
+      <span class="header-badge">YTD 2026</span>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-main-label">Venda Líquida — 01/jan a 18/abr</div>
+    <div class="hero-value">R$814,6M</div>
+    <div class="hero-sub">2.126.719 peças · 1.459.402 pedidos · 10 marcas</div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Mix Físico</div>
+        <div class="kpi-value accent">68,6%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Mix Online</div>
+        <div class="kpi-value">31,4%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Markup Consolidado</div>
+        <div class="kpi-value">3,52x</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">PA Consolidado</div>
+        <div class="kpi-value">1,46</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- MIX CANAL -->
+  <section class="section" style="animation: fadeUp .6s .2s ease both;">
+    <div class="section-label">Participação por canal</div>
+    <div class="chart-wrap">
+      <div class="mix-stack">
+        <div class="mix-fisico" data-width="68.6">68,6%</div>
+        <div class="mix-online" data-width="31.4">31,4%</div>
+      </div>
+      <div class="mix-legend">
+        <span class="mix-legend-item"><span class="mix-dot f"></span>Físico <span class="mix-value">R$558,9M</span></span>
+        <span class="mix-legend-item"><span class="mix-dot o"></span>Online <span class="mix-value">R$255,9M</span></span>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider" style="margin-top:1.5rem;"></div>
+
+  <!-- BRAND BREAKDOWN -->
+  <section class="section">
+    <div class="section-label">Ranking por receita total</div>
+    <div class="brand-list" id="brands">
+
+      <!-- FARM -->
+      <div class="brand-row">
+        <div class="brand-head">
+          <span class="brand-name">Farm</span>
+          <span class="brand-total">R$305,4M</span>
+        </div>
+        <div class="brand-mix">
+          <div class="brand-mix-f" data-width="60.7"></div>
+          <div class="brand-mix-o" data-width="39.3"></div>
+        </div>
+        <div class="brand-metrics">
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot f"></span>Físico</span><span class="bm-value">R$185,4M</span></div>
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot o"></span>Online</span><span class="bm-value">R$120,0M</span></div>
+          <div class="bm-row"><span class="bm-label">PA F / O</span><span class="bm-value dim">1,65 / 1,07</span></div>
+          <div class="bm-row"><span class="bm-label">Markup F / O</span><span class="bm-value dim">3,49 / 3,14</span></div>
+        </div>
+      </div>
+
+      <!-- ANIMALE -->
+      <div class="brand-row">
+        <div class="brand-head">
+          <span class="brand-name">Animale</span>
+          <span class="brand-total">R$140,7M</span>
+        </div>
+        <div class="brand-mix">
+          <div class="brand-mix-f" data-width="78.4"></div>
+          <div class="brand-mix-o" data-width="21.6"></div>
+        </div>
+        <div class="brand-metrics">
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot f"></span>Físico</span><span class="bm-value">R$110,3M</span></div>
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot o"></span>Online</span><span class="bm-value">R$30,4M</span></div>
+          <div class="bm-row"><span class="bm-label">PA F / O</span><span class="bm-value dim">1,70 / 1,12</span></div>
+          <div class="bm-row"><span class="bm-label">Markup F / O</span><span class="bm-value dim">4,14 / 3,18</span></div>
+        </div>
+      </div>
+
+      <!-- NV -->
+      <div class="brand-row">
+        <div class="brand-head">
+          <span class="brand-name">NV</span>
+          <span class="brand-total">R$139,7M</span>
+        </div>
+        <div class="brand-mix">
+          <div class="brand-mix-f" data-width="77.1"></div>
+          <div class="brand-mix-o" data-width="22.9"></div>
+        </div>
+        <div class="brand-metrics">
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot f"></span>Físico</span><span class="bm-value">R$107,7M</span></div>
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot o"></span>Online</span><span class="bm-value">R$31,9M</span></div>
+          <div class="bm-row"><span class="bm-label">PA F / O</span><span class="bm-value dim">1,92 / 1,22</span></div>
+          <div class="bm-row"><span class="bm-label">Markup F / O</span><span class="bm-value dim">3,95 / 2,56</span></div>
+        </div>
+      </div>
+
+      <!-- CRIS BARROS -->
+      <div class="brand-row">
+        <div class="brand-head">
+          <span class="brand-name">Cris Barros</span>
+          <span class="brand-total">R$65,5M</span>
+        </div>
+        <div class="brand-mix">
+          <div class="brand-mix-f" data-width="71.6"></div>
+          <div class="brand-mix-o" data-width="28.4"></div>
+        </div>
+        <div class="brand-metrics">
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot f"></span>Físico</span><span class="bm-value">R$46,9M</span></div>
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot o"></span>Online</span><span class="bm-value">R$18,6M</span></div>
+          <div class="bm-row"><span class="bm-label">PA F / O</span><span class="bm-value dim">1,84 / 1,22</span></div>
+          <div class="bm-row"><span class="bm-label">Markup F / O</span><span class="bm-value warn">6,23 / 4,78</span></div>
+        </div>
+      </div>
+
+      <!-- MARIA FILO -->
+      <div class="brand-row">
+        <div class="brand-head">
+          <span class="brand-name">Maria Filó</span>
+          <span class="brand-total">R$58,3M</span>
+        </div>
+        <div class="brand-mix">
+          <div class="brand-mix-f" data-width="69.3"></div>
+          <div class="brand-mix-o" data-width="30.7"></div>
+        </div>
+        <div class="brand-metrics">
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot f"></span>Físico</span><span class="bm-value">R$40,4M</span></div>
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot o"></span>Online</span><span class="bm-value">R$17,9M</span></div>
+          <div class="bm-row"><span class="bm-label">PA F / O</span><span class="bm-value dim">1,74 / 1,13</span></div>
+          <div class="bm-row"><span class="bm-label">Markup F / O</span><span class="bm-value dim">4,01 / 3,09</span></div>
+        </div>
+      </div>
+
+      <!-- FOXTON -->
+      <div class="brand-row">
+        <div class="brand-head">
+          <span class="brand-name">Foxton</span>
+          <span class="brand-total">R$28,2M</span>
+        </div>
+        <div class="brand-mix">
+          <div class="brand-mix-f" data-width="81.5"></div>
+          <div class="brand-mix-o" data-width="18.5"></div>
+        </div>
+        <div class="brand-metrics">
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot f"></span>Físico</span><span class="bm-value">R$23,0M</span></div>
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot o"></span>Online</span><span class="bm-value">R$5,2M</span></div>
+          <div class="bm-row"><span class="bm-label">PA F / O</span><span class="bm-value dim">1,90 / 1,57</span></div>
+          <div class="bm-row"><span class="bm-label">Markup F / O</span><span class="bm-value dim">4,53 / 2,60</span></div>
+        </div>
+      </div>
+
+      <!-- CAROL BASSI -->
+      <div class="brand-row">
+        <div class="brand-head">
+          <span class="brand-name">Carol Bassi</span>
+          <span class="brand-total">R$26,8M</span>
+        </div>
+        <div class="brand-mix">
+          <div class="brand-mix-f" data-width="76.8"></div>
+          <div class="brand-mix-o" data-width="23.2"></div>
+        </div>
+        <div class="brand-metrics">
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot f"></span>Físico</span><span class="bm-value">R$20,6M</span></div>
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot o"></span>Online</span><span class="bm-value">R$6,2M</span></div>
+          <div class="bm-row"><span class="bm-label">PA F / O</span><span class="bm-value dim">2,41 / 1,29</span></div>
+          <div class="bm-row"><span class="bm-label">Markup F / O</span><span class="bm-value dim">4,47 / 2,08</span></div>
+        </div>
+      </div>
+
+      <!-- OFF PREMIUM -->
+      <div class="brand-row">
+        <div class="brand-head">
+          <span class="brand-name">Off Premium</span>
+          <span class="brand-total">R$20,9M</span>
+        </div>
+        <div class="brand-mix">
+          <div class="brand-mix-f" data-width="53.5"></div>
+          <div class="brand-mix-o" data-width="46.5"></div>
+        </div>
+        <div class="brand-metrics">
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot f"></span>Físico</span><span class="bm-value">R$11,2M</span></div>
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot o"></span>Online</span><span class="bm-value">R$9,7M</span></div>
+          <div class="bm-row"><span class="bm-label">PA F / O</span><span class="bm-value dim">3,15 / 1,09</span></div>
+          <div class="bm-row"><span class="bm-label">Markup F / O</span><span class="bm-value warn">1,84 / 1,37</span></div>
+        </div>
+      </div>
+
+      <!-- FARM ETC -->
+      <div class="brand-row">
+        <div class="brand-head">
+          <span class="brand-name">Farm ETC</span>
+          <span class="brand-total">R$19,3M</span>
+        </div>
+        <div class="brand-mix">
+          <div class="brand-mix-f" data-width="41.4"></div>
+          <div class="brand-mix-o" data-width="58.6"></div>
+        </div>
+        <div class="brand-metrics">
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot f"></span>Físico</span><span class="bm-value">R$8,0M</span></div>
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot o"></span>Online</span><span class="bm-value">R$11,3M</span></div>
+          <div class="bm-row"><span class="bm-label">PA F / O</span><span class="bm-value dim">1,98 / 1,30</span></div>
+          <div class="bm-row"><span class="bm-label">Markup F / O</span><span class="bm-value dim">3,38 / 2,99</span></div>
+        </div>
+      </div>
+
+      <!-- FABULA -->
+      <div class="brand-row">
+        <div class="brand-head">
+          <span class="brand-name">Fábula</span>
+          <span class="brand-total">R$9,9M</span>
+        </div>
+        <div class="brand-mix">
+          <div class="brand-mix-f" data-width="54.0"></div>
+          <div class="brand-mix-o" data-width="46.0"></div>
+        </div>
+        <div class="brand-metrics">
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot f"></span>Físico</span><span class="bm-value">R$5,3M</span></div>
+          <div class="bm-row"><span class="bm-label"><span class="bm-channel-dot o"></span>Online</span><span class="bm-value">R$4,5M</span></div>
+          <div class="bm-row"><span class="bm-label">PA F / O</span><span class="bm-value dim">2,15 / 2,17</span></div>
+          <div class="bm-row"><span class="bm-label">Markup F / O</span><span class="bm-value dim">3,44 / 3,08</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider" style="margin-top:1.5rem;"></div>
+
+  <!-- MARKUP FÍSICO × ONLINE -->
+  <section class="section">
+    <div class="section-label">Markup — Físico (esq) × Online (dir)</div>
+    <div class="chart-wrap">
+      <div class="markup-list" id="markups">
+
+        <div class="markup-row">
+          <div class="markup-head">
+            <span class="markup-brand">Cris Barros</span>
+            <span class="markup-gap">Δ −1,45</span>
+          </div>
+          <div class="markup-dual">
+            <span class="markup-val f">6,23</span>
+            <div class="markup-track">
+              <div class="markup-bar-f" data-width="89"></div>
+              <div class="markup-bar-o" data-width="68"></div>
+              <div class="markup-mid"></div>
+            </div>
+            <span class="markup-val o">4,78</span>
+          </div>
+        </div>
+
+        <div class="markup-row">
+          <div class="markup-head">
+            <span class="markup-brand">Foxton</span>
+            <span class="markup-gap">Δ −1,93</span>
+          </div>
+          <div class="markup-dual">
+            <span class="markup-val f">4,53</span>
+            <div class="markup-track">
+              <div class="markup-bar-f" data-width="65"></div>
+              <div class="markup-bar-o" data-width="37"></div>
+              <div class="markup-mid"></div>
+            </div>
+            <span class="markup-val o">2,60</span>
+          </div>
+        </div>
+
+        <div class="markup-row">
+          <div class="markup-head">
+            <span class="markup-brand">Carol Bassi</span>
+            <span class="markup-gap">Δ −2,39</span>
+          </div>
+          <div class="markup-dual">
+            <span class="markup-val f">4,47</span>
+            <div class="markup-track">
+              <div class="markup-bar-f" data-width="64"></div>
+              <div class="markup-bar-o" data-width="30"></div>
+              <div class="markup-mid"></div>
+            </div>
+            <span class="markup-val o">2,08</span>
+          </div>
+        </div>
+
+        <div class="markup-row">
+          <div class="markup-head">
+            <span class="markup-brand">Animale</span>
+            <span class="markup-gap">Δ −0,96</span>
+          </div>
+          <div class="markup-dual">
+            <span class="markup-val f">4,14</span>
+            <div class="markup-track">
+              <div class="markup-bar-f" data-width="59"></div>
+              <div class="markup-bar-o" data-width="45"></div>
+              <div class="markup-mid"></div>
+            </div>
+            <span class="markup-val o">3,18</span>
+          </div>
+        </div>
+
+        <div class="markup-row">
+          <div class="markup-head">
+            <span class="markup-brand">Maria Filó</span>
+            <span class="markup-gap">Δ −0,92</span>
+          </div>
+          <div class="markup-dual">
+            <span class="markup-val f">4,01</span>
+            <div class="markup-track">
+              <div class="markup-bar-f" data-width="57"></div>
+              <div class="markup-bar-o" data-width="44"></div>
+              <div class="markup-mid"></div>
+            </div>
+            <span class="markup-val o">3,09</span>
+          </div>
+        </div>
+
+        <div class="markup-row">
+          <div class="markup-head">
+            <span class="markup-brand">NV</span>
+            <span class="markup-gap">Δ −1,39</span>
+          </div>
+          <div class="markup-dual">
+            <span class="markup-val f">3,95</span>
+            <div class="markup-track">
+              <div class="markup-bar-f" data-width="56"></div>
+              <div class="markup-bar-o" data-width="37"></div>
+              <div class="markup-mid"></div>
+            </div>
+            <span class="markup-val o">2,56</span>
+          </div>
+        </div>
+
+        <div class="markup-row">
+          <div class="markup-head">
+            <span class="markup-brand">Farm</span>
+            <span class="markup-gap">Δ −0,35</span>
+          </div>
+          <div class="markup-dual">
+            <span class="markup-val f">3,49</span>
+            <div class="markup-track">
+              <div class="markup-bar-f" data-width="50"></div>
+              <div class="markup-bar-o" data-width="45"></div>
+              <div class="markup-mid"></div>
+            </div>
+            <span class="markup-val o">3,14</span>
+          </div>
+        </div>
+
+        <div class="markup-row">
+          <div class="markup-head">
+            <span class="markup-brand">Fábula</span>
+            <span class="markup-gap">Δ −0,36</span>
+          </div>
+          <div class="markup-dual">
+            <span class="markup-val f">3,44</span>
+            <div class="markup-track">
+              <div class="markup-bar-f" data-width="49"></div>
+              <div class="markup-bar-o" data-width="44"></div>
+              <div class="markup-mid"></div>
+            </div>
+            <span class="markup-val o">3,08</span>
+          </div>
+        </div>
+
+        <div class="markup-row">
+          <div class="markup-head">
+            <span class="markup-brand">Farm ETC</span>
+            <span class="markup-gap">Δ −0,39</span>
+          </div>
+          <div class="markup-dual">
+            <span class="markup-val f">3,38</span>
+            <div class="markup-track">
+              <div class="markup-bar-f" data-width="48"></div>
+              <div class="markup-bar-o" data-width="43"></div>
+              <div class="markup-mid"></div>
+            </div>
+            <span class="markup-val o">2,99</span>
+          </div>
+        </div>
+
+        <div class="markup-row">
+          <div class="markup-head">
+            <span class="markup-brand">Off Premium</span>
+            <span class="markup-gap">Δ −0,47</span>
+          </div>
+          <div class="markup-dual">
+            <span class="markup-val f">1,84</span>
+            <div class="markup-track">
+              <div class="markup-bar-f" data-width="26"></div>
+              <div class="markup-bar-o" data-width="20"></div>
+              <div class="markup-mid"></div>
+            </div>
+            <span class="markup-val o">1,37</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider" style="margin-top:1.5rem;"></div>
+
+  <!-- INSIGHTS -->
+  <section class="section" style="animation: fadeUp .6s .4s ease both; padding-bottom: 0;">
+    <div class="section-label">Leituras do período</div>
+    <div class="insights-list">
+
+      <div class="insight positive">
+        <div class="insight-label">Cris Barros lidera rentabilidade</div>
+        <div class="insight-text">
+          Markup físico de <em>6,23x</em> é o maior da casa — consistente com posicionamento luxury. Online 4,78x também excelente. Menor gap físico-online do grupo (−1,45).
+        </div>
+      </div>
+
+      <div class="insight highlight">
+        <div class="insight-label">Farm ETC inverte o padrão</div>
+        <div class="insight-text">
+          Única marca com <em>mais receita no online (58,6%)</em>. Consistente com perfil digital-first da submarca. Markup bem equilibrado entre canais (3,38 / 2,99).
+        </div>
+      </div>
+
+      <div class="insight highlight">
+        <div class="insight-label">Fábula: PA online acima do físico</div>
+        <div class="insight-text">
+          Único canal online do grupo com PA ≥2 (<em>2,17 online vs 2,15 físico</em>). Perfil kidswear força cesta múltipla naturalmente — reforça valor unitário menor porém combinado.
+        </div>
+      </div>
+
+      <div class="insight alert">
+        <div class="insight-label">Online corrói markup em todas</div>
+        <div class="insight-text">
+          Em 10/10 marcas, markup online é menor que físico (gap médio −1,1x). Maiores vazamentos: <em>Carol Bassi −2,39</em>, <em>Foxton −1,93</em>, <em>NV −1,39</em>. Investigar: frete grátis, cashback, mix de queima.
+        </div>
+      </div>
+
+      <div class="insight neutral">
+        <div class="insight-label">Off Premium é outlet</div>
+        <div class="insight-text">
+          Markup 1,84 (físico) e 1,37 (online) bem abaixo do benchmark premium 2,5–4,0x — esperado pelo perfil outlet. Vigiar se o markup online cai mais em queima de estoque.
+        </div>
+      </div>
+
+      <div class="insight neutral">
+        <div class="insight-label">Gap de PA físico × online</div>
+        <div class="insight-text">
+          Físico supera online em ~0,5–1,0 peça em quase todas. Cliente online compra unitário, físico leva combo. Oportunidade: cross-sell digital e bundles.
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-note">
+      Fonte: soma-dl-refined-online<br>
+      soma_online_refined.refined_captacao<br>
+      Período: 01/jan/2026 a 18/abr/2026 · Gerado em 18/04/2026
+    </div>
+    <div style="font-family: var(--font-editorial); font-style: italic; font-size: 1.2rem; color: rgba(255, 255, 255, 0.15);">canal</div>
+  </footer>
+
+  <script>
+    /* Animate mix stack on load */
+    window.addEventListener('load', () => {
+      document.querySelectorAll('.mix-fisico, .mix-online').forEach(el => {
+        const w = el.dataset.width;
+        if (w) el.style.width = w + '%';
+      });
+    });
+
+    /* Animate brand mix bars and markup bars on intersection */
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.querySelectorAll('[data-width]').forEach(el => {
+          const w = el.dataset.width;
+          el.style.width = w + '%';
+        });
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('#brands, #markups').forEach(el => observer.observe(el));
+  </script>
+
+</body>
+</html>

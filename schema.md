@@ -136,9 +136,32 @@ AND TIMESTAMP_TRUNC(data_evento, DAY) >= TIMESTAMP_TRUNC(TIMESTAMP_SUB(CURRENT_T
 ## Gotchas & Learned Rules
 
 - `cmv` is often 0.0 for FISICO/non-invoiced rows — margin calculations may be unreliable for physical retail
+- **`cmv` is ALWAYS stored positive, even on DEVOLUCAO and internal exchange rows.** Sign must be flipped by `quantidade` to avoid double-counting when aggregating with returns. See `business-rules.md` §4. Pattern: `IF(quantidade < 0, -ABS(cmv), ABS(cmv)) AS cmv_liquido`.
 - `valor_desconto` is stored as a **negative** number (e.g. -20.0)
 - `rede_lojas_mais_vendas` is INTEGER, not STRING — use numeric codes in WHERE/CASE
 - Table has no native partition column — always filter on `data_evento` with TIMESTAMP_TRUNC to control scan size
 - `ultimo_status` is the definitive field for order state; `status_evento` captures intermediate states
 - For physical stores: use `data_faturamento` for invoiced revenue; for ecommerce: `data_pagamento` or `data_evento`
-- `quantidade` = 0 for cancelled rows (even with valor_produto > 0)
+- `quantidade` = 0 for cancelled rows (even with valor_produto > 0); also appears on zero-value freebie/trial lines
+- `quantidade` can be **negative** in FISICO rows (internal exchange within same atendimento) and in DEVOLUCAO (standalone returns)
+
+### `pacote` vs `chave_atendimento` — transaction key
+
+- `pacote` is the canonical transaction identifier — **but it's not globally unique for physical sales**. For FISICO/ESTOQUE PROPRIO/VITRINE/DEVOLUCAO, `pacote` is sequential per filial/day, so the same string repeats across stores/dates.
+- For ecommerce (ONLINE, SOMASTORE), `pacote` has a `-NN` shipment suffix (e.g. `v1035019crb-01`, `-02`, `-03`) representing sub-shipments of the same logical order. Strip the suffix to get the pedido.
+- `chave_atendimento` is a derived key (`YYYYMMDD + filial + pacote` for physical; `pacote` stripped for ecom). Works, but the canonical rule uses `pacote` directly — see `business-rules.md` §3.
+
+### `tipo_venda` values
+
+Observed values (2026-01 to present):
+
+| `tipo_venda` | Volume | Meaning | Canal |
+|---|---|---|---|
+| FISICO | highest | Physical store sale | Físico |
+| ONLINE | high | Direct ecommerce | Online |
+| ESTOQUE PROPRIO | medium | Ship-from-own-inventory | Físico |
+| DEVOLUCAO | medium | Post-sale return (neg qty, neg revenue) | Online |
+| SOMASTORE | low | SomaStore marketplace | Físico |
+| VITRINE | very low | Showroom/vitrine | Físico |
+
+Channel classification rule: see `business-rules.md` §2.

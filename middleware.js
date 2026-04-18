@@ -48,11 +48,24 @@ export default async function middleware(request) {
   }
 
   const url = new URL(request.url)
+  const { pathname } = url
+
+  // Proteção de /library/{oid}.json
+  if (pathname.startsWith('/library/')) {
+    const filename = pathname.slice('/library/'.length) // e.g. "abc123.json" or "public.json"
+    const fileOid = filename.replace(/\.json$/, '')
+    if (fileOid === 'public') return // qualquer autenticado: deixa passar
+    if (fileOid !== sessionOid) return new Response('Acesso negado', { status: 403 })
+    return // OID bate: deixa passar
+  }
+
   // url.pathname = /analyses/public/... ou /analyses/{oid}/...
-  const segment = url.pathname.split('/')[2]
+  const segment = pathname.split('/')[2]
 
   if (!segment) return new Response('Not Found', { status: 404 })
   if (segment === 'public') return // qualquer autenticado: deixa passar
   if (segment !== sessionOid) return new Response('Acesso negado', { status: 403 })
   // OID bate: deixa passar
 }
+
+export const config = { matcher: ['/analyses/:path*', '/library/:path*'] }

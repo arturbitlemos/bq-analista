@@ -68,20 +68,24 @@ Exec (celular)
   │  "me dá venda da FARM ontem"
   ▼
 Claude Team (app mobile)
-  │  Claude seleciona tool, gera SQL contextualizado
+  │  Claude mostra "analisando..." imediatamente
+  │  Claude seleciona tools, gera SQL contextualizado
   ▼
 MCP Server (via Cloudflare Tunnel → Mac mini)
-  │  1. Valida OAuth → resolve email do exec
+  │  1. Valida token OAuth → resolve email do exec
   │  2. Checa allowlist → autoriza ou rejeita
   │  3. consultar_bq(sql): valida SELECT-only, max 5GB, timeout 60s, label com email
+  │     └─ Envia progress: "querying BigQuery..."
   │  4. publicar_dashboard(...): grava HTML em analyses/<email>/, atualiza library/<email>.json
+  │     └─ Envia progress: "rendering dashboard..."
   │  5. git add + commit (author = mcp-bot, message = "analise dispatched para <exec>") + push
+  │     └─ Envia progress: "publishing to Vercel..."
   ▼
 Vercel (auto-deploy)
   ▼
-MCP retorna { link: "https://bq-analista.vercel.app/#analise-xyz", resumo: "..." }
+MCP retorna { link: "https://bq-analista.vercel.app/#analise-xyz", resumo: "...", duration_s: 180 }
   ▼
-Claude responde no chat com resumo + link
+Claude responde no chat com resumo + link (total: ~3-5 min com feedback contínuo)
 ```
 
 ### 4.3 Tools expostas pelo MCP (contrato)
@@ -89,9 +93,9 @@ Claude responde no chat com resumo + link
 | Tool | Input | Output | Observação |
 |---|---|---|---|
 | `get_context` | — | conteúdo de `schema.md` + `business-rules.md` + lista de tabelas permitidas | Chamada uma vez no início da conversa pra priming |
-| `consultar_bq` | `sql: string` | `{ rows, row_count, bytes_scanned, duration_ms }` | Valida: só `SELECT`/`WITH`, sem multi-statement, `maximum_bytes_billed=5GB`, timeout 60s, labels com exec_email |
+| `consultar_bq` | `sql: string` | `{ rows, row_count, bytes_scanned, duration_ms }` ou progress stream | Valida: só `SELECT`/`WITH`, sem multi-statement, `maximum_bytes_billed=5GB`, timeout 60s, labels com exec_email. Pode retornar updates de progresso durante execução. |
 | `listar_analises` | `escopo: "mine" \| "public"` | array de `{id, title, brand, date, link}` | Lê `library/<email>.json` ou `library/public.json` |
-| `publicar_dashboard` | `{title, brand, period, description, html_content, tags}` | `{id, link, published_at}` | Grava em sandbox do exec, não toca docs nem código |
+| `publicar_dashboard` | `{title, brand, period, description, html_content, tags}` | `{id, link, published_at}` ou progress | Grava em sandbox do exec, não toca docs nem código. Retorna progresso durante build e deploy. |
 
 Claude do exec decide, em cada turno, quais tools chamar — baseado no system prompt do conector (que inclui uma versão enxuta do SKILL.md focada em executivos).
 
@@ -99,8 +103,27 @@ Claude do exec decide, em cada turno, quais tools chamar — baseado no system p
 
 ### 5.1 Autenticação
 
-- **OAuth 2.0 via Azure AD**. Claude Team MCP custom connector suporta OAuth no fluxo de conexão. Exec clica "conectar", autentica SSO Azzas, token chega no MCP. MCP valida via JWKS do Azure AD e extrai `email` / `upn`.
-- **Se OAuth com Azure AD não for suportado** no momento da implementação, fallback: API key por exec, emitida pelo analista, armazenada no secret store do conector. Rotação trimestral obrigatória. Menos robusto (sem desprovisionamento quando alguém sai), mas aceitável como interim.
+**Fluxo one-time**:
+
+1. Exec roda `mcp-login` (CLI) localmente no seu device.
+2. CLI abre browser → Azure AD login (SSO Azzas, MFA se configurado).
+3. Azure AD retorna authorization code → CLI troca por token JWT via endpoint `/auth/token` do MCP.
+4. Token é salvo em `~/.mcp/credentials.json` (permissão 600, owner only).
+5. Claude chama MCP com token no header `Authorization: Bearer <token>`.
+
+**Token lifecycle**:
+- **TTL**: 30 minutos (curto, pra limitar window de compromise).
+- **Refresh**: automático. Quando token próximo de expirar (5 min antes), MCP envia `refresh_token` no response. Claude ou exec client usa refresh endpoint (`/auth/refresh`) pra renovar sem re-autenticar.
+- **Quando expira**: MCP retorna 401 com mensagem `"token expired, run: mcp-login"`. Claude orienta exec com clareza.
+
+**Autenticação forte em tudo**:
+- Azure AD é a fonte de verdade. Quando exec é demitido e removido do Entra ID, seu token continua válido por até 30 min (eventual consistency — aceitável pra analytics, não pra payment).
+- MCP valida token via JWKS do Azure AD em **toda chamada** (não per-request, mas na autenticação inicial do token).
+
+**Armazenamento local**:
+- `~/.mcp/credentials.json` contém: `{ access_token, refresh_token, expires_at, user_email }`.
+- Arquivo é lido apenas por Claude quando chama MCP (não exposto na web).
+- Se device do exec é comprometido, attacker ganha acesso até token expirar. Mitigação: TTL curto + audit log rastreia IP + email.
 
 ### 5.2 Blast radius no BigQuery
 
@@ -147,7 +170,18 @@ Claude do exec decide, em cada turno, quais tools chamar — baseado no system p
 - Lista hardcoded de emails autorizados em `config/allowed_execs.json`, versionada no repo.
 - Exec novo = PR no config + deploy. Fricção deliberada — impede que alguém "descubra" o conector.
 
-## 6. Decisões tomadas
+## 6. Latência e feedback de progresso
+
+Uma análise complexa pode levar 5+ minutos (BQ processing, rendering, deploy). Isso é **aceitável** se houver feedback contínuo:
+- Claude mostra "analisando..." imediatamente após chamar MCP.
+- MPC retorna progresso (`progress: "querying BigQuery..."`, `progress: "rendering dashboard..."`) durante a execução.
+- Exec vê o trabalho acontecendo em real-time.
+
+O critério de sucesso (seção 9) reflete isso: **latência observável com feedback claro**, não latência de resposta pura.
+
+---
+
+## 7. Decisões tomadas
 
 | Decisão | Escolha |
 |---|---|
@@ -155,41 +189,47 @@ Claude do exec decide, em cada turno, quais tools chamar — baseado no system p
 | Plano Claude | Claude Team Azzas (já existe) |
 | Canal de retorno | Link no chat (sem push/email) |
 | Exposição de rede | DNS público + Cloudflare Tunnel |
-| Auth primária | OAuth Azure AD; fallback API key per exec |
+| Auth primária | One-time CLI login via Azure AD (OAuth code-grant) |
+| Auth token | TTL 30 min + refresh automático, armazenado em `~/.mcp/credentials.json` |
 | BQ auth | SA compartilhada + labels com exec_email (não per-exec credentials) |
 | Escopo de escrita | `analyses/<exec>/` + `library/<exec>.json` apenas |
 | Branch review pré-publicação | **Não** no MVP. Commit direto em main. |
 | Observabilidade | Local (SQLite) no MVP. SIEM depois, se TI exigir. |
 
-## 7. Decisões pendentes (abordar no plano de execução)
+## 8. Decisões pendentes (abordar no plano de execução)
 
-1. **Template de HTML**: reaproveitar template base dos dashboards atuais ou criar `exec-template` mais enxuto (menos overlays técnicos, mais KPIs na cara)?
+1. **Template de HTML**: criar `exec-template` novo mais enxuto (menos overlays técnicos, mais KPIs na cara) ou reaproveitar base dos dashboards atuais?
 2. **Lista inicial de execs no allowlist**: a definir quando aproximar do rollout.
 3. **Runtime MCP**: Node (mais maduro em MCP SDKs, mais conhecido do time) vs Python (mais próximo do ferramental BQ — `google-cloud-bigquery` é nativo). Recomendação preliminar: Python.
 4. **Retention de audit log local**: 90 dias é suficiente ou precisa alinhar com política Azzas?
 5. **SIEM/SOC**: se TI Azzas tem SOC centralizado, precisamos shippar logs pra lá? (pode ser fase 2)
+6. **Progress streaming**: Como Claude recebe updates de progresso durante a execução (Server-Sent Events? Polling? LLM calls com conteúdo de log)? Define no plano.
 
-## 8. Riscos
+## 9. Riscos
 
 | Risco | Mitigação |
 |---|---|
-| Claude Team MCP custom connector pode não suportar OAuth com Azure AD em abril/2026 | Verificar como primeiro passo do plano. Se não suportar, fallback API key + plano B de provisionamento |
+| Device do exec comprometido (malware rouба `~/.mcp/credentials.json`) | TTL 30 min limita window. Refresh automático + audit log rastreia IP anômalo. Entra ID desprovê exec quando demitido. |
+| Token expirado e exec tira conclusão errada (acha que tá seguro operando) | Mensagem clara de erro (`"token expired, run: mcp-login"`). Documentar no onboarding que tokens expiram. |
+| Multi-device: exec usa iPhone + Macbook, cada um precisa de `mcp-login` | Aceitável no MVP. Device novo = 2 min de setup. Sync de credentials é feature futura (OAuth + cloud storage). |
 | Prompt injection (conteúdo adversarial em docs chegando ao Claude do exec) faz query maliciosa | Validator de SQL no MCP é última linha de defesa — bloqueia DDL/DML independente do que o Claude peça |
 | SA do BQ comprometida via Mac mini | Keychain + rotação trimestral + alertas de volume anômalo. Escopo mínimo (read-only) limita impacto |
 | Mac mini cai (queda de energia, update travado) | `launchd` auto-restart + UPS. Degradação é "exec vê erro", não "dado vazou" |
-| Exec "expulsa" da empresa continua acessando | OAuth Azure AD → desprovisionamento imediato. Com API key, depende do analista revogar — daí a preferência por OAuth |
+| Exec removido do Entra ID mas token local ainda válido | Eventual consistency — continua acessando por 30 min máximo. Aceitável pra analytics (não é payment). Monitor alertas no BigQuery por email fora do allowlist. |
 
-## 9. Critérios de sucesso
+## 10. Critérios de sucesso
 
 MVP considerado pronto quando:
 
 - 2 execs do allowlist usam em produção por 1 semana consecutiva sem intervenção do analista.
 - Zero incidentes de autorização (sem exec não-autorizado conseguir chamar tools).
-- Latência p95 (mensagem → link no chat) ≤ 60s.
+- Exec vê feedback claro de progresso ("analisando...") durante a execução.
+- Análise é completada e link é publicado em < 5 min (com feedback em tempo real).
 - Audit log do BigQuery mostra `exec_email` em 100% dos jobs originados do MCP.
 - Portal Vercel renderiza dashboards dispatched sem mudança no frontend atual.
+- Expiração de token é clara: exec vê mensagem de erro, sabe rodar `mcp-login` novamente.
 
-## 10. O que fica de fora do MVP (backlog explícito)
+## 11. O que fica de fora do MVP (backlog explícito)
 
 - Branch review / aprovação humana antes de publicar.
 - SIEM externo.

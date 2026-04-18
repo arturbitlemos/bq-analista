@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Farm Group Analytics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Red+Hat+Display:wght@300;400;600&display=swap" rel="stylesheet">
   <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"
           integrity="sha384-k2EoJZNfS9UcBvGVPBPQv0LMJPFZ5pFlU67KT2fWpS7GWxKQzX0m3lkDZDKpnOS"
           crossorigin="anonymous"></script>
@@ -11,24 +14,35 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0d1a0d;
-      --surface: #152315;
-      --border: #2a4a2a;
-      --green: #3a8a3a;
-      --green-light: #4caf50;
-      --text: #e8f5e8;
-      --text-muted: #8aaf8a;
-      --accent: #66bb6a;
+      /* Neutros */
+      --ink:            #000000;
+      --ink-soft:       #595959;
+      --ink-faint:      #999999;
+      --surface:        #FFFFFF;
+      --surface-warm:   #E8E8E4;
+      --surface-cream:  #F9F6EA;
+
+      /* Azuis */
+      --navy:           #274566;
+      --steel:          #3D5A73;
+      --blue-soft:      #A1C6ED;
+      --blue-light:     #C5D9ED;
+
+      /* Funcionais */
+      --status-pending: #B5AFA8;
+
+      /* Tipografia */
+      --font-primary:   'Red Hat Display', Arial, sans-serif;
+      --font-editorial: 'Playfair Display', Georgia, serif;
     }
 
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--surface-cream);
+      color: var(--ink);
+      font-family: var(--font-primary);
       min-height: 100vh;
     }
 
-    /* ── Loading ── */
     #loading {
       display: flex;
       align-items: center;
@@ -36,12 +50,12 @@
       height: 100vh;
       flex-direction: column;
       gap: 16px;
-      color: var(--text-muted);
+      color: var(--ink-soft);
     }
     .spinner {
       width: 32px; height: 32px;
-      border: 3px solid var(--border);
-      border-top-color: var(--green-light);
+      border: 3px solid var(--surface-warm);
+      border-top-color: var(--navy);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -51,20 +65,27 @@
     #library-view { display: none; }
 
     header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
+      background: var(--ink);
+      color: var(--surface);
       padding: 16px 24px;
       display: flex;
       align-items: center;
       gap: 16px;
     }
     header h1 {
-      font-size: 1.1rem;
+      font-family: var(--font-primary);
+      font-size: 1rem;
       font-weight: 600;
-      color: var(--accent);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--surface);
       flex: 1;
     }
-    #user-email { font-size: 0.8rem; color: var(--text-muted); }
+    #user-email {
+      font-size: 0.75rem;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.5);
+    }
 
     .filters {
       padding: 16px 24px;
@@ -206,7 +227,7 @@
 
 <div id="library-view">
   <header>
-    <h1>Farm Group Analytics</h1>
+    <h1>Azzas 2154</h1>
     <span id="user-email"></span>
   </header>
   <div class="filters" id="filters">

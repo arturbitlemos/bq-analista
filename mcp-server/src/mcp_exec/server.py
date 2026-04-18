@@ -74,11 +74,25 @@ async def consultar_bq(sql: str, ctx) -> dict:
     Returns rows (capped) plus bytes_billed / bytes_processed.
     """
     exec_email = _current_exec_email(ctx)
+    try:
+        validate_readonly_sql(sql)
+    except SqlValidationError as e:
+        return {"error": f"sql_validation: {e}"}
 
-    def report(msg: str) -> None:
-        ctx.info(msg)
-
-    return consultar_bq_impl(sql=sql, exec_email=exec_email, progress=report)
+    await ctx.report_progress(progress=0.0, total=1.0, message="querying BigQuery...")
+    client = _build_bq_client()
+    try:
+        result = client.run_query(sql=sql, exec_email=exec_email)
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"bq_execution: {e}"}
+    await ctx.report_progress(progress=1.0, total=1.0, message="query complete")
+    return {
+        "rows": result.rows,
+        "row_count": result.row_count,
+        "bytes_billed": result.bytes_billed,
+        "bytes_processed": result.bytes_processed,
+        "truncated": result.truncated,
+    }
 
 
 def main() -> None:

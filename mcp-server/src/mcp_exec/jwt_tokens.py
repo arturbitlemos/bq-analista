@@ -25,6 +25,9 @@ class TokenPair:
     expires_at: int
 
 
+_MIN_SECRET_BYTES = 32
+
+
 @dataclass
 class TokenIssuer:
     secret: str
@@ -32,6 +35,13 @@ class TokenIssuer:
     access_ttl_s: int
     refresh_ttl_s: int
     alg: str = "HS256"
+    allow_short_secret: bool = False  # for unit tests only
+
+    def __post_init__(self) -> None:
+        if not self.allow_short_secret and len(self.secret.encode()) < _MIN_SECRET_BYTES:
+            raise ValueError(
+                f"JWT secret must be at least {_MIN_SECRET_BYTES} bytes for HS256"
+            )
 
     def _encode(self, kind: str, email: str, ttl: int) -> tuple[str, int]:
         now = int(time.time())

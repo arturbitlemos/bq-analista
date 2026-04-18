@@ -14,7 +14,10 @@ class Allowlist:
         self.reload()
 
     def reload(self) -> None:
-        data = json.loads(self.path.read_text())
+        try:
+            data = json.loads(self.path.read_text())
+        except json.JSONDecodeError as e:
+            raise ValueError(f"allowlist JSON is malformed at {self.path}: {e}") from e
         self._emails = {e.lower() for e in data.get("allowed_emails", [])}
 
     def is_allowed(self, email: str) -> bool:

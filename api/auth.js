@@ -28,15 +28,22 @@ async function validateToken(token, clientId, tenantId) {
   const payload = JSON.parse(b64urlDecode(parts[1]).toString())
 
   const now = Math.floor(Date.now() / 1000)
-  if (payload.exp < now) throw new Error('Token expirado')
+  const SKEW = 300
+  if (payload.exp + SKEW < now) throw new Error('Token expirado')
+  if (payload.nbf && payload.nbf - SKEW > now) throw new Error('Token ainda não válido')
   if (payload.aud !== clientId) throw new Error('Audience inválido')
   const validIssuer = `https://login.microsoftonline.com/${tenantId}/v2.0`
   if (payload.iss !== validIssuer) throw new Error('Issuer inválido')
   if (!payload.oid) throw new Error('Claim OID ausente')
 
   const keys = await getJwks(tenantId)
-  const jwk = keys.find(k => k.kid === header.kid)
-  if (!jwk) throw new Error('Chave de assinatura desconhecida')
+  let jwk = keys.find(k => k.kid === header.kid)
+  if (!jwk) {
+    jwksCache.fetchedAt = 0  // force refresh
+    const fresh = await getJwks(tenantId)
+    jwk = fresh.find(k => k.kid === header.kid)
+    if (!jwk) throw new Error('Chave de assinatura desconhecida')
+  }
 
   const publicKey = crypto.createPublicKey({ key: jwk, format: 'jwk' })
   const data = Buffer.from(`${parts[0]}.${parts[1]}`)

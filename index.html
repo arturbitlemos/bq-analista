@@ -7,9 +7,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Red+Hat+Display:wght@300;400;600&display=swap" rel="stylesheet">
-  <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"
-          integrity="sha384-k2EoJZNfS9UcBvGVPBPQv0LMJPFZ5pFlU67KT2fWpS7GWxKQzX0m3lkDZDKpnOS"
-          crossorigin="anonymous"></script>
+  <link rel="icon" type="image/png" sizes="32x32" href="/public/assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/public/assets/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/public/assets/apple-touch-icon-180x180.png">
+  <link rel="mask-icon" href="/public/assets/maskable-icon.png" color="#274566">
+  <script type="importmap">
+{
+  "imports": {
+    "@azure/msal-browser": "https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/+esm"
+  }
+}
+</script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -309,20 +317,10 @@
   <iframe id="analysis-iframe" src="" allow="same-origin"></iframe>
 </div>
 
-<script>
-// ── Config (substitua antes do deploy) ──────────────────────────────────────
-const AZURE_CLIENT_ID = '1598470a-ddfd-4fd8-a955-4e2fcd5479fa'
-const AZURE_TENANT_ID = 'e48bd5e1-52cd-41f5-87b9-1d25c0d108b6'
-// ────────────────────────────────────────────────────────────────────────────
+<script type="module">
+import { initMsal, getMsalInstance, InteractionRequiredAuthError } from './msal-init.js'
 
-const msalInstance = new msal.PublicClientApplication({
-  auth: {
-    clientId: AZURE_CLIENT_ID,
-    authority: `https://login.microsoftonline.com/${AZURE_TENANT_ID}`,
-    redirectUri: window.location.origin
-  },
-  cache: { cacheLocation: 'sessionStorage' }
-})
+// ────────────────────────────────────────────────────────────────────────────
 
 let userOid = null
 let allAnalyses = []
@@ -330,6 +328,7 @@ let activeFilter = 'all'
 
 async function init() {
   try {
+    const msalInstance = await initMsal()
     await msalInstance.initialize()
     const redirectResult = await msalInstance.handleRedirectPromise()
 
@@ -349,7 +348,7 @@ async function init() {
         })
         idToken = silent.idToken
       } catch (e) {
-        if (e instanceof msal.InteractionRequiredAuthError) {
+        if (e instanceof InteractionRequiredAuthError) {
           await msalInstance.loginRedirect({ scopes: ['openid', 'profile'] })
           return
         }

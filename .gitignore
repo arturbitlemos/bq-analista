@@ -3,3 +3,5 @@
 .superpowers/
 node_modules/
 .worktrees/
+.vercel
+.env*.local

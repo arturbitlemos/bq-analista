@@ -28,6 +28,7 @@ dev = [
 
 [project.scripts]
 mcp-exec-server = "mcp_exec.server:main"
+mcp-exec-dev = "mcp_exec.dev_server:dev_main"
 mcp-login = "mcp_exec.cli_login:main"
 
 [build-system]

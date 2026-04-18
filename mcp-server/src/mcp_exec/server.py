@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
@@ -157,10 +158,14 @@ def publicar_dashboard_impl(
         branch=settings.github.branch,
         push=os.environ.get("MCP_GIT_PUSH", "0") == "1",
     )
-    sha = git.commit_paths(
-        paths=[analysis_path, library_path],
-        message=f"análise dispatched para {exec_email}: {title}",
-    )
+    try:
+        sha = git.commit_paths(
+            paths=[analysis_path, library_path],
+            message=f"análise dispatched para {exec_email}: {title}",
+        )
+    except subprocess.CalledProcessError as e:
+        output = e.output.decode(errors="replace") if e.output else str(e)
+        return {"error": f"git_commit: {output.strip()}"}
     return {
         "id": entry_id,
         "link": link,

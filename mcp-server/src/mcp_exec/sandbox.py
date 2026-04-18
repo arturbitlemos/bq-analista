@@ -26,8 +26,8 @@ def _ensure_inside(base: Path, target: Path) -> None:
 
 def exec_analysis_path(repo_root: Path, exec_email: str, filename: str) -> Path:
     _validate_email(exec_email)
-    if not filename.endswith(".html"):
-        raise PathSandboxError("only .html files allowed in analyses/")
+    if not filename.endswith(".html") or len(filename) <= len(".html"):
+        raise PathSandboxError("only non-empty .html files allowed in analyses/")
     if "/" in filename or "\\" in filename or ".." in filename:
         raise PathSandboxError(f"invalid filename: {filename!r}")
     base = repo_root / "analyses" / exec_email

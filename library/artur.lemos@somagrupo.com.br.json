@@ -44,7 +44,7 @@
     "date": "2026-04-18",
     "description": "Comparativo físico × online por marca: venda líquida, peças, PA e markup YTD nas 10 marcas do grupo.",
     "file": "analyses/artur.lemos@somagrupo.com.br/canal-marcas-ytd-2026-04-18.html",
-    "public": false,
+    "public": true,
     "tags": [
       "canal",
       "marcas",

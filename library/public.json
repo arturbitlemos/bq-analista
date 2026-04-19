@@ -1,5 +1,22 @@
 [
   {
+    "id": "canal-marcas-ytd-2026-04-18",
+    "title": "Canal × Marca — YTD 2026",
+    "brand": "TODAS",
+    "period": "01/jan — 18/abr 2026",
+    "date": "2026-04-18",
+    "description": "Comparativo físico × online por marca: venda líquida, peças, PA e markup YTD nas 10 marcas do grupo.",
+    "file": "analyses/public/artur-lemos-somagrupo-co-canal-marcas-ytd-2026-04-18.html",
+    "public": true,
+    "tags": [
+      "canal",
+      "marcas",
+      "markup",
+      "ytd"
+    ],
+    "link": "/analyses/public/artur-lemos-somagrupo-co-canal-marcas-ytd-2026-04-18.html"
+  },
+  {
     "id": "maria-fil-leblon-top-produtos-de-abril-01-18-ec31e231",
     "title": "Maria Filó Leblon — Top Produtos de Abril (01–18)",
     "brand": "MARIA FILO",

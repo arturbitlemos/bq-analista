@@ -25,5 +25,9 @@ def prepend_entry(library_path: Path, entry: LibraryEntry) -> None:
             raise ValueError(f"library file is not a JSON array: {library_path}")
     else:
         existing = []
-    existing.insert(0, asdict(entry))
+    record = asdict(entry)
+    # Frontend (index.html) lê `file` (path relativo, sem barra inicial).
+    # Manter `link` para compat com consumidores novos.
+    record["file"] = entry.link.lstrip("/")
+    existing.insert(0, record)
     library_path.write_text(json.dumps(existing, indent=2, ensure_ascii=False))

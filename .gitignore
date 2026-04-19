@@ -5,3 +5,4 @@ node_modules/
 .worktrees/
 .vercel
 .env*.local
+.claude/settings.local.json

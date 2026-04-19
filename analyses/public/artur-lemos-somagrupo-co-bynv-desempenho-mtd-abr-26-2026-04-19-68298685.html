@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BYNV — Desempenho MTD (abr/26)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Red+Hat+Display:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #000000;
+  --ink-soft: #595959;
+  --ink-faint: #999999;
+  --surface: #FFFFFF;
+  --surface-warm: #E8E8E4;
+  --surface-cream: #F9F6EA;
+  --navy: #274566;
+  --steel: #3D5A73;
+  --blue-soft: #A1C6ED;
+  --blue-light: #C5D9ED;
+  --status-pending: #B5AFA8;
+  --font-primary: 'Red Hat Display', Arial, sans-serif;
+  --font-editorial: 'Playfair Display', Georgia, serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-primary);
+  font-weight: 300;
+  color: var(--ink);
+  background: var(--surface);
+  line-height: 1.5;
+  font-size: 15px;
+}
+.navbar {
+  background: var(--ink);
+  color: var(--surface);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.navbar-brand {
+  font-family: var(--font-primary);
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.navbar-meta { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+.hero {
+  background: var(--navy);
+  color: var(--surface);
+  padding: 3rem 2rem;
+  text-align: center;
+}
+.hero-label {
+  font-family: var(--font-editorial); font-style: italic;
+  font-size: 1rem; opacity: 0.8; margin-bottom: 0.5rem;
+}
+.hero-value {
+  font-family: var(--font-primary);
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 400; letter-spacing: 0.01em;
+}
+.hero-sub { font-size: 0.95rem; opacity: 0.75; margin-top: 0.75rem; font-weight: 300; }
+
+.container { max-width: 1400px; margin: 0 auto; padding: 3rem 2rem; }
+.section { margin-bottom: 4rem; }
+.section-header { margin-bottom: 1.5rem; border-bottom: 1px solid var(--surface-warm); padding-bottom: 0.75rem; }
+.section-eyebrow {
+  font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--ink-faint); font-weight: 600; margin-bottom: 0.25rem;
+}
+.section-title {
+  font-family: var(--font-primary); font-size: 1.5rem; font-weight: 600; color: var(--ink);
+}
+.section-sub { font-family: var(--font-editorial); font-style: italic; color: var(--ink-soft); font-size: 1rem; margin-top: 0.25rem; }
+
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+.kpi-card {
+  background: var(--surface-warm); padding: 1.25rem 1rem; border-radius: 4px;
+  border-left: 3px solid var(--navy);
+}
+.kpi-card--accent { background: var(--blue-soft); border-left-color: var(--ink); }
+.kpi-label {
+  font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-soft); font-weight: 600; margin-bottom: 0.4rem;
+}
+.kpi-value {
+  font-family: var(--font-primary); font-weight: 400; font-size: 1.75rem; color: var(--ink); line-height: 1.1;
+}
+.kpi-sub { font-size: 0.75rem; color: var(--ink-faint); margin-top: 0.3rem; font-weight: 300; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th {
+  background: var(--surface-warm); padding: 0.7rem 0.6rem; text-align: left;
+  font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600;
+  color: var(--ink-soft); border-bottom: 2px solid var(--navy);
+}
+td { padding: 0.7rem 0.6rem; border-bottom: 1px solid var(--surface-warm); vertical-align: middle; }
+tbody tr:hover { background: var(--surface-cream); }
+.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 400; }
+.num-lead { font-weight: 600; color: var(--navy); }
+.bar-wrap { position: relative; display: inline-block; width: 100%; min-width: 80px; }
+.bar-bg { background: var(--surface-warm); height: 18px; border-radius: 2px; position: relative; overflow: hidden; }
+.bar-fill { background: var(--navy); height: 100%; position: absolute; top: 0; left: 0; transition: width 0.4s; }
+.bar-fill--over { background: var(--steel); }
+.bar-fill--under { background: var(--status-pending); }
+.bar-label { position: absolute; top: 50%; transform: translateY(-50%); right: 6px; font-size: 0.7rem; font-weight: 600; color: var(--surface); z-index: 2; }
+.bar-label--dark { color: var(--ink); right: auto; left: 6px; }
+.flag { display: inline-block; padding: 2px 8px; font-size: 0.65rem; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 2px; font-weight: 600; }
+.flag--warn { background: #F9F6EA; color: var(--ink); border: 1px solid var(--status-pending); }
+.flag--good { background: var(--blue-light); color: var(--navy); }
+
+.product-img {
+  width: 48px; height: 72px; object-fit: cover; border-radius: 2px;
+  background: var(--surface-warm);
+}
+
+.insights {
+  background: var(--surface-cream); padding: 1.5rem 1.75rem; border-left: 3px solid var(--navy);
+  border-radius: 2px;
+}
+.insights h3 { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 0.75rem; font-weight: 600; }
+.insights ul { list-style: none; padding: 0; }
+.insights li { padding: 0.5rem 0; border-bottom: 1px solid var(--surface-warm); color: var(--ink); font-size: 0.9rem; }
+.insights li:last-child { border-bottom: none; }
+.insights strong { color: var(--navy); font-weight: 600; }
+
+.footer {
+  border-top: 1px solid var(--surface-warm); padding: 2rem;
+  text-align: center; font-size: 0.75rem; color: var(--ink-faint);
+}
+.footer em { font-family: var(--font-editorial); font-style: italic; }
+
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.note { font-size: 0.8rem; color: var(--ink-soft); margin-top: 0.5rem; font-style: italic; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+@media (max-width: 768px) {
+  .split { grid-template-columns: 1fr; }
+  .hero { padding: 2rem 1rem; }
+  .container { padding: 2rem 1rem; }
+  th, td { padding: 0.5rem 0.4rem; font-size: 0.75rem; }
+  .product-img { width: 36px; height: 54px; }
+}
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <div class="navbar-brand">BYNV</div>
+  <div class="navbar-meta">MTD · 01–18 ABR 2026</div>
+</div>
+
+<div class="hero">
+  <div class="hero-label">Venda Líquida MTD</div>
+  <div class="hero-value">R$ 20,07 M</div>
+  <div class="hero-sub">31.662 peças · 19.979 pedidos · atingimento de cota <strong>109,6%</strong></div>
+</div>
+
+<div class="container">
+
+  <!-- Indicadores gerais -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-eyebrow">01</div>
+      <div class="section-title">Indicadores Gerais</div>
+      <div class="section-sub">visão consolidada (físico + ecom + omni)</div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-card--accent">
+        <div class="kpi-label">Atingimento de Cota</div>
+        <div class="kpi-value">109,6%</div>
+        <div class="kpi-sub">Meta R$ 18,32 M · Real R$ 20,07 M</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Venda Líquida</div>
+        <div class="kpi-value">R$ 20,07 M</div>
+        <div class="kpi-sub">31.662 peças</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Markup</div>
+        <div class="kpi-value">3,28x</div>
+        <div class="kpi-sub">Margem bruta 69,5%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Ticket Médio</div>
+        <div class="kpi-value">R$ 1.005</div>
+        <div class="kpi-sub">19.979 pedidos</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">PA</div>
+        <div class="kpi-value">1,58</div>
+        <div class="kpi-sub">peças / atendimento</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Desconto Médio</div>
+        <div class="kpi-value">25,6%</div>
+        <div class="kpi-sub">R$ 6,91 M concedidos</div>
+      </div>
+    </div>
+    <div class="note">Venda por canal: Físico R$ 14,98 M (74,6%) · Ecom R$ 3,32 M (16,5%) · Omni R$ 1,77 M (8,8%).</div>
+  </div>
+
+  <!-- Análise por linha -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-eyebrow">02</div>
+      <div class="section-title">Desempenho por Linha</div>
+      <div class="section-sub">macro-categorias</div>
+    </div>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Linha</th>
+          <th class="num">Venda</th>
+          <th class="num">Mix</th>
+          <th class="num">Peças</th>
+          <th class="num">Markup</th>
+          <th class="num">Ticket</th>
+          <th class="num">PA</th>
+          <th class="num">Desc.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>ALFAIATARIA</strong></td><td class="num num-lead">R$ 10.741.566</td><td class="num">53,5%</td><td class="num">12.731</td><td class="num">3,49x</td><td class="num">R$ 1.093</td><td class="num">1,30</td><td class="num">22,6%</td></tr>
+        <tr><td>JEANS</td><td class="num">R$ 2.345.028</td><td class="num">11,7%</td><td class="num">4.901</td><td class="num">3,29x</td><td class="num">R$ 476</td><td class="num">0,99</td><td class="num">23,0%</td></tr>
+        <tr><td>MALHA</td><td class="num">R$ 1.772.846</td><td class="num">8,8%</td><td class="num">7.024</td><td class="num">3,09x</td><td class="num">R$ 315</td><td class="num">1,25</td><td class="num">31,2%</td></tr>
+        <tr><td>COURO</td><td class="num">R$ 1.334.668</td><td class="num">6,6%</td><td class="num">285</td><td class="num">2,93x</td><td class="num">R$ 4.464</td><td class="num">0,95</td><td class="num">26,4%</td></tr>
+        <tr><td>TRICOT</td><td class="num">R$ 1.155.806</td><td class="num">5,8%</td><td class="num">2.086</td><td class="num">3,30x</td><td class="num">R$ 544</td><td class="num">0,98</td><td class="num">29,7%</td></tr>
+        <tr><td>PLANO LEVE</td><td class="num">R$ 1.125.680</td><td class="num">5,6%</td><td class="num">2.128</td><td class="num">3,13x</td><td class="num">R$ 510</td><td class="num">0,96</td><td class="num">30,7%</td></tr>
+        <tr><td>FLUIDO</td><td class="num">R$ 715.789</td><td class="num">3,6%</td><td class="num">1.108</td><td class="num">2,35x</td><td class="num">R$ 535</td><td class="num">0,83</td><td class="num">41,9%</td></tr>
+        <tr><td>ACESSORIO</td><td class="num">R$ 528.109</td><td class="num">2,6%</td><td class="num">656</td><td class="num">2,71x</td><td class="num">R$ 748</td><td class="num">0,93</td><td class="num">25,7%</td></tr>
+        <tr><td>SEDA</td><td class="num">R$ 285.998</td><td class="num">1,4%</td><td class="num">305</td><td class="num">4,50x</td><td class="num">R$ 941</td><td class="num">1,00</td><td class="num">16,7%</td></tr>
+        <tr><td>DIVERSOS / LINGERIE / outras</td><td class="num">R$ 69.300</td><td class="num">0,3%</td><td class="num">438</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="note">Alfaiataria domina: 53,5% da venda total e markup acima da média (3,49x). Fluido e Plano Leve destoam com descontos >30% — atenção ao preço cheio.</div>
+  </div>
+
+  <!-- Análise por grupo -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-eyebrow">03</div>
+      <div class="section-title">Desempenho por Grupo</div>
+      <div class="section-sub">top / bottom / overtop / onepiece</div>
+    </div>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Grupo</th>
+          <th class="num">Venda</th>
+          <th class="num">Mix</th>
+          <th class="num">Peças</th>
+          <th class="num">Markup</th>
+          <th class="num">Ticket</th>
+          <th class="num">PA</th>
+          <th class="num">Desc.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>BOTTOM</strong></td><td class="num num-lead">R$ 7.418.302</td><td class="num">37,0%</td><td class="num">11.611</td><td class="num">3,26x</td><td class="num">R$ 676</td><td class="num">1,06</td><td class="num">25,9%</td></tr>
+        <tr><td><strong>TOP</strong></td><td class="num num-lead">R$ 6.810.021</td><td class="num">33,9%</td><td class="num">14.807</td><td class="num">3,39x</td><td class="num">R$ 616</td><td class="num">1,34</td><td class="num">25,8%</td></tr>
+        <tr><td>OVERTOP</td><td class="num">R$ 3.829.499</td><td class="num">19,1%</td><td class="num">2.674</td><td class="num">3,42x</td><td class="num">R$ 1.414</td><td class="num">0,99</td><td class="num">20,9%</td></tr>
+        <tr><td>ONEPIECE</td><td class="num">R$ 1.453.798</td><td class="num">7,2%</td><td class="num">1.654</td><td class="num">2,85x</td><td class="num">R$ 700</td><td class="num">0,80</td><td class="num">32,8%</td></tr>
+        <tr><td>ACESSORIO</td><td class="num">R$ 529.143</td><td class="num">2,6%</td><td class="num">686</td><td class="num">2,67x</td><td class="num">R$ 705</td><td class="num">0,91</td><td class="num">26,8%</td></tr>
+        <tr><td>DIVERSOS</td><td class="num">R$ 34.027</td><td class="num">0,2%</td><td class="num">230</td><td class="num">2,32x</td><td class="num">R$ 200</td><td class="num">1,35</td><td class="num">42,2%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="note">Bottom + Top = 70,9% da venda. Overtop tem o maior ticket (R$ 1.414) e o menor desconto (20,9%) — posição premium saudável. Onepiece preocupa: markup 2,85x e desconto 32,8%.</div>
+  </div>
+
+  <!-- Top 20 best-sellers -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-eyebrow">04</div>
+      <div class="section-title">Top 20 Best-Sellers</div>
+      <div class="section-sub">produto × cor · ordenado por venda · giro em peças</div>
+    </div>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Foto</th>
+          <th>#</th>
+          <th>Produto</th>
+          <th>Cor</th>
+          <th>Linha</th>
+          <th class="num">Venda</th>
+          <th class="num">Peças</th>
+          <th class="num">Markup</th>
+          <th class="num">Estoque fim</th>
+          <th class="num">Giro</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I262470_NV089/image" alt="I262470" onerror="this.style.display='none'"></td><td>1</td><td>JAQUETA COURO LORENZA</td><td>PRETO</td><td>COURO</td><td class="num num-lead">R$ 385.223</td><td class="num">53</td><td class="num">3,38x</td><td class="num">88</td><td class="num">38%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/NV00074_NV934/image" alt="NV00074" onerror="this.style.display='none'"></td><td>2</td><td>BLAZER EVE</td><td>AZUL RETRO</td><td>ALFAIATARIA</td><td class="num num-lead">R$ 267.199</td><td class="num">237</td><td class="num">4,36x</td><td class="num">132</td><td class="num">64%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I262706_NV089/image" alt="I262706" onerror="this.style.display='none'"></td><td>3</td><td>TRENCH COAT COURO EDITH</td><td>PRETO</td><td>COURO</td><td class="num num-lead">R$ 251.607</td><td class="num">19</td><td class="num">3,89x</td><td class="num">23</td><td class="num">45%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/NV00072_NV934/image" alt="NV00072" onerror="this.style.display='none'"></td><td>4</td><td>CALÇA EVE</td><td>AZUL RETRO</td><td>ALFAIATARIA</td><td class="num num-lead">R$ 246.039</td><td class="num">308</td><td class="num">5,95x</td><td class="num">96</td><td class="num">76%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/NV00072_NV534/image" alt="NV00072" onerror="this.style.display='none'"></td><td>5</td><td>CALÇA EVE</td><td>MARROM ESPRESSO</td><td>ALFAIATARIA</td><td class="num">R$ 186.278</td><td class="num">226</td><td class="num">6,14x</td><td class="num">98</td><td class="num">70%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I261667_NV089/image" alt="I261667" onerror="this.style.display='none'"></td><td>6</td><td>CALÇA MELISSA</td><td>PRETO</td><td>ALFAIATARIA</td><td class="num">R$ 183.378</td><td class="num">127</td><td class="num">3,63x</td><td class="num">9</td><td class="num"><span class="flag flag--warn">93%</span></td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I261611_NV943/image" alt="I261611" onerror="this.style.display='none'"></td><td>7</td><td>CALÇA DIDA</td><td>ROXO BERRY</td><td>ALFAIATARIA</td><td class="num">R$ 177.887</td><td class="num">154</td><td class="num">5,08x</td><td class="num">126</td><td class="num">55%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I262659_NV952/image" alt="I262659" onerror="this.style.display='none'"></td><td>8</td><td>CAMISA RUTH</td><td>XADREZ MULTICOLOR</td><td>ALFAIATARIA</td><td class="num">R$ 177.643</td><td class="num">124</td><td class="num">5,20x</td><td class="num">212</td><td class="num">37%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/NV00074_NV534/image" alt="NV00074" onerror="this.style.display='none'"></td><td>9</td><td>BLAZER EVE</td><td>MARROM ESPRESSO</td><td>ALFAIATARIA</td><td class="num">R$ 169.509</td><td class="num">152</td><td class="num">4,32x</td><td class="num">137</td><td class="num">53%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I261612_NV943/image" alt="I261612" onerror="this.style.display='none'"></td><td>10</td><td>CALÇA HELENA</td><td>ROXO BERRY</td><td>ALFAIATARIA</td><td class="num">R$ 159.191</td><td class="num">149</td><td class="num">4,73x</td><td class="num">93</td><td class="num">62%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I261803_NV952/image" alt="I261803" onerror="this.style.display='none'"></td><td>11</td><td>CALÇA CAETANA</td><td>XADREZ MULTICOLOR</td><td>ALFAIATARIA</td><td class="num">R$ 154.974</td><td class="num">110</td><td class="num">4,45x</td><td class="num">207</td><td class="num">35%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I261626_NV534/image" alt="I261626" onerror="this.style.display='none'"></td><td>12</td><td>CALÇA CARGO ISABEL</td><td>MARROM ESPRESSO</td><td>ALFAIATARIA</td><td class="num">R$ 151.211</td><td class="num">120</td><td class="num">5,13x</td><td class="num">210</td><td class="num">36%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I262802_NV1125/image" alt="I262802" onerror="this.style.display='none'"></td><td>13</td><td>JAQUETA COURO LORENZA STONED</td><td>CINZA ESTONADO</td><td>COURO</td><td class="num">R$ 146.516</td><td class="num">18</td><td class="num">3,48x</td><td class="num">81</td><td class="num">18%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I262045_NV089/image" alt="I262045" onerror="this.style.display='none'"></td><td>14</td><td>VESTIDO CURTO CRIS</td><td>PRETO</td><td>PLANO LEVE</td><td class="num">R$ 133.175</td><td class="num">94</td><td class="num">5,37x</td><td class="num">201</td><td class="num">32%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I261626_NV936/image" alt="I261626" onerror="this.style.display='none'"></td><td>15</td><td>CALÇA CARGO ISABEL</td><td>BEGE FIELD</td><td>ALFAIATARIA</td><td class="num">R$ 132.822</td><td class="num">99</td><td class="num">5,47x</td><td class="num">178</td><td class="num">36%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I261612_NV954/image" alt="I261612" onerror="this.style.display='none'"></td><td>16</td><td>CALÇA HELENA</td><td>BEGE SUGAR</td><td>ALFAIATARIA</td><td class="num">R$ 129.585</td><td class="num">120</td><td class="num">4,78x</td><td class="num">319</td><td class="num">27%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/NV00077_NV934/image" alt="NV00077" onerror="this.style.display='none'"></td><td>17</td><td>COLETE EVE</td><td>AZUL RETRO</td><td>ALFAIATARIA</td><td class="num">R$ 129.402</td><td class="num">224</td><td class="num">4,14x</td><td class="num">261</td><td class="num">46%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I261955_NV934/image" alt="I261955" onerror="this.style.display='none'"></td><td>18</td><td>BLAZER VIOLA</td><td>AZUL RETRO</td><td>ALFAIATARIA</td><td class="num">R$ 125.129</td><td class="num">70</td><td class="num">4,09x</td><td class="num">168</td><td class="num">29%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I261811_NV952/image" alt="I261811" onerror="this.style.display='none'"></td><td>19</td><td>CAMISA CAETANA</td><td>XADREZ MULTICOLOR</td><td>ALFAIATARIA</td><td class="num">R$ 122.401</td><td class="num">69</td><td class="num">4,64x</td><td class="num">183</td><td class="num">27%</td></tr>
+        <tr><td><img class="product-img" loading="lazy" src="https://images.somalabs.com.br/brands/16/products/reference_id/I261612_NV534/image" alt="I261612" onerror="this.style.display='none'"></td><td>20</td><td>CALÇA HELENA</td><td>MARROM ESPRESSO</td><td>ALFAIATARIA</td><td class="num">R$ 117.670</td><td class="num">115</td><td class="num">4,53x</td><td class="num">80</td><td class="num">59%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="note"><strong>Giro</strong> = peças vendidas MTD / (peças vendidas + estoque disponível em 18-abr). <span class="flag flag--warn">Alerta</span>: CALÇA MELISSA PRETO tem giro 93% com só 9 peças em estoque — reposição crítica.</div>
+  </div>
+
+  <!-- Performance por loja -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-eyebrow">05</div>
+      <div class="section-title">Desempenho Comercial por Loja</div>
+      <div class="section-sub">ordenado por cota · 25 lojas com previsão</div>
+    </div>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Loja</th>
+          <th>Região</th>
+          <th class="num">Cota</th>
+          <th class="num">Venda</th>
+          <th class="num" style="min-width:140px">Atingimento</th>
+          <th class="num">Markup</th>
+          <th class="num">Ticket</th>
+          <th class="num">PA</th>
+          <th class="num">Desc.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>NV IGUATEMI JK</td><td>SUDESTE</td><td class="num">R$ 1.858.065</td><td class="num num-lead">R$ 1.732.281</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:93%"></div><span class="bar-label">93,2%</span></div></td><td class="num">4,19x</td><td class="num">R$ 1.918</td><td class="num">2,18</td><td class="num">12,8%</td></tr>
+        <tr><td>NV HADDOCK LOBO</td><td>SUDESTE</td><td class="num">R$ 1.161.290</td><td class="num">R$ 949.054</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:82%"></div><span class="bar-label">81,7%</span></div></td><td class="num">3,90x</td><td class="num">R$ 1.921</td><td class="num">2,31</td><td class="num">18,4%</td></tr>
+        <tr><td>NV LEBLON</td><td>SUDESTE</td><td class="num">R$ 1.045.161</td><td class="num">R$ 744.752</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:71%"></div><span class="bar-label">71,3%</span></div></td><td class="num">3,99x</td><td class="num">R$ 1.419</td><td class="num">1,94</td><td class="num">16,7%</td></tr>
+        <tr><td>NV RIO MAR RECIFE</td><td>NORDESTE</td><td class="num">R$ 1.045.161</td><td class="num">R$ 805.205</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:77%"></div><span class="bar-label">77,0%</span></div></td><td class="num">4,13x</td><td class="num">R$ 1.543</td><td class="num">2,01</td><td class="num">17,5%</td></tr>
+        <tr><td>NV FLAMBOYANT</td><td>CO</td><td class="num">R$ 958.065</td><td class="num">R$ 875.233</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:91%"></div><span class="bar-label">91,4%</span></div></td><td class="num">4,19x</td><td class="num">R$ 1.779</td><td class="num">2,04</td><td class="num">11,1%</td></tr>
+        <tr><td>NV MOEMA</td><td>SUDESTE</td><td class="num">R$ 958.065</td><td class="num">R$ 758.106</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:79%"></div><span class="bar-label">79,1%</span></div></td><td class="num">3,56x</td><td class="num">R$ 1.818</td><td class="num">2,25</td><td class="num">23,7%</td></tr>
+        <tr><td>NV CAMPINAS</td><td>SUDESTE</td><td class="num">R$ 929.032</td><td class="num">R$ 735.887</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:79%"></div><span class="bar-label">79,2%</span></div></td><td class="num">4,23x</td><td class="num">R$ 1.808</td><td class="num">2,19</td><td class="num">11,7%</td></tr>
+        <tr><td>NV HIGIENOPOLIS</td><td>SUDESTE</td><td class="num">R$ 812.903</td><td class="num">R$ 492.931</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:61%"></div><span class="bar-label">60,6%</span></div></td><td class="num">4,25x</td><td class="num">R$ 1.611</td><td class="num">2,06</td><td class="num">14,8%</td></tr>
+        <tr><td>NV NOVA LIMA</td><td>SUDESTE</td><td class="num">R$ 783.871</td><td class="num">R$ 435.758</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:56%"></div><span class="bar-label">55,6%</span></div></td><td class="num">3,89x</td><td class="num">R$ 1.651</td><td class="num">2,16</td><td class="num">20,4%</td></tr>
+        <tr><td>NV PATIO BATEL</td><td>SUL</td><td class="num">R$ 754.839</td><td class="num">R$ 508.998</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:67%"></div><span class="bar-label">67,4%</span></div></td><td class="num">4,32x</td><td class="num">R$ 1.674</td><td class="num">2,01</td><td class="num">13,0%</td></tr>
+        <tr><td>NV IGUATEMI BRASILIA</td><td>CO</td><td class="num">R$ 754.839</td><td class="num">R$ 489.778</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:65%"></div><span class="bar-label">64,9%</span></div></td><td class="num">4,12x</td><td class="num">R$ 1.521</td><td class="num">2,04</td><td class="num">19,3%</td></tr>
+        <tr><td>NV VILLAGE MALL</td><td>SUDESTE</td><td class="num">R$ 667.742</td><td class="num num-lead">R$ 703.583</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--over" style="width:100%"></div><span class="bar-label">105,4%</span></div></td><td class="num">4,11x</td><td class="num">R$ 1.842</td><td class="num">2,22</td><td class="num">15,3%</td></tr>
+        <tr><td>NV RIOMAR FORTALEZA</td><td>NORDESTE</td><td class="num">R$ 638.710</td><td class="num">R$ 496.414</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:78%"></div><span class="bar-label">77,7%</span></div></td><td class="num">3,88x</td><td class="num">R$ 1.617</td><td class="num">2,31</td><td class="num">16,3%</td></tr>
+        <tr><td>NV SALVADOR SHOP</td><td>NORDESTE</td><td class="num">R$ 638.710</td><td class="num">R$ 491.522</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:77%"></div><span class="bar-label">77,0%</span></div></td><td class="num">3,92x</td><td class="num">R$ 1.480</td><td class="num">1,99</td><td class="num">20,4%</td></tr>
+        <tr><td>NV DIAMOND MALL BH</td><td>SUDESTE</td><td class="num">R$ 638.710</td><td class="num">R$ 577.970</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:90%"></div><span class="bar-label">90,5%</span></div></td><td class="num">3,95x</td><td class="num">R$ 1.562</td><td class="num">2,10</td><td class="num">19,4%</td></tr>
+        <tr><td>NV CRISTIANO VIANA <span class="flag flag--warn">outlet</span></td><td>SUDESTE</td><td class="num">R$ 609.677</td><td class="num">R$ 585.835</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:96%"></div><span class="bar-label">96,1%</span></div></td><td class="num">1,60x</td><td class="num">R$ 996</td><td class="num">3,04</td><td class="num">64,6%</td></tr>
+        <tr><td>NV IGUATEMI P ALEGRE</td><td>SUL</td><td class="num">R$ 580.645</td><td class="num">R$ 542.880</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:93%"></div><span class="bar-label">93,5%</span></div></td><td class="num">4,26x</td><td class="num">R$ 1.780</td><td class="num">2,13</td><td class="num">10,6%</td></tr>
+        <tr><td>NV RIO DESIGN</td><td>RJ</td><td class="num">R$ 551.613</td><td class="num">R$ 490.152</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:89%"></div><span class="bar-label">88,9%</span></div></td><td class="num">3,85x</td><td class="num">R$ 1.332</td><td class="num">2,05</td><td class="num">21,6%</td></tr>
+        <tr><td>NV RIBEIRAO PRETO</td><td>SUDESTE</td><td class="num">R$ 551.613</td><td class="num">R$ 375.833</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:68%"></div><span class="bar-label">68,1%</span></div></td><td class="num">4,37x</td><td class="num">R$ 1.732</td><td class="num">2,04</td><td class="num">5,3%</td></tr>
+        <tr><td>NV CUIABA</td><td>CO</td><td class="num">R$ 522.581</td><td class="num">R$ 481.954</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:92%"></div><span class="bar-label">92,2%</span></div></td><td class="num">4,30x</td><td class="num">R$ 1.861</td><td class="num">2,37</td><td class="num">13,3%</td></tr>
+        <tr><td>NV BEIRAMAR</td><td>SUL</td><td class="num">R$ 493.548</td><td class="num num-lead">R$ 495.057</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--over" style="width:100%"></div><span class="bar-label">100,3%</span></div></td><td class="num">3,85x</td><td class="num">R$ 1.957</td><td class="num">2,27</td><td class="num">18,8%</td></tr>
+        <tr><td>NV MACEIO</td><td>NE</td><td class="num">R$ 406.452</td><td class="num">R$ 323.540</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:80%"></div><span class="bar-label">79,6%</span></div></td><td class="num">4,58x</td><td class="num">R$ 1.642</td><td class="num">2,00</td><td class="num">10,5%</td></tr>
+        <tr><td>NV SHOPPING VITORIA</td><td>SUDESTE</td><td class="num">R$ 348.387</td><td class="num num-lead">R$ 361.326</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--over" style="width:100%"></div><span class="bar-label">103,7%</span></div></td><td class="num">4,04x</td><td class="num">R$ 1.564</td><td class="num">1,98</td><td class="num">18,9%</td></tr>
+        <tr><td>NV BARIGUI</td><td>SUL</td><td class="num">R$ 319.355</td><td class="num">R$ 309.475</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:97%"></div><span class="bar-label">96,9%</span></div></td><td class="num">3,97x</td><td class="num">R$ 1.547</td><td class="num">2,03</td><td class="num">17,3%</td></tr>
+        <tr><td>NV UBERLANDIA</td><td>SE</td><td class="num">R$ 290.323</td><td class="num">R$ 216.168</td><td class="num"><div class="bar-bg"><div class="bar-fill bar-fill--under" style="width:74%"></div><span class="bar-label">74,5%</span></div></td><td class="num">4,07x</td><td class="num">R$ 1.368</td><td class="num">1,84</td><td class="num">21,2%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="note">Apenas 4 lojas bateram meta no físico: <strong>Village Mall, Shopping Vitória, Beiramar</strong> e a loja outlet <strong>Cristiano Viana</strong> (que por natureza puxa desconto alto e markup baixo — 64,6% de desconto contra ~15% média das demais).</div>
+  </div>
+
+  <!-- Insights -->
+  <div class="section">
+    <div class="insights">
+      <h3>Diagnóstico rápido</h3>
+      <ul>
+        <li><strong>Cota consolidada bateu:</strong> 109,6% — mas impulsionada por ecom/omni (R$ 5,1 M = 25,4% do total); físico consolidado vs cota física está <strong>abaixo</strong> na maioria das lojas.</li>
+        <li><strong>Alfaiataria carrega a marca:</strong> 53,5% da venda e a linha com segundo maior markup (3,49x). BLAZER/CALÇA EVE (Azul Retrô + Marrom Espresso) são os "motores" do mês — 4 SKUs no top 10.</li>
+        <li><strong>Ruptura iminente — CALÇA MELISSA PRETO:</strong> giro 93% com apenas 9 peças. Considerar reposição ou redirecionamento de estoque entre lojas.</li>
+        <li><strong>Atenção em Couro:</strong> markup 2,93x (pior da casa) apesar do ticket premium de R$ 4.464. Jaqueta Lorenza Stoned gira só 18% — verificar aderência de preço/cor.</li>
+        <li><strong>Lojas em risco de cota (&lt;70%):</strong> Nova Lima (56%), Higienópolis (61%), Brasília (65%), Pátio Batel (67%), Ribeirão Preto (68%) — faltam 12 dias úteis para fechar o mês.</li>
+        <li><strong>Fluido e Plano Leve</strong> com descontos acima de 30% puxam a margem. Se for promocional programado, ok; senão, investigar precificação.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <em>Fontes:</em> silver_linx (vendas, cota, estoque, produtos) · Venda líquida = VALOR_PAGO_PROD · Markup = venda / CMV (tabela CT) · Giro = peças vendidas / (vendidas + estoque disponível em 18-abr-2026)<br>
+  <em>Escopo:</em> BYNV consolidado (físico + ecom + omni) · origem = RL_ORIGEM = 16 · período 01–18 abril 2026
+</div>
+
+</body>
+</html>

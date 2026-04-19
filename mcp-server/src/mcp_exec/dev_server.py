@@ -24,9 +24,16 @@ def dev_main() -> None:
     settings_path = Path(os.environ.get("MCP_SETTINGS", "./config/settings.toml"))
     settings = load_settings(settings_path)
 
+    # Ensure server.py tool handlers can read these (they access os.environ directly).
+    os.environ.setdefault("MCP_JWT_SECRET", "local-dev-secret-1234567890abcdefghij")
+    os.environ.setdefault(
+        "MCP_ALLOWLIST",
+        str((settings_path.parent / "allowed_execs.json").resolve()),
+    )
+    os.environ.setdefault("MCP_GIT_PUSH", "1")
     issuer = TokenIssuer(
-        secret=os.environ.get("MCP_JWT_SECRET", "local-dev-secret-1234567890abcdefghij"),
-        issuer="local-dev",
+        secret=os.environ["MCP_JWT_SECRET"],
+        issuer=settings.auth.jwt_issuer,
         access_ttl_s=settings.auth.access_token_ttl_s,
         refresh_ttl_s=settings.auth.refresh_token_ttl_s,
     )

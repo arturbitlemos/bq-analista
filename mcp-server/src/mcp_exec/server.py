@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 
 from mcp_exec.allowlist import Allowlist
 from mcp_exec.audit import AuditLog
@@ -33,7 +33,7 @@ def _repo_root() -> Path:
 
 
 @mcp.tool()
-def get_context(ctx) -> dict:
+def get_context(ctx: Context) -> dict:
     """Return concatenated docs (schema.md, business-rules.md, SKILL.md) plus allowed tables.
 
     Call once at session start to prime Claude with the analytics context.
@@ -92,7 +92,12 @@ def consultar_bq_impl(
 def _auth_context() -> AuthContext:
     settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
     settings = load_settings(settings_path)
-    secret = os.environ["MCP_JWT_SECRET"]
+    secret = os.environ.get("MCP_JWT_SECRET")
+    if not secret:
+        raise RuntimeError(
+            "MCP_JWT_SECRET environment variable is required. "
+            "Generate one with: openssl rand -hex 32"
+        )
     issuer = TokenIssuer(
         secret=secret,
         issuer=settings.auth.jwt_issuer,
@@ -105,7 +110,7 @@ def _auth_context() -> AuthContext:
     return AuthContext(issuer=issuer, allowlist=allowlist)
 
 
-def _current_exec_email(ctx) -> str:
+def _current_exec_email(ctx: Context) -> str:
     # Dev shortcut: short-circuit auth when MCP_DEV_EXEC_EMAIL is set.
     if os.environ.get("MCP_DEV_EXEC_EMAIL"):
         return os.environ["MCP_DEV_EXEC_EMAIL"]
@@ -119,7 +124,7 @@ def _current_exec_email(ctx) -> str:
 
 
 @mcp.tool()
-async def consultar_bq(sql: str, ctx) -> dict:
+async def consultar_bq(sql: str, ctx: Context) -> dict:
     """Run a SELECT query against BigQuery.
 
     Only SELECT / WITH single-statement SQL is accepted.
@@ -249,7 +254,7 @@ async def publicar_dashboard(
     description: str,
     html_content: str,
     tags: list[str],
-    ctx,
+    ctx: Context,
 ) -> dict:
     """Publish an HTML dashboard to the exec's analysis sandbox + update library."""
     exec_email = _current_exec_email(ctx)
@@ -295,7 +300,7 @@ def listar_analises_impl(escopo: str, exec_email: str) -> dict:
 
 
 @mcp.tool()
-async def listar_analises(escopo: str, ctx) -> dict:
+async def listar_analises(escopo: str, ctx: Context) -> dict:
     """List analyses. escopo: 'mine' (own sandbox) or 'public' (shared library)."""
     exec_email = _current_exec_email(ctx)
     start = _time.time()

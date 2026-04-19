@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maria Filó Leblon · Análise de Produto · Abril 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Red+Hat+Display:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#000;--ink-soft:#595959;--ink-faint:#999;
+  --surface:#fff;--surface-warm:#E8E8E4;--surface-cream:#F9F6EA;
+  --navy:#274566;--steel:#3D5A73;--blue-soft:#A1C6ED;--blue-light:#C5D9ED;
+  --overlay:rgba(0,0,0,0.35);
+  --font-primary:'Red Hat Display',Arial,sans-serif;
+  --font-editorial:'Playfair Display',Georgia,serif;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08);
+  --shadow-md:0 4px 12px rgba(0,0,0,.10);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-primary);color:var(--ink);background:var(--surface-warm);line-height:1.5;font-weight:300}
+.wrap{max-width:1200px;margin:0 auto;background:var(--surface)}
+.hero{background:var(--ink);color:#fff;padding:4rem 2rem 3rem;position:relative}
+.hero-eyebrow{font-size:.75rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;opacity:.7;margin-bottom:1rem}
+.hero-title{font-family:var(--font-primary);font-size:clamp(2rem,4.5vw,3.5rem);font-weight:400;line-height:1.1;letter-spacing:.01em;margin-bottom:.5rem}
+.hero-sub{font-family:var(--font-editorial);font-style:italic;font-size:1.25rem;opacity:.75;margin-bottom:2.5rem}
+.hero-stat{display:flex;align-items:baseline;gap:1rem;margin-bottom:.5rem;flex-wrap:wrap}
+.hero-stat-value{font-size:clamp(2.5rem,6vw,4rem);font-weight:400;letter-spacing:-.02em}
+.hero-stat-label{font-size:.9rem;opacity:.7}
+.hero-meta{font-size:.9rem;opacity:.6;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,.15)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--surface-warm)}
+.kpi{background:var(--surface);padding:1.5rem;border-left:4px solid transparent}
+.kpi.accent{border-left-color:var(--navy)}
+.kpi-label{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:.5rem}
+.kpi-value{font-size:1.75rem;font-weight:400;color:var(--ink);margin-bottom:.25rem}
+.kpi-ctx{font-size:.8rem;color:var(--ink-faint);font-weight:300}
+.section{padding:3rem 2rem}
+.section-eyebrow{font-family:var(--font-editorial);font-style:italic;color:var(--steel);font-size:1rem;margin-bottom:.5rem}
+.section-title{font-size:1.75rem;font-weight:400;margin-bottom:.5rem;letter-spacing:-.01em}
+.section-intro{font-size:1rem;color:var(--ink-soft);margin-bottom:2rem;max-width:760px;font-weight:300;line-height:1.6}
+.divider{background:var(--navy);color:#fff;padding:2.5rem 2rem;text-align:center}
+.divider h2{font-family:var(--font-primary);font-size:clamp(1.5rem,3vw,2.25rem);font-weight:400;letter-spacing:.01em}
+.divider em{font-family:var(--font-editorial);font-style:italic;font-weight:400;opacity:.8}
+.podium{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-bottom:2.5rem}
+.podium-card{background:var(--surface-cream);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:var(--shadow-sm);transition:box-shadow .2s}
+.podium-card:hover{box-shadow:var(--shadow-md)}
+.podium-rank{position:absolute;top:1rem;left:1rem;z-index:2;background:var(--ink);color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-editorial);font-style:italic;font-weight:700;font-size:1.1rem}
+.podium-img-wrap{background:var(--surface-warm);aspect-ratio:2/3;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.podium-img{width:100%;height:100%;object-fit:cover}
+.podium-body{padding:1.25rem}
+.podium-cat{font-size:.7rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);margin-bottom:.5rem}
+.podium-name{font-size:1rem;font-weight:500;color:var(--ink);margin-bottom:.25rem;line-height:1.3}
+.podium-color{font-size:.85rem;color:var(--ink-soft);margin-bottom:1rem;font-style:italic;font-family:var(--font-editorial)}
+.podium-metrics{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;padding-top:1rem;border-top:1px solid var(--surface-warm)}
+.podium-metric-label{font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:.2rem}
+.podium-metric-value{font-size:1rem;font-weight:500;color:var(--ink)}
+.table-wrap{overflow-x:auto;margin:0 -2rem;padding:0 2rem}
+table.products{width:100%;border-collapse:collapse;min-width:780px;font-size:.875rem}
+.products thead th{text-align:left;padding:.75rem;border-bottom:2px solid var(--ink);font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);background:var(--surface-cream)}
+.products tbody td{padding:.875rem .75rem;border-bottom:1px solid var(--surface-warm);vertical-align:middle}
+.products tbody tr:hover{background:var(--surface-cream)}
+.products .rank{font-family:var(--font-editorial);font-style:italic;font-weight:700;color:var(--navy);width:40px;text-align:center}
+.products .foto-cell{width:80px}
+.products .foto{width:60px;height:90px;object-fit:cover;border-radius:4px;background:var(--surface-warm);box-shadow:var(--shadow-sm);display:block}
+.products .name-cell{min-width:200px}
+.products .name{font-weight:500;color:var(--ink);margin-bottom:.15rem;line-height:1.3;font-size:.9rem}
+.products .color{font-size:.8rem;color:var(--ink-soft);font-style:italic;font-family:var(--font-editorial)}
+.products .num{text-align:right;font-variant-numeric:tabular-nums;font-weight:400;white-space:nowrap}
+.products .num-strong{font-weight:500;color:var(--ink)}
+.products .pill{display:inline-block;padding:.15rem .5rem;border-radius:10px;font-size:.7rem;font-weight:600;letter-spacing:.04em}
+.pill-cat{background:rgba(39,69,102,.08);color:var(--navy)}
+.pill-giro-high{background:rgba(39,69,102,.12);color:var(--navy)}
+.pill-giro-mid{background:rgba(181,175,168,.2);color:var(--ink-soft)}
+.pill-giro-low{background:rgba(153,153,153,.15);color:var(--ink-faint)}
+.insights{background:var(--surface-cream);padding:3rem 2rem}
+.insight{background:var(--surface);border-left:3px solid var(--navy);padding:1.25rem 1.5rem;margin-bottom:1rem;border-radius:0 6px 6px 0;box-shadow:var(--shadow-sm)}
+.insight.alert{border-left-color:#8B5A3C}
+.insight.positive{border-left-color:var(--navy)}
+.insight.neutral{border-left-color:#B5AFA8}
+.insight-eyebrow{font-size:.7rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);margin-bottom:.35rem}
+.insight-text{font-size:.95rem;color:var(--ink);line-height:1.55}
+.insight-text strong{font-weight:500}
+.method{padding:2rem;background:var(--surface-warm);font-size:.8rem;color:var(--ink-soft);line-height:1.7}
+.method h3{font-size:.75rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);margin-bottom:.75rem}
+.method p{margin-bottom:.5rem}
+.method code{font-family:monospace;background:var(--surface);padding:.1rem .3rem;border-radius:3px;font-size:.9em}
+.footer{background:var(--ink);color:#fff;padding:1.5rem 2rem;text-align:center;font-size:.75rem;opacity:.7;letter-spacing:.05em}
+</style>
+</head>
+<body>
+<div class="wrap">
+<section class="hero">
+  <div class="hero-eyebrow">Maria Filó · Shopping Leblon · Análise de Produto</div>
+  <h1 class="hero-title">Top Produtos do Mês</h1>
+  <p class="hero-sub">por cor · ranking por venda líquida</p>
+  <div class="hero-stat">
+    <div class="hero-stat-value">R$ 669k</div>
+    <div class="hero-stat-label">venda líquida · 01–18 abr 2026</div>
+  </div>
+  <div class="hero-meta">1.118 peças · 545 atendimentos · 413 variantes produto×cor · <strong>#1 em faturamento</strong> entre as 40 lojas da marca no período</div>
+</section>
+<div class="kpis">
+  <div class="kpi accent"><div class="kpi-label">Ticket Médio</div><div class="kpi-value">R$ 1.228</div><div class="kpi-ctx">45% acima do benchmark de moda premium</div></div>
+  <div class="kpi"><div class="kpi-label">PA</div><div class="kpi-value">2,05</div><div class="kpi-ctx">dentro do saudável (1,8–2,5)</div></div>
+  <div class="kpi"><div class="kpi-label">Markup médio</div><div class="kpi-value">4,10×</div><div class="kpi-ctx">teto da faixa premium (2,5–4,0×)</div></div>
+  <div class="kpi"><div class="kpi-label">Margem bruta</div><div class="kpi-value">75,6%</div><div class="kpi-ctx">acima do range 55–70%</div></div>
+  <div class="kpi"><div class="kpi-label">Tx. desconto</div><div class="kpi-value">19,0%</div><div class="kpi-ctx">dentro do saudável (15–25%)</div></div>
+</div>
+<section class="section">
+  <div class="section-eyebrow">os três primeiros</div>
+  <h2 class="section-title">Pódio do mês</h2>
+  <p class="section-intro">Os 3 maiores campeões juntos representam R$ 28,5 mil — <strong>4,3%</strong> da venda da loja no período. Cauda concentrada: o top 15 responde por R$ 96 mil (14% do total).</p>
+  <div class="podium">
+    <div class="podium-card">
+      <div class="podium-rank">1</div>
+      <div class="podium-img-wrap"><img class="podium-img" src="https://images.somalabs.com.br/query/400/600/15.25816/54952" alt="15.25816/54952" loading="lazy" onerror="this.parentElement.innerHTML='<span style=color:var(--ink-faint);font-size:.8rem>imagem indisponível</span>'"></div>
+      <div class="podium-body">
+        <div class="podium-cat">Vestido · INV26</div>
+        <div class="podium-name">Vestido Alça Midi GGT Estampa Spell</div>
+        <div class="podium-color">cor: Est Spell B</div>
+        <div class="podium-metrics">
+          <div><div class="podium-metric-label">Venda</div><div class="podium-metric-value">R$ 10.671</div></div>
+          <div><div class="podium-metric-label">Peças</div><div class="podium-metric-value">9</div></div>
+          <div><div class="podium-metric-label">Markup</div><div class="podium-metric-value">6,57×</div></div>
+          <div><div class="podium-metric-label">Giro valor</div><div class="podium-metric-value">100%*</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="podium-card">
+      <div class="podium-rank">2</div>
+      <div class="podium-img-wrap"><img class="podium-img" src="https://images.somalabs.com.br/query/400/600/15.26756/56766" alt="15.26756/56766" loading="lazy" onerror="this.parentElement.innerHTML='<span style=color:var(--ink-faint);font-size:.8rem>imagem indisponível</span>'"></div>
+      <div class="podium-body">
+        <div class="podium-cat">Calça · AI26</div>
+        <div class="podium-name">Calça GGT Estampa Ivy</div>
+        <div class="podium-color">cor: Est Ivy B</div>
+        <div class="podium-metrics">
+          <div><div class="podium-metric-label">Venda</div><div class="podium-metric-value">R$ 9.851</div></div>
+          <div><div class="podium-metric-label">Peças</div><div class="podium-metric-value">11</div></div>
+          <div><div class="podium-metric-label">Markup</div><div class="podium-metric-value">3,32×</div></div>
+          <div><div class="podium-metric-label">Giro valor</div><div class="podium-metric-value">67%</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="podium-card">
+      <div class="podium-rank">3</div>
+      <div class="podium-img-wrap"><img class="podium-img" src="https://images.somalabs.com.br/query/400/600/15.26824/56828" alt="15.26824/56828" loading="lazy" onerror="this.parentElement.innerHTML='<span style=color:var(--ink-faint);font-size:.8rem>imagem indisponível</span>'"></div>
+      <div class="podium-body">
+        <div class="podium-cat">Blusa · AI26</div>
+        <div class="podium-name">Blusa Tricot Estampa Paisley</div>
+        <div class="podium-color">cor: Est Lenço Paisley B</div>
+        <div class="podium-metrics">
+          <div><div class="podium-metric-label">Venda</div><div class="podium-metric-value">R$ 7.980</div></div>
+          <div><div class="podium-metric-label">Peças</div><div class="podium-metric-value">19</div></div>
+          <div><div class="podium-metric-label">Markup</div><div class="podium-metric-value">3,98×</div></div>
+          <div><div class="podium-metric-label">Giro valor</div><div class="podium-metric-value">83%</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:.75rem;color:var(--ink-faint);font-style:italic;margin-top:-.5rem">* giro tetado a 100% — estoque contábil negativo na foto de 18/abr (provável embarque pendente). Ver metodologia.</p>
+</section>
+<div class="divider"><h2>ranking completo <em>— top 15</em></h2></div>
+<section class="section">
+  <div class="table-wrap">
+  <table class="products">
+    <thead><tr><th class="rank">#</th><th class="foto-cell">Foto</th><th class="name-cell">Produto · Cor</th><th>Categoria</th><th class="num">Venda</th><th class="num">Peças</th><th class="num">Markup</th><th class="num">Margem</th><th class="num">Desc.</th><th class="num">Estoque</th><th class="num">Giro valor</th></tr></thead>
+    <tbody>
+      <tr><td class="rank">1</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.25816/54952" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Vestido Alça Midi GGT Spell</div><div class="color">Est Spell B · INV26</div></td><td><span class="pill pill-cat">Vestido</span></td><td class="num num-strong">R$ 10.671</td><td class="num">9</td><td class="num">6,57×</td><td class="num">84,8%</td><td class="num">14,0%</td><td class="num">0*</td><td class="num"><span class="pill pill-giro-high">100%*</span></td></tr>
+      <tr><td class="rank">2</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.26756/56766" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Calça GGT Ivy</div><div class="color">Est Ivy B · AI26</div></td><td><span class="pill pill-cat">Calça</span></td><td class="num num-strong">R$ 9.851</td><td class="num">11</td><td class="num">3,32×</td><td class="num">69,9%</td><td class="num">31,0%</td><td class="num">4</td><td class="num"><span class="pill pill-giro-mid">67,4%</span></td></tr>
+      <tr><td class="rank">3</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.26824/56828" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Blusa Tricot Paisley</div><div class="color">Est Lenço Paisley B · AI26</div></td><td><span class="pill pill-cat">Blusa</span></td><td class="num num-strong">R$ 7.980</td><td class="num">19</td><td class="num">3,98×</td><td class="num">74,9%</td><td class="num">24,6%</td><td class="num">3</td><td class="num"><span class="pill pill-giro-high">83,4%</span></td></tr>
+      <tr><td class="rank">4</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.26755/56766" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Blusa Manga GGT Ivy</div><div class="color">Est Ivy B · AI26</div></td><td><span class="pill pill-cat">Blusa</span></td><td class="num num-strong">R$ 7.417</td><td class="num">11</td><td class="num">4,11×</td><td class="num">75,7%</td><td class="num">14,5%</td><td class="num">6</td><td class="num"><span class="pill pill-giro-mid">61,0%</span></td></tr>
+      <tr><td class="rank">5</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.26063/10001" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Camisa Franjas Chamois</div><div class="color">Antiq · AI26</div></td><td><span class="pill pill-cat">Blusa</span></td><td class="num num-strong">R$ 6.909</td><td class="num">2</td><td class="num">4,00×</td><td class="num">75,0%</td><td class="num">19,5%</td><td class="num">0*</td><td class="num"><span class="pill pill-giro-high">100%*</span></td></tr>
+      <tr><td class="rank">6</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.26772/56766" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Vestido Midi GGT Metais Ivy</div><div class="color">Est Ivy B · AI26</div></td><td><span class="pill pill-cat">Vestido</span></td><td class="num num-strong">R$ 6.700</td><td class="num">6</td><td class="num">3,47×</td><td class="num">71,1%</td><td class="num">10,0%</td><td class="num">9</td><td class="num"><span class="pill pill-giro-low">33,3%</span></td></tr>
+      <tr><td class="rank">7</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.25807/54958" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Vestido Manga Babado Aysha</div><div class="color">Est Aysha A · AI26</div></td><td><span class="pill pill-cat">Vestido</span></td><td class="num num-strong">R$ 6.562</td><td class="num">9</td><td class="num">4,22×</td><td class="num">76,3%</td><td class="num">26,3%</td><td class="num">11</td><td class="num"><span class="pill pill-giro-low">37,6%</span></td></tr>
+      <tr><td class="rank">8</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.26105/07591" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Calça GGT Recorte Ilhós</div><div class="color">Marrom Kahn · AI26</div></td><td><span class="pill pill-cat">Calça</span></td><td class="num num-strong">R$ 5.665</td><td class="num">6</td><td class="num">3,74×</td><td class="num">73,3%</td><td class="num">12,1%</td><td class="num">2</td><td class="num"><span class="pill pill-giro-mid">68,7%</span></td></tr>
+      <tr><td class="rank">9</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.26632/07527" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Vestido Midi GGT Decote Assimétrico</div><div class="color">Fosco · INV26</div></td><td><span class="pill pill-cat">Vestido</span></td><td class="num num-strong">R$ 5.588</td><td class="num">5</td><td class="num">6,37×</td><td class="num">84,3%</td><td class="num">6,0%</td><td class="num">3</td><td class="num"><span class="pill pill-giro-mid">61,0%</span></td></tr>
+      <tr><td class="rank">10</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.27281/54958" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Vestido Lastex Decote Aysha A</div><div class="color">Est Aysha A · AI26</div></td><td><span class="pill pill-cat">Vestido</span></td><td class="num num-strong">R$ 5.384</td><td class="num">9</td><td class="num">4,58×</td><td class="num">78,2%</td><td class="num">17,9%</td><td class="num">6</td><td class="num"><span class="pill pill-giro-mid">55,2%</span></td></tr>
+      <tr><td class="rank">11</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.25933/54705" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Vestido Longo Camadas Blush</div><div class="color">Est Blush · INV26</div></td><td><span class="pill pill-cat">Vestido</span></td><td class="num num-strong">R$ 5.123</td><td class="num">6</td><td class="num">4,61×</td><td class="num">78,3%</td><td class="num">4,0%</td><td class="num">1</td><td class="num"><span class="pill pill-giro-high">85,2%</span></td></tr>
+      <tr><td class="rank">12</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.26825/56612" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Blusa Tricot Jasmin C</div><div class="color">Est Jasmin C · AI26</div></td><td><span class="pill pill-cat">Blusa</span></td><td class="num num-strong">R$ 4.936</td><td class="num">10</td><td class="num">4,20×</td><td class="num">76,2%</td><td class="num">12,8%</td><td class="num">6</td><td class="num"><span class="pill pill-giro-mid">56,7%</span></td></tr>
+      <tr><td class="rank">13</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.26057/07591" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Blusa Manga GGT Recorte Ilhós</div><div class="color">Marrom Kahn · AI26</div></td><td><span class="pill pill-cat">Blusa</span></td><td class="num num-strong">R$ 4.927</td><td class="num">8</td><td class="num">3,93×</td><td class="num">74,6%</td><td class="num">10,8%</td><td class="num">1</td><td class="num"><span class="pill pill-giro-high">86,2%</span></td></tr>
+      <tr><td class="rank">14</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.26758/56766" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Vestido Longo GGT Ivy</div><div class="color">Est Ivy B · AI26</div></td><td><span class="pill pill-cat">Vestido</span></td><td class="num num-strong">R$ 4.873</td><td class="num">3</td><td class="num">3,19×</td><td class="num">68,7%</td><td class="num">18,3%</td><td class="num">2</td><td class="num"><span class="pill pill-giro-mid">55,1%</span></td></tr>
+      <tr><td class="rank">15</td><td class="foto-cell"><img class="foto" src="https://images.somalabs.com.br/query/200/300/15.25804/54958" alt="" loading="lazy" onerror="this.style.display='none'"></td><td class="name-cell"><div class="name">Bata Estampa Aysha A</div><div class="color">Est Aysha A · AI26</div></td><td><span class="pill pill-cat">Blusa</span></td><td class="num num-strong">R$ 4.815</td><td class="num">10</td><td class="num">5,33×</td><td class="num">81,2%</td><td class="num">13,6%</td><td class="num">8</td><td class="num"><span class="pill pill-giro-mid">50,5%</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="font-size:.75rem;color:var(--ink-faint);font-style:italic;margin-top:1rem">* estoque contábil negativo na foto de 18/abr (provável embarque pendente). Tratado como zero para o giro.</p>
+</section>
+<section class="insights">
+  <div style="max-width:900px;margin:0 auto">
+    <div class="section-eyebrow">leitura do período</div>
+    <h2 class="section-title">O que os dados estão dizendo</h2>
+    <p class="section-intro">Diagnóstico em 5 pontos — o que está forte, o que preocupa e o que a equipe do Leblon pode fazer na semana.</p>
+    <div class="insight positive">
+      <div class="insight-eyebrow">Força da loja</div>
+      <div class="insight-text"><strong>Leblon é a #1 da marca no mês.</strong> R$ 669k vs R$ 504k da #2 (Barra Shopping) — <strong>33% de vantagem</strong>. Ticket médio de R$ 1.228 é 45% acima do benchmark de moda premium e reflete o perfil de cliente da região.</div>
+    </div>
+    <div class="insight positive">
+      <div class="insight-eyebrow">Estampa "Ivy" domina</div>
+      <div class="insight-text">A cartela <strong>Est Ivy B</strong> aparece em <strong>4 dos top 15</strong> (ranks 2, 4, 6, 14), somando R$ 28,8 mil em venda. É a estampa campeã absoluta do mês — calça, blusa, vestido midi e vestido longo da mesma cartela. Vale olhar cobertura conjunta da cartela antes que esgote.</div>
+    </div>
+    <div class="insight alert">
+      <div class="insight-eyebrow">Sinal amarelo — estoque crítico nos tops</div>
+      <div class="insight-text">Entre os top 15, <strong>5 produtos têm estoque ≤ 3 peças</strong>: Vestido Spell (0), Camisa Chamois (0), Blusa Tricot Paisley (3), Vestido Blush (1), Blusa Ilhós Marrom (1). Se o ritmo se mantém, <strong>ruptura em 1–3 dias</strong> nesses SKUs. Priorizar transferência da rede.</div>
+    </div>
+    <div class="insight alert">
+      <div class="insight-eyebrow">Sinal amarelo — giro baixo com alto volume</div>
+      <div class="insight-text">Dois campeões de venda têm <strong>giro abaixo de 40%</strong>: <strong>Vestido Midi GGT Metais Ivy</strong> (33% · 9 peças em estoque) e <strong>Vestido Manga Babado Aysha</strong> (38% · 11 peças). Vendem bem mas têm posição inflada — risco de sobra se a demanda esfriar. Avaliar se é estoque da loja ou se há pedido de reposição em trânsito.</div>
+    </div>
+    <div class="insight neutral">
+      <div class="insight-eyebrow">Markup premium mas heterogêneo</div>
+      <div class="insight-text">Markup médio de <strong>4,10×</strong> está no teto da faixa premium (2,5–4,0×). Dois produtos acima de 6× — Vestido Spell (6,57×) e Vestido Assimétrico Fosco (6,37×) — puxam a média pra cima. A Calça Ivy, segundo colocado em venda, está em 3,32× com taxa de desconto de 31% — é o campeão que mais queima margem.</div>
+    </div>
+  </div>
+</section>
+<section class="method">
+  <h3>Metodologia</h3>
+  <p><strong>Escopo:</strong> filial <code>190290</code> (MF SHOP LEBLON CM), período <code>2026-04-01</code> a <code>2026-04-18</code>. As outras 3 filiais com "Leblon" no cadastro não operaram no período.</p>
+  <p><strong>Grão:</strong> PRODUTO + COR_PRODUTO (tamanhos agregados). Ranking por venda líquida (<code>VALOR_PAGO_PROD</code>) de itens vendidos (<code>QTDE_PROD &gt; 0</code>, exclui devoluções).</p>
+  <p><strong>Markup:</strong> <code>venda líquida / (peças × preço custo CT)</code>. Margem bruta: <code>1 − (CMV / venda líquida)</code>.</p>
+  <p><strong>Giro em valor:</strong> <code>venda líquida / (venda líquida + estoque_final × preço VO)</code>, com foto de estoque em 18/abr/2026 e preço de varejo original (tabela VO). Estoque contábil negativo tratado como zero (tetando giro a 100%).</p>
+  <p><strong>Benchmarks</strong> (<code>business-rules.md</code>): ticket varia por posicionamento; PA 1,8–2,5; taxa desconto 15–25%; markup 2,5–4,0×; margem bruta 55–70%.</p>
+  <p style="margin-top:.75rem;color:var(--ink-faint)">Fonte: <code>soma-pipeline-prd.silver_linx</code> · Fotos: <code>images.somalabs.com.br</code></p>
+</section>
+<div class="footer">MARIA FILÓ LEBLON · ANÁLISE DE PRODUTO · 01–18 ABR 2026 · GERADO EM 19/ABR/2026</div>
+</div>
+</body>
+</html>

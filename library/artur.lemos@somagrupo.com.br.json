@@ -60,7 +60,7 @@
     "date": "2026-04-18",
     "description": "Performance de produto no canal ecommerce: top categorias, top SKUs, markup e ticket médio nos últimos 7 dias.",
     "file": "analyses/artur.lemos@somagrupo.com.br/farm-produto-ecomm-2026-04-18.html",
-    "public": false,
+    "public": true,
     "tags": [
       "ecommerce",
       "produto",

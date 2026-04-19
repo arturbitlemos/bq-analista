@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FARM — Produto · Ecommerce</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Red+Hat+Display:wght@300;400;600&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Neutros */
+      --ink:            #000000;
+      --surface:        #FFFFFF;
+      --surface-warm:   #E8E8E4;
+
+      /* Azuis */
+      --navy:           #274566;
+      --steel:          #3D5A73;
+      --blue-soft:      #A1C6ED;
+      --blue-light:     #C5D9ED;
+
+      /* Cor de fundo do dashboard e derivadas */
+      --bg:             #274566;
+      --card:           rgba(255, 255, 255, 0.04);
+      --card-strong:    rgba(255, 255, 255, 0.05);
+      --border:         rgba(255, 255, 255, 0.1);
+      --border-strong:  rgba(255, 255, 255, 0.12);
+      --on-bg:          #FFFFFF;
+      --on-bg-dim:      rgba(255, 255, 255, 0.55);
+      --on-bg-faint:    rgba(255, 255, 255, 0.35);
+
+      /* Tipografia */
+      --font-primary:   'Red Hat Display', Arial, sans-serif;
+      --font-editorial: 'Playfair Display', Georgia, serif;
+    }
+
+    html {
+      background: var(--bg);
+      color: var(--on-bg);
+      font-family: var(--font-primary);
+      font-size: 16px;
+    }
+
+    body {
+      min-height: 100dvh;
+      padding-bottom: 3rem;
+      /* Noise sutil sobre o navy */
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+    }
+
+    /* ── HEADER ──────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 2rem 1.25rem 0;
+      animation: fadeUp .6s ease both;
+    }
+
+    .logo {
+      font-family: var(--font-primary);
+      font-size: 2.4rem;
+      font-weight: 400;
+      letter-spacing: 0.22em;
+      color: var(--on-bg);
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .header-meta { text-align: right; }
+
+    .header-label {
+      font-family: var(--font-primary);
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--on-bg-dim);
+      line-height: 1.6;
+    }
+
+    .header-badge {
+      display: inline-block;
+      margin-top: 0.45rem;
+      background: var(--blue-soft);
+      color: var(--navy);
+      font-family: var(--font-primary);
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    /* ── SECTION LABELS ──────────────────────────────────────────── */
+    .section-label {
+      font-family: var(--font-editorial);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 1rem;
+      color: var(--on-bg-dim);
+      letter-spacing: 0.02em;
+      margin-bottom: 0.85rem;
+    }
+
+    /* ── DIVIDER ─────────────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0 1.25rem;
+    }
+
+    /* ── HERO KPIs ───────────────────────────────────────────────── */
+    .hero {
+      padding: 2rem 1.25rem 1.5rem;
+      animation: fadeUp .6s .1s ease both;
+    }
+
+    .hero-main-label {
+      font-family: var(--font-primary);
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--blue-soft);
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-value {
+      font-family: var(--font-editorial);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 3.8rem;
+      color: var(--on-bg);
+      line-height: 1;
+      letter-spacing: -0.01em;
+    }
+
+    .hero-sub {
+      font-family: var(--font-primary);
+      font-weight: 300;
+      font-size: 0.85rem;
+      color: var(--on-bg-dim);
+      margin-top: 0.55rem;
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    .kpi-card {
+      background: var(--card-strong);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      padding: 0.9rem 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .kpi-card:active { border-color: var(--blue-soft); }
+
+    .kpi-label {
+      font-family: var(--font-primary);
+      font-size: 0.58rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--on-bg-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    .kpi-value {
+      font-family: var(--font-primary);
+      font-size: 1.4rem;
+      font-weight: 400;
+      color: var(--on-bg);
+      line-height: 1;
+    }
+
+    .kpi-value.accent { color: var(--blue-soft); }
+    .kpi-value.alert  { color: var(--on-bg); font-weight: 600; }
+
+    /* ── TREND CHART ─────────────────────────────────────────────── */
+    .section {
+      padding: 1.5rem 1.25rem 0;
+    }
+
+    .chart-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem 1rem 1rem;
+      overflow: hidden;
+      animation: fadeUp .6s .25s ease both;
+    }
+
+    .trend-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.65rem;
+    }
+
+    .trend-label {
+      font-family: var(--font-primary);
+      font-size: 0.55rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--on-bg-dim);
+      text-align: center;
+      flex: 1;
+    }
+
+    .trend-label.peak {
+      color: var(--blue-soft);
+      font-weight: 600;
+    }
+
+    /* ── PRODUCT GROUPS ──────────────────────────────────────────── */
+    .groups-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      animation: fadeUp .6s .3s ease both;
+    }
+
+    .group-row { display: flex; flex-direction: column; gap: 0.3rem; }
+
+    .group-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .group-name {
+      font-family: var(--font-primary);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--on-bg);
+    }
+
+    .group-stats {
+      font-family: var(--font-primary);
+      font-size: 0.62rem;
+      font-weight: 300;
+      color: var(--on-bg-dim);
+    }
+
+    .bar-track {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.07);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: var(--blue-soft);
+      border-radius: 2px;
+      transform-origin: left;
+      transform: scaleX(0);
+      transition: transform 1s cubic-bezier(.22,1,.36,1);
+    }
+
+    /* ── TOP 10 TABLE ────────────────────────────────────────────── */
+    .products-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      animation: fadeUp .6s .35s ease both;
+    }
+
+    .product-row {
+      display: grid;
+      grid-template-columns: 1.8rem 1fr auto;
+      align-items: start;
+      gap: 0.6rem;
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--card-strong);
+      transition: background 0.15s;
+    }
+
+    .product-row:last-child { border-bottom: none; }
+    .product-row:active { background: rgba(255, 255, 255, 0.06); }
+
+    .rank {
+      font-family: var(--font-primary);
+      font-size: 0.7rem;
+      font-weight: 300;
+      color: var(--on-bg-dim);
+      padding-top: 0.15rem;
+      text-align: right;
+    }
+
+    .rank.top3 { color: var(--blue-soft); font-weight: 600; }
+
+    .product-info { display: flex; flex-direction: column; gap: 0.2rem; }
+
+    .product-name {
+      font-family: var(--font-editorial);
+      font-size: 0.95rem;
+      font-weight: 400;
+      color: var(--on-bg);
+      line-height: 1.3;
+      letter-spacing: 0.01em;
+    }
+
+    .product-cor {
+      font-family: var(--font-primary);
+      font-size: 0.55rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--on-bg-dim);
+      margin-top: 0.15rem;
+    }
+
+    .product-bar-wrap { margin-top: 0.4rem; }
+
+    .product-bar-track {
+      height: 2px;
+      background: rgba(255, 255, 255, 0.07);
+      border-radius: 1px;
+      overflow: hidden;
+    }
+
+    .product-bar-fill {
+      height: 100%;
+      background: var(--blue-soft);
+      border-radius: 1px;
+      transform-origin: left;
+      transform: scaleX(0);
+      transition: transform 1.1s cubic-bezier(.22,1,.36,1);
+    }
+
+    .product-numbers {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.2rem;
+      flex-shrink: 0;
+    }
+
+    .product-revenue {
+      font-family: var(--font-primary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--blue-soft);
+      white-space: nowrap;
+    }
+
+    .product-units {
+      font-family: var(--font-primary);
+      font-size: 0.62rem;
+      font-weight: 300;
+      color: var(--on-bg-dim);
+      white-space: nowrap;
+    }
+
+    .discount-pill {
+      font-family: var(--font-primary);
+      font-size: 0.55rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.18rem 0.45rem;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    .disc-low  { background: rgba(161, 198, 237, 0.18); color: var(--blue-light); }
+    .disc-mid  { background: rgba(181, 175, 168, 0.2);  color: var(--surface-warm); }
+    .disc-high { background: var(--ink); color: var(--on-bg); }
+
+    /* ── INSIGHTS ───────────────────────────────────────────────── */
+    .insights-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .insight {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 0.9rem 1rem;
+    }
+
+    .insight.positive  { border-left-color: var(--blue-soft); }
+    .insight.alert     { border-left-color: var(--on-bg); }
+    .insight.highlight { border-left-color: var(--blue-light); }
+    .insight.neutral   { border-left-color: rgba(255, 255, 255, 0.25); }
+
+    .insight-label {
+      font-family: var(--font-primary);
+      font-size: 0.58rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 0.35rem;
+    }
+
+    .insight.positive  .insight-label { color: var(--blue-soft); }
+    .insight.alert     .insight-label { color: var(--on-bg); }
+    .insight.highlight .insight-label { color: var(--blue-light); }
+    .insight.neutral   .insight-label { color: var(--on-bg-dim); }
+
+    .insight-text {
+      font-family: var(--font-editorial);
+      font-weight: 400;
+      font-size: 0.95rem;
+      color: var(--on-bg);
+      line-height: 1.5;
+    }
+
+    /* ── FOOTER ──────────────────────────────────────────────────── */
+    footer {
+      padding: 2rem 1.25rem 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      animation: fadeUp .6s .5s ease both;
+    }
+
+    .footer-note {
+      font-family: var(--font-primary);
+      font-size: 0.6rem;
+      font-weight: 300;
+      color: var(--on-bg-faint);
+      letter-spacing: 0.04em;
+      line-height: 1.6;
+    }
+
+    /* ── ANIMATIONS ──────────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── DESKTOP BREAKPOINT ──────────────────────────────────────── */
+    @media (min-width: 600px) {
+      header { padding: 2.5rem 2rem 0; }
+      .logo { font-size: 3.2rem; }
+      .hero { padding: 2.5rem 2rem 2rem; }
+      .hero-value { font-size: 5rem; }
+      .kpi-row { grid-template-columns: repeat(4, 1fr); }
+      .section { padding: 2rem 2rem 0; }
+      .divider { margin: 0 2rem; }
+      footer { padding: 2rem 2rem 0; }
+    }
+
+    @media (min-width: 900px) {
+      body { max-width: 860px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">FARM</div>
+    <div class="header-meta">
+      <div class="header-label">Análise de Produto<br>Ecommerce</div>
+      <span class="header-badge">11–17 abr 2026</span>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-main-label">Venda Líquida Total</div>
+    <div class="hero-value">R$12,0M</div>
+    <div class="hero-sub">35.778 peças · 23.977 transações · 3.394 produtos ativos</div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Ticket Médio</div>
+        <div class="kpi-value accent">R$501</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">PA</div>
+        <div class="kpi-value">1,5</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Venda Bruta</div>
+        <div class="kpi-value">R$19,2M</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Taxa de Desconto</div>
+        <div class="kpi-value alert">37,2%</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- TENDÊNCIA DIÁRIA -->
+  <section class="section" style="animation: fadeUp .6s .2s ease both;">
+    <div class="section-label">Tendência diária — venda líquida</div>
+    <div class="chart-wrap">
+      <canvas id="sparkline" width="340" height="72" style="width:100%;height:72px;display:block;"></canvas>
+      <div class="trend-labels">
+        <span class="trend-label">Sáb 11</span>
+        <span class="trend-label">Dom 12</span>
+        <span class="trend-label">Seg 13</span>
+        <span class="trend-label">Ter 14</span>
+        <span class="trend-label peak">Qua 15 ↑</span>
+        <span class="trend-label">Qui 16</span>
+        <span class="trend-label">Sex 17</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider" style="margin-top:1.5rem;"></div>
+
+  <!-- GRUPOS DE PRODUTO -->
+  <section class="section">
+    <div class="section-label">Receita por categoria</div>
+    <div class="chart-wrap groups-list" id="groups">
+
+      <div class="group-row" data-pct="100">
+        <div class="group-meta">
+          <span class="group-name">Vestido</span>
+          <span class="group-stats">11.381 pçs · R$4,6M · desc 43,1%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+      </div>
+
+      <div class="group-row" data-pct="20">
+        <div class="group-meta">
+          <span class="group-name">Blusa</span>
+          <span class="group-stats">3.899 pçs · R$937K · desc 38,1%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+      </div>
+
+      <div class="group-row" data-pct="16">
+        <div class="group-meta">
+          <span class="group-name">Calça</span>
+          <span class="group-stats">1.882 pçs · R$750K · desc 39,7%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+      </div>
+
+      <div class="group-row" data-pct="15">
+        <div class="group-meta">
+          <span class="group-name">Agasalho</span>
+          <span class="group-stats">1.566 pçs · R$696K · desc 26,8%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+      </div>
+
+      <div class="group-row" data-pct="9">
+        <div class="group-meta">
+          <span class="group-name">Saia</span>
+          <span class="group-stats">1.418 pçs · R$437K · desc 40,9%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+      </div>
+
+      <div class="group-row" data-pct="7">
+        <div class="group-meta">
+          <span class="group-name">Macacão</span>
+          <span class="group-stats">849 pçs · R$357K · desc 44,1%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+      </div>
+
+      <div class="group-row" data-pct="6">
+        <div class="group-meta">
+          <span class="group-name">T-Shirt</span>
+          <span class="group-stats">1.675 pçs · R$302K · desc 23,9%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+      </div>
+
+      <div class="group-row" data-pct="4">
+        <div class="group-meta">
+          <span class="group-name">Camisa</span>
+          <span class="group-stats">568 pçs · R$223K · desc 36,8%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider" style="margin-top:1.5rem;"></div>
+
+  <!-- TOP 10 PRODUTOS -->
+  <section class="section">
+    <div class="section-label">Top 10 produtos por peças vendidas</div>
+    <div class="products-list" id="products">
+
+      <div class="product-row" data-bar="100">
+        <div class="rank top3">01</div>
+        <div class="product-info">
+          <div class="product-name">Vestido Cropped Jardim Majestoso</div>
+          <div class="product-cor">JARDIM MAJESTOSO · PRETO · VESTIDO</div>
+          <div class="product-bar-wrap">
+            <div class="product-bar-track"><div class="product-bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="product-numbers">
+          <div class="product-revenue">R$153K</div>
+          <div class="product-units">302 pçs</div>
+          <span class="discount-pill disc-low">-10,5%</span>
+        </div>
+      </div>
+
+      <div class="product-row" data-bar="99">
+        <div class="rank top3">02</div>
+        <div class="product-info">
+          <div class="product-name">Vestido Midi Romance de Pássaro</div>
+          <div class="product-cor">ROMANCE DE PÁSSARO · MR TERRA · VESTIDO</div>
+          <div class="product-bar-wrap">
+            <div class="product-bar-track"><div class="product-bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="product-numbers">
+          <div class="product-revenue">R$99K</div>
+          <div class="product-units">298 pçs</div>
+          <span class="discount-pill disc-low">-6,3%</span>
+        </div>
+      </div>
+
+      <div class="product-row" data-bar="82">
+        <div class="rank top3">03</div>
+        <div class="product-info">
+          <div class="product-name">Vestido Curto Jardim Majestoso</div>
+          <div class="product-cor">JARDIM MAJESTOSO · PRETO · VESTIDO</div>
+          <div class="product-bar-wrap">
+            <div class="product-bar-track"><div class="product-bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="product-numbers">
+          <div class="product-revenue">R$61K</div>
+          <div class="product-units">249 pçs</div>
+          <span class="discount-pill disc-low">-5,9%</span>
+        </div>
+      </div>
+
+      <div class="product-row" data-bar="80">
+        <div class="rank">04</div>
+        <div class="product-info">
+          <div class="product-name">Produto s/ Cadastro</div>
+          <div class="product-cor">CÓD. 370480 — VERIFICAR CADASTRO</div>
+          <div class="product-bar-wrap">
+            <div class="product-bar-track"><div class="product-bar-fill" style="background: var(--on-bg-dim);"></div></div>
+          </div>
+        </div>
+        <div class="product-numbers">
+          <div class="product-revenue">R$78K</div>
+          <div class="product-units">243 pçs</div>
+          <span class="discount-pill disc-low">-9,0%</span>
+        </div>
+      </div>
+
+      <div class="product-row" data-bar="75">
+        <div class="rank">05</div>
+        <div class="product-info">
+          <div class="product-name">Vestido Longo Voo em Flor</div>
+          <div class="product-cor">VOO EM FLOR · BG SEDA · VESTIDO</div>
+          <div class="product-bar-wrap">
+            <div class="product-bar-track"><div class="product-bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="product-numbers">
+          <div class="product-revenue">R$119K</div>
+          <div class="product-units">228 pçs</div>
+          <span class="discount-pill disc-low">-11,1%</span>
+        </div>
+      </div>
+
+      <div class="product-row" data-bar="74">
+        <div class="rank">06</div>
+        <div class="product-info">
+          <div class="product-name">Macaquinho Voo em Flor</div>
+          <div class="product-cor">VOO EM FLOR · LOC MINI · MACACÃO</div>
+          <div class="product-bar-wrap">
+            <div class="product-bar-track"><div class="product-bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="product-numbers">
+          <div class="product-revenue">R$91K</div>
+          <div class="product-units">223 pçs</div>
+          <span class="discount-pill disc-mid">-18,7%</span>
+        </div>
+      </div>
+
+      <div class="product-row" data-bar="73">
+        <div class="rank">07</div>
+        <div class="product-info">
+          <div class="product-name">Vestido Longo Rio Antigo</div>
+          <div class="product-cor">RIO ANTIGO · AZUL SIERRA · VESTIDO</div>
+          <div class="product-bar-wrap">
+            <div class="product-bar-track"><div class="product-bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="product-numbers">
+          <div class="product-revenue">R$87K</div>
+          <div class="product-units">221 pçs</div>
+          <span class="discount-pill disc-high">-35,5%</span>
+        </div>
+      </div>
+
+      <div class="product-row" data-bar="73">
+        <div class="rank">08</div>
+        <div class="product-info">
+          <div class="product-name">Vestido Longo Voo em Flor</div>
+          <div class="product-cor">VOO EM FLOR · BG SEDA · VESTIDO (var. 2)</div>
+          <div class="product-bar-wrap">
+            <div class="product-bar-track"><div class="product-bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="product-numbers">
+          <div class="product-revenue">R$133K</div>
+          <div class="product-units">220 pçs</div>
+          <span class="discount-pill disc-low">-12,3%</span>
+        </div>
+      </div>
+
+      <div class="product-row" data-bar="72">
+        <div class="rank">09</div>
+        <div class="product-info">
+          <div class="product-name">Blusa Renda</div>
+          <div class="product-cor">CRU · BLUSA</div>
+          <div class="product-bar-wrap">
+            <div class="product-bar-track"><div class="product-bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="product-numbers">
+          <div class="product-revenue">R$55K</div>
+          <div class="product-units">217 pçs</div>
+          <span class="discount-pill disc-mid">-16,5%</span>
+        </div>
+      </div>
+
+      <div class="product-row" data-bar="71">
+        <div class="rank">10</div>
+        <div class="product-info">
+          <div class="product-name">Regata Bordada Concha</div>
+          <div class="product-cor">PRETO · BLUSA</div>
+          <div class="product-bar-wrap">
+            <div class="product-bar-track"><div class="product-bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="product-numbers">
+          <div class="product-revenue">R$32K</div>
+          <div class="product-units">215 pçs</div>
+          <span class="discount-pill disc-mid">-22,1%</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider" style="margin-top:1.5rem;"></div>
+
+  <!-- INSIGHTS -->
+  <section class="section" style="animation: fadeUp .6s .4s ease both; padding-bottom: 0;">
+    <div class="section-label">Insights do período</div>
+    <div class="insights-list">
+
+      <div class="insight positive">
+        <div class="insight-label">Coleção dominante</div>
+        <div class="insight-text">
+          <em>Jardim Majestoso</em> e <em>Voo em Flor</em> concentram 6 dos 10 produtos no ranking — sinal claro de sell-through saudável nessas coleções.
+        </div>
+      </div>
+
+      <div class="insight alert">
+        <div class="insight-label">Alerta de desconto</div>
+        <div class="insight-text">
+          Vestido Longo Rio Antigo (#7) opera com 35,5% de desconto — quase o dobro da média do top 10. Investigar se é ação promocional planejada ou clearance.
+        </div>
+      </div>
+
+      <div class="insight highlight">
+        <div class="insight-label">Maior receita ≠ Mais vendido</div>
+        <div class="insight-text">
+          O produto #8 (Vestido Longo Voo em Flor var. 2) gerou R$133K com 220 peças (R$605/pç), superando o #1 em receita. Ticket alto com desconto controlado de 12,3%.
+        </div>
+      </div>
+
+      <div class="insight neutral">
+        <div class="insight-label">Produto sem cadastro</div>
+        <div class="insight-text">
+          Cód. 370480 aparece em 4º lugar (243 peças, R$78K) sem registro em <em>refined_produtos</em>. Verificar carga de cadastro no data warehouse.
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-note">
+      Fonte: soma-dl-refined-online<br>
+      soma_online_refined.refined_captacao<br>
+      Gerado em 17/04/2026
+    </div>
+    <div style="font-family: var(--font-editorial); font-style: italic; font-size: 1.4rem; color: rgba(255, 255, 255, 0.15);">farm</div>
+  </footer>
+
+  <script>
+    /* ── SPARKLINE ────────────────────────────────────────────────── */
+    (function () {
+      const canvas = document.getElementById('sparkline');
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const W = canvas.offsetWidth, H = 72;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.scale(dpr, dpr);
+
+      const data = [1734805.97, 1526503.8, 1623232.28, 1709648.9, 2042372.78, 2024285.61, 1361194.15];
+      const days = ['Sáb', 'Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+      const n = data.length;
+      const padL = 8, padR = 8, padT = 8, padB = 8;
+      const minV = Math.min(...data);
+      const maxV = Math.max(...data);
+
+      function xPos(i) { return padL + (i / (n - 1)) * (W - padL - padR); }
+      function yPos(v) { return padT + (1 - (v - minV) / (maxV - minV)) * (H - padT - padB); }
+
+      const points = data.map((v, i) => ({ x: xPos(i), y: yPos(v) }));
+
+      /* gradient area */
+      const grad = ctx.createLinearGradient(0, padT, 0, H);
+      grad.addColorStop(0, 'rgba(161,198,237,.4)');
+      grad.addColorStop(1, 'rgba(161,198,237,0)');
+
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, H);
+      ctx.lineTo(points[0].x, points[0].y);
+      for (let i = 1; i < n; i++) {
+        const mx = (points[i - 1].x + points[i].x) / 2;
+        ctx.bezierCurveTo(mx, points[i - 1].y, mx, points[i].y, points[i].x, points[i].y);
+      }
+      ctx.lineTo(points[n - 1].x, H);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      /* line */
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < n; i++) {
+        const mx = (points[i - 1].x + points[i].x) / 2;
+        ctx.bezierCurveTo(mx, points[i - 1].y, mx, points[i].y, points[i].x, points[i].y);
+      }
+      ctx.strokeStyle = '#A1C6ED';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      /* peak dot */
+      const peakIdx = data.indexOf(maxV);
+      const pp = points[peakIdx];
+      ctx.beginPath();
+      ctx.arc(pp.x, pp.y, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+
+      /* value labels for first, peak, last */
+      function fmt(v) { return 'R$' + (v / 1e6).toFixed(1) + 'M'; }
+      ctx.font = `10px 'Red Hat Display', sans-serif`;
+      ctx.textAlign = 'center';
+
+      [[0, 'rgba(255,255,255,.55)'], [peakIdx, '#A1C6ED'], [n - 1, 'rgba(255,255,255,.55)']].forEach(([i, color]) => {
+        if (i === peakIdx || i === 0 || i === n - 1) {
+          ctx.fillStyle = color;
+          const yOff = points[i].y > 20 ? -6 : 14;
+          ctx.fillText(fmt(data[i]), points[i].x, points[i].y + yOff);
+        }
+      });
+    })();
+
+    /* ── ANIMATE BARS ON INTERSECTION ────────────────────────────── */
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+
+        /* group bars */
+        entry.target.querySelectorAll('.bar-fill').forEach(el => {
+          const pct = el.closest('[data-pct]')?.dataset.pct || 0;
+          el.style.width = pct + '%';
+          requestAnimationFrame(() => { el.style.transform = 'scaleX(1)'; });
+        });
+
+        /* product bars */
+        entry.target.querySelectorAll('.product-bar-fill').forEach(el => {
+          const pct = el.closest('[data-bar]')?.dataset.bar || 0;
+          el.style.width = pct + '%';
+          requestAnimationFrame(() => { el.style.transform = 'scaleX(1)'; });
+        });
+
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.15 });
+
+    ['groups', 'products'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+  </script>
+
+</body>
+</html>

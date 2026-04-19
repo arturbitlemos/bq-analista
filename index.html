@@ -231,6 +231,24 @@
       text-transform: uppercase;
     }
 
+    .btn-share {
+      margin-left: auto;
+      font-family: var(--font-primary);
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: var(--ink-faint);
+      background: none;
+      border: 1px solid var(--surface-warm);
+      border-radius: 4px;
+      padding: 0.1rem 0.4rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-share:hover { color: var(--steel); border-color: var(--blue-soft); }
+    .btn-share:disabled { opacity: 0.4; cursor: default; }
+
     #empty {
       grid-column: 1/-1;
       text-align: center;
@@ -459,9 +477,17 @@ function renderGrid() {
       <div class="card-desc">${a.description ?? ''}</div>
       <div class="card-footer">
         ${(a.tags ?? []).map(t => `<span class="tag">${t}</span>`).join('')}
-        ${a.public ? '<span class="badge-public">público</span>' : ''}
+        ${a.public
+          ? '<span class="badge-public">público</span>'
+          : (a.file?.startsWith(`analyses/${userIdentity}/`)
+              ? `<button class="btn-share" data-id="${a.id}">tornar público</button>`
+              : '')}
       </div>
     `
+    card.querySelector('.btn-share')?.addEventListener('click', e => {
+      e.stopPropagation()
+      shareAnalysis(a, e.currentTarget)
+    })
     card.addEventListener('click', () => openAnalysis(a))
     grid.appendChild(card)
   })
@@ -481,6 +507,28 @@ document.getElementById('back-btn').addEventListener('click', () => {
   document.getElementById('analysis-iframe').src = ''
   document.getElementById('library-view').style.display = 'block'
 })
+
+async function shareAnalysis(analysis, btn) {
+  btn.disabled = true
+  btn.textContent = 'publicando…'
+  try {
+    const res = await fetch('/api/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ analysisId: analysis.id }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error ?? 'Erro desconhecido')
+    // Update in-memory entry so iframe opens the public URL going forward
+    analysis.public = true
+    analysis.file = data.publicUrl.replace(/^\//, '')
+    renderGrid()
+  } catch (err) {
+    alert(`Erro ao tornar público: ${err.message}`)
+    btn.disabled = false
+    btn.textContent = 'tornar público'
+  }
+}
 
 init()
 </script>

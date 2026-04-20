@@ -28,7 +28,8 @@ def build_auth_app(
     issuer: TokenIssuer,
     allowlist: Allowlist,
 ) -> FastAPI:
-    app = FastAPI()
+    # redirect_slashes=False prevents FastAPI from redirecting /mcp → /mcp/
+    app = FastAPI(redirect_slashes=False)
     app.add_middleware(LoggingMiddleware)
 
     @app.get("/auth/start")
@@ -83,7 +84,6 @@ def build_auth_app(
     @app.get("/.well-known/oauth-authorization-server")
     def oauth_metadata(req: Request) -> dict:
         """OAuth 2.0 Authorization Server Metadata (RFC 8414) for Claude.ai discovery."""
-        # Infer base URL from X-Forwarded-Proto/Host headers (set by reverse proxies) or fallback to request
         proto = req.headers.get("x-forwarded-proto", "https")
         host = req.headers.get("x-forwarded-host") or req.headers.get("host", "localhost:3000")
         base_url = f"{proto}://{host}"
@@ -97,6 +97,16 @@ def build_auth_app(
             "token_endpoint_auth_methods_supported": ["none"],
             "revocation_endpoint_supported": False,
             "introspection_endpoint_supported": False,
+        }
+
+    @app.get("/.well-known/oauth-protected-resource/mcp")
+    def oauth_protected_resource() -> dict:
+        """OAuth 2.0 Protected Resource Metadata for Claude.ai MCP integration."""
+        return {
+            "resource": "mcp-exec-azzas",
+            "uri": "/mcp",
+            "access_token_type": "Bearer",
+            "auth_required": True,
         }
 
     return app

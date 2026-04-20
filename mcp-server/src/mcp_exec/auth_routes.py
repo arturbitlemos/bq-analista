@@ -4,9 +4,8 @@ import secrets
 
 import logging
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware import Middleware
-from fastapi.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 

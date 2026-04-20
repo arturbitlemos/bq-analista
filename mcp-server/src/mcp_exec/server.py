@@ -355,7 +355,8 @@ def main() -> None:
         # Some FastMCP versions expose `.streamable_http_app()` instead
         auth_app.mount("/mcp", mcp.streamable_http_app())
 
-    uvicorn.run(auth_app, host=settings.server.host, port=settings.server.port)
+    port = int(os.environ.get("PORT", settings.server.port))
+    uvicorn.run(auth_app, host=settings.server.host, port=port)
 
 
 if __name__ == "__main__":

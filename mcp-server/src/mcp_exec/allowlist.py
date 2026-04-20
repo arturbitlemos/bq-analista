@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -14,6 +15,10 @@ class Allowlist:
         self.reload()
 
     def reload(self) -> None:
+        if not self.path.exists():
+            raw = os.environ.get("MCP_ALLOWED_EMAILS", "")
+            self._emails = {e.strip().lower() for e in raw.split(",") if e.strip()}
+            return
         try:
             data = json.loads(self.path.read_text())
         except json.JSONDecodeError as e:

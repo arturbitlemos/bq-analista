@@ -23,6 +23,8 @@ def test_loads_example_settings(tmp_path: Path) -> None:
     assert s.audit.retention_days == 90
 
 
-def test_missing_file_raises(tmp_path: Path) -> None:
-    with pytest.raises(FileNotFoundError):
-        load_settings(tmp_path / "missing.toml")
+def test_missing_file_falls_back_to_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MCP_BQ_PROJECT_ID", "test-project")
+    s = load_settings(tmp_path / "missing.toml")
+    assert s.bigquery.project_id == "test-project"
+    assert s.server.host == "0.0.0.0"

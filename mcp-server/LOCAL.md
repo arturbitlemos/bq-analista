@@ -200,6 +200,39 @@ curl -H "Authorization: Bearer invalid" \
 
 Expected: `401 Unauthorized`.
 
+## Claude Desktop via Bridge (SSO)
+
+O bridge `mcp-exec-bridge` é um processo stdio que o Claude Desktop spawna. Ele cuida do login Azure AD, guarda o token em `~/.mcp/credentials.json`, e faz proxy das chamadas MCP para o servidor HTTP/SSE.
+
+**Fluxo do usuário:**
+1. Claude Desktop spawna o bridge na primeira query.
+2. Sem creds válidas → bridge abre o browser em `/auth/start` → user faz SSO → token salvo.
+3. Próximas queries reutilizam o token (refresh automático via `/auth/refresh` quando vence).
+
+**Config em `~/Library/Application Support/Claude/claude_desktop_config.json`:**
+
+```json
+{
+  "mcpServers": {
+    "bq-analista": {
+      "command": "/Users/arturlemos/.local/bin/uv",
+      "args": [
+        "run",
+        "--directory", "/Users/arturlemos/Documents/bq-analista/mcp-server",
+        "mcp-exec-bridge"
+      ],
+      "env": {
+        "MCP_SERVER_URL": "http://localhost:3000"
+      }
+    }
+  }
+}
+```
+
+Para testar contra prod, trocar `MCP_SERVER_URL` para `https://mcp-azzas.azzas.com.br` (default se a env não estiver setada).
+
+Após editar o JSON, reiniciar Claude Desktop.
+
 ## Status
 
 ✓ Local dev server running (mcp-exec-dev)

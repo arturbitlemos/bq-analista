@@ -24,24 +24,37 @@ WHERE DATA_VENDA BETWEEN :start AND :end
 | Situação | Regra | Status |
 |---|---|---|
 | Excluir devoluções | filtrar `VALOR_PAGO_PROD > 0` **ou** `QTDE_PROD > 0` | ✅ ok |
-| Excluir marketplace externo | filtrar por `SELLER` não-próprio | 🟡 **depende da regra de canal §2** |
+| Excluir marketplace externo | não aplicável — marketplace externo não aparece nesta tabela | ✅ não se aplica |
 | Excluir franquia | regra não confirmada no modelo Linx | 🟡 PENDENTE |
-| Excluir cancelados | usar `DATA_DESATIVACAO IS NULL` (hipótese, **não validado**) | 🟡 PENDENTE |
+| Excluir cancelados | não necessário — cancelados não contaminam esta tabela | ✅ não se aplica |
 
 Quando filtro adicional for necessário e estiver marcado pendente acima, **peça confirmação ao usuário** antes de rodar.
 
 ---
 
-## 2. Canal (Físico × Online) — 🟡 PENDENTE
+## 2. Canal (Físico × Digital) — ✅ validada 2026-04-20
 
-**Regra de alocação ainda não definida no modelo Linx.**
+Usar o campo `TIPO_VENDA`. Mapeamento canônico:
 
-Colunas candidatas: `TIPO_VENDA` (`VENDA_LOJA`, `VENDA_ECOM`, `VENDA_OMNI`, `VENDA_VITRINE`), `SUB_TIPO_VENDA`, `INDICA_*_ECOM`, `SELLER`.
+| `TIPO_VENDA` | Canal |
+|---|---|
+| `VENDA_LOJA` | Físico |
+| `VENDA_ECOM` | Digital |
+| `VENDA_OMNI` | Digital |
+| `VENDA_VITRINE` | Digital |
 
-**Enquanto não houver decisão:**
-- **Não improvisar** mapeamento Físico/Online.
-- Se o usuário pedir análise de canal, responder: *"A regra de alocação de canal no modelo Linx ainda está pendente. Quer que eu rode por `TIPO_VENDA` cru, ou prefere aguardar a definição?"*
-- Consultar `schema.md` §10 para acompanhar o status da pendência.
+```sql
+CASE TIPO_VENDA
+  WHEN 'VENDA_LOJA' THEN 'Físico'
+  ELSE 'Digital'
+END AS canal
+```
+
+**Notas:**
+- `VENDA_OMNI` é classificada como Digital pela **origem do pedido** (iniciado pelo cliente no digital, mesmo com fulfillment físico).
+- `VENDA_VITRINE` é venda assistida via dispositivo na loja, mas o fulfillment é via ecom — digital.
+- **Métrica default: receita** (`SUM(VALOR_PAGO_PROD)`). Análises por volume de pedidos só se explicitamente solicitado.
+- O usuário pode pedir breakdowns alternativos (ex: ver omni separado) — nesses casos, use `TIPO_VENDA` cru ao invés do agrupamento canal.
 
 ---
 
@@ -85,23 +98,25 @@ Em ecom/omni, ~8% dos `PEDIDO_SITE` têm múltiplos `TICKET` (remessas separadas
 
 **CMV não existe como coluna** em `TB_WANMTP_VENDAS_LOJA_CAPTADO`. Para margem/markup, joinar com `PRODUTOS_PRECOS` (tabela CT) e calcular.
 
-**Padrão (hipótese — validar com usuário em análises críticas):**
+**Padrão validado:**
 
 ```sql
 SELECT
-  SUM(v.VALOR_PAGO_PROD) AS venda_liquida,
-  SUM(v.QTDE_PROD * p.PRECO_CUSTO) AS cmv_estimado,
-  SUM(v.VALOR_PAGO_PROD) / NULLIF(SUM(v.QTDE_PROD * p.PRECO_CUSTO), 0) AS markup
+  SUM(v.VALOR_PAGO_PROD)              AS venda_liquida,
+  SUM(v.QTDE_PROD * p.PRECO_CUSTO)    AS cmv,
+  SUM(v.VALOR_PAGO_PROD)
+    / NULLIF(SUM(v.QTDE_PROD * p.PRECO_CUSTO), 0) AS markup
 FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
 LEFT JOIN `soma-pipeline-prd.silver_linx.PRODUTOS_PRECOS` p
   ON v.PRODUTO = p.PRODUTO
+ AND p.CODIGO_TAB_PRECO = 'CT'
 WHERE v.DATA_VENDA BETWEEN :start AND :end
 ```
 
-**Caveats:**
-- `PRODUTOS_PRECOS` tem versões por `CODIGO_TAB_PRECO` — joinar pela tabela de preço vigente na venda quando precisar precisão (ver `schema.md`).
-- Em devoluções, `QTDE_PROD` é negativo → CMV fica negativo também (correto, alinha o sinal).
-- Se a análise filtra só `VALOR_PAGO_PROD > 0` (exclui devoluções), o problema de sinal não aparece.
+**Regras:**
+- Sempre filtrar `CODIGO_TAB_PRECO = 'CT'` no join — essa é a tabela de custo.
+- CMV = `QTDE_PROD * PRECO_CUSTO` (custo unitário × quantidade). Se são 3 peças, o CMV é 3× o custo unitário.
+- Em devoluções, `QTDE_PROD` é negativo → CMV fica negativo (correto, alinha o sinal da receita).
 
 ---
 
@@ -131,6 +146,17 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 | Filtro de canceladas | `DATA_DESATIVACAO` (semântica a confirmar) |
 
 `DATA_VENDA` é a escolha segura para quase toda análise. Usar `DATA_VENDA_RELATIVA` apenas quando **explicitamente** pedido comparativo com semana/dia equivalente do ano anterior.
+
+### 6.1 Glossário de janelas temporais
+
+| Termo | Significado | Filtro SQL (padrão) |
+|---|---|---|
+| **MTD** (month-to-date) | Do 1º dia do mês corrente **até ontem** (inclusive) | `DATA_VENDA BETWEEN DATE_TRUNC(CURRENT_DATE(), MONTH) AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)` |
+| **YTD** (year-to-date) | Do 1º dia do ano corrente **até ontem** (inclusive) | `DATA_VENDA BETWEEN DATE_TRUNC(CURRENT_DATE(), YEAR) AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)` |
+
+- Regra: **MTD e YTD nunca incluem o dia de hoje** — o fechamento do dia corrente é parcial e distorce a análise. O corte é sempre `CURRENT_DATE() - 1`.
+- Comparativos (MTD vs. MTD do mês/ano anterior) aplicam a mesma janela deslocada: mesmo nº de dias, terminando na data equivalente.
+- Para comparativos YoY com calendário ajustado, ver `DATA_VENDA_RELATIVA` no §6.
 
 ---
 
@@ -204,6 +230,20 @@ GROUP BY 1, 2
 | "por produto" (default) | `PRODUTO + COR_PRODUTO` ✅ |
 | "por SKU" ou "por tamanho" | `PRODUTO + COR_PRODUTO + TAMANHO` |
 | "só por estilo" ou "ignora cor" | `PRODUTO` (agregado) — **perguntar antes**, é contra-intuitivo |
+
+### 8.1.1 Categoria de produto — `LINHA` vs. `GRUPO_PRODUTO`
+
+Os dois campos principais de categorização de produto são:
+
+| Campo | Uso típico |
+|---|---|
+| `LINHA` | Categoria de nível mais alto / macro-categoria (default) |
+| `GRUPO_PRODUTO` | Agrupamento mais granular dentro da linha |
+
+**Regra de conduta:**
+- Quando o usuário pedir análise "por categoria", "por tipo de produto" ou algo similar sem especificar, **perguntar qual campo ele quer** (`LINHA` ou `GRUPO_PRODUTO`).
+- Se ele não responder ou disser "tanto faz / o que for melhor", usar **`LINHA`** como default.
+- Ambas as colunas vivem em `PRODUTOS` — joinar via `USING (PRODUTO)`.
 
 ### Fotos de produto em relatórios
 

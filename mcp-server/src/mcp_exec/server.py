@@ -347,6 +347,15 @@ def main() -> None:
         path=Path(os.environ.get("MCP_ALLOWLIST", "/app/config/allowed_execs.json"))
     )
 
+    # Configure DNS rebinding protection with the Railway public hostname.
+    from mcp.server.streamable_http_manager import TransportSecuritySettings
+    public_host = os.environ.get("MCP_PUBLIC_HOST", "bq-analista-production-59a9.up.railway.app")
+    mcp.session_manager.security_settings = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[public_host, f"{public_host}:443", "localhost", "localhost:8080"],
+        allowed_origins=["https://" + public_host, "https://claude.ai"],
+    )
+
     # StreamableHTTP requires its session_manager to be started via lifespan.
     @contextlib.asynccontextmanager
     async def lifespan(app):

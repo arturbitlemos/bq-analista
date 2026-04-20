@@ -24,7 +24,26 @@ from mcp_exec.sandbox import PathSandboxError, exec_analysis_path, exec_library_
 from mcp_exec.settings import load_settings
 from mcp_exec.sql_validator import SqlValidationError, validate_readonly_sql
 
-mcp = FastMCP("mcp-exec-azzas")
+from mcp.server.streamable_http_manager import TransportSecuritySettings as _TSS
+
+_public_host = os.environ.get("MCP_PUBLIC_HOST", "bq-analista-production-59a9.up.railway.app")
+mcp = FastMCP(
+    "mcp-exec-azzas",
+    transport_security=_TSS(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[
+            _public_host,
+            f"{_public_host}:443",
+            "localhost",
+            "localhost:8080",
+            "127.0.0.1",
+        ],
+        allowed_origins=[
+            f"https://{_public_host}",
+            "https://claude.ai",
+        ],
+    ),
+)
 
 
 def _repo_root() -> Path:
@@ -345,15 +364,6 @@ def main() -> None:
     )
     allowlist = Allowlist(
         path=Path(os.environ.get("MCP_ALLOWLIST", "/app/config/allowed_execs.json"))
-    )
-
-    # Configure DNS rebinding protection with the Railway public hostname.
-    from mcp.server.streamable_http_manager import TransportSecuritySettings
-    public_host = os.environ.get("MCP_PUBLIC_HOST", "bq-analista-production-59a9.up.railway.app")
-    mcp.session_manager.security_settings = TransportSecuritySettings(
-        enable_dns_rebinding_protection=True,
-        allowed_hosts=[public_host, f"{public_host}:443", "localhost", "localhost:8080"],
-        allowed_origins=["https://" + public_host, "https://claude.ai"],
     )
 
     # StreamableHTTP requires its session_manager to be started via lifespan.

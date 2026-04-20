@@ -14,10 +14,28 @@ from mcp_exec.azure_auth import AzureAuth, AzureAuthError
 from mcp_exec.jwt_tokens import TokenError, TokenIssuer
 
 
-class LoggingMiddleware(BaseHTTPMiddleware):
+class MCPAuthMiddleware(BaseHTTPMiddleware):
+    """Return 401 + WWW-Authenticate on /mcp requests without a Bearer token.
+
+    This causes Claude.ai to trigger the OAuth flow automatically instead of
+    connecting unauthenticated and failing later inside the tool handler.
+    """
+
     async def dispatch(self, request: Request, call_next):
         if request.url.path.startswith("/mcp"):
-            logger.info(f"{request.method} {request.url.path} {request.headers.get('authorization', 'no-auth')}")
+            auth = request.headers.get("authorization", "")
+            logger.info(f"{request.method} {request.url.path} {'bearer' if auth.lower().startswith('bearer ') else 'no-auth'}")
+            if not auth.lower().startswith("bearer "):
+                proto = request.headers.get("x-forwarded-proto", "https")
+                host = request.headers.get("x-forwarded-host") or request.headers.get("host", "localhost")
+                resource_url = f"{proto}://{host}/.well-known/oauth-protected-resource"
+                from starlette.responses import Response
+                return Response(
+                    status_code=401,
+                    headers={
+                        "WWW-Authenticate": f'Bearer realm="mcp-exec-azzas", resource_metadata="{resource_url}"',
+                    },
+                )
         return await call_next(request)
 
 
@@ -30,7 +48,7 @@ def build_auth_app(
 ) -> FastAPI:
     # redirect_slashes=False prevents FastAPI from redirecting /mcp → /mcp/
     app = FastAPI(redirect_slashes=False, lifespan=lifespan)
-    app.add_middleware(LoggingMiddleware)
+    app.add_middleware(MCPAuthMiddleware)
 
     @app.get("/auth/start")
     def start() -> RedirectResponse:
@@ -99,14 +117,17 @@ def build_auth_app(
             "introspection_endpoint_supported": False,
         }
 
-    @app.get("/.well-known/oauth-protected-resource/mcp")
-    def oauth_protected_resource() -> dict:
-        """OAuth 2.0 Protected Resource Metadata for Claude.ai MCP integration."""
+    @app.get("/.well-known/oauth-protected-resource")
+    def oauth_protected_resource(req: Request) -> dict:
+        """OAuth 2.0 Protected Resource Metadata (RFC 9728) for Claude.ai discovery."""
+        proto = req.headers.get("x-forwarded-proto", "https")
+        host = req.headers.get("x-forwarded-host") or req.headers.get("host", "localhost")
+        base_url = f"{proto}://{host}"
         return {
-            "resource": "mcp-exec-azzas",
-            "uri": "/mcp",
-            "access_token_type": "Bearer",
-            "auth_required": True,
+            "resource": f"{base_url}/mcp",
+            "authorization_servers": [base_url],
+            "bearer_methods_supported": ["header"],
+            "resource_signing_alg_values_supported": ["RS256"],
         }
 
     return app

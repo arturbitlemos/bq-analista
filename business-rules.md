@@ -25,7 +25,7 @@ WHERE DATA_VENDA BETWEEN :start AND :end
 |---|---|---|
 | Excluir devoluções | filtrar `VALOR_PAGO_PROD > 0` **ou** `QTDE_PROD > 0` | ✅ ok |
 | Excluir marketplace externo | não aplicável — marketplace externo não aparece nesta tabela | ✅ não se aplica |
-| Excluir franquia | regra não confirmada no modelo Linx | 🟡 PENDENTE |
+| Excluir franquia | não aplicável — franquia não aparece nesta tabela | ✅ não se aplica |
 | Excluir cancelados | não necessário — cancelados não contaminam esta tabela | ✅ não se aplica |
 
 Quando filtro adicional for necessário e estiver marcado pendente acima, **peça confirmação ao usuário** antes de rodar.

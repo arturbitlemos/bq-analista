@@ -56,6 +56,17 @@ def build_auth_app(
     def health() -> dict:
         return {"status": "ok"}
 
+    @app.get("/mcp-info")
+    def mcp_info() -> dict:
+        """Debug endpoint to verify MCP server is responding."""
+        return {
+            "name": "mcp-exec-azzas",
+            "version": "1.0",
+            "status": "ok",
+            "auth_required": True,
+            "message": "Use Bearer token to access /mcp SSE endpoint",
+        }
+
     @app.get("/.well-known/oauth-authorization-server")
     def oauth_metadata(req: Request) -> dict:
         """OAuth 2.0 Authorization Server Metadata (RFC 8414) for Claude.ai discovery."""

@@ -26,9 +26,10 @@ def build_auth_app(
     azure: AzureAuth,
     issuer: TokenIssuer,
     allowlist: Allowlist,
+    lifespan=None,
 ) -> FastAPI:
     # redirect_slashes=False prevents FastAPI from redirecting /mcp → /mcp/
-    app = FastAPI(redirect_slashes=False)
+    app = FastAPI(redirect_slashes=False, lifespan=lifespan)
     app.add_middleware(LoggingMiddleware)
 
     @app.get("/auth/start")

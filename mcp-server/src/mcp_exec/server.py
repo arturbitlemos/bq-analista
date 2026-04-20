@@ -323,6 +323,7 @@ async def listar_analises(escopo: str, ctx: Context) -> dict:
 
 
 def main() -> None:
+    import contextlib
     import uvicorn
     from mcp_exec.auth_routes import build_auth_app
     from mcp_exec.azure_auth import AzureAuth
@@ -346,18 +347,17 @@ def main() -> None:
         path=Path(os.environ.get("MCP_ALLOWLIST", "/app/config/allowed_execs.json"))
     )
 
-    auth_app = build_auth_app(azure=azure, issuer=issuer, allowlist=allowlist)
+    # StreamableHTTP requires its session_manager to be started via lifespan.
+    @contextlib.asynccontextmanager
+    async def lifespan(app):
+        async with mcp.session_manager.run():
+            yield
 
-    # streamable_http_app() already exposes /mcp internally — mount at root.
-    # sse_app() exposes /sse + /messages — mount at /mcp so they become /mcp/sse.
-    if hasattr(mcp, "streamable_http_app"):
-        auth_app.mount("/", mcp.streamable_http_app())
-        print("✓ Mounted MCP via streamable_http_app() at /mcp", file=__import__('sys').stderr)
-    elif hasattr(mcp, "sse_app"):
-        auth_app.mount("/mcp", mcp.sse_app())
-        print("✓ Mounted MCP via sse_app() at /mcp/sse", file=__import__('sys').stderr)
-    else:
-        print("✗ Warning: Could not mount FastMCP app", file=__import__('sys').stderr)
+    auth_app = build_auth_app(azure=azure, issuer=issuer, allowlist=allowlist, lifespan=lifespan)
+
+    # streamable_http_app() exposes /mcp — mount at root so it lands at /mcp.
+    auth_app.mount("/", mcp.streamable_http_app())
+    print("✓ MCP mounted via streamable_http_app() at /mcp", file=__import__('sys').stderr)
 
     port = int(os.environ.get("PORT", settings.server.port))
     uvicorn.run(auth_app, host=settings.server.host, port=port)

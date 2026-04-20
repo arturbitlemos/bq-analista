@@ -15,27 +15,10 @@ from mcp_exec.jwt_tokens import TokenError, TokenIssuer
 
 
 class MCPAuthMiddleware(BaseHTTPMiddleware):
-    """Return 401 + WWW-Authenticate on /mcp requests without a Bearer token.
-
-    This causes Claude.ai to trigger the OAuth flow automatically instead of
-    connecting unauthenticated and failing later inside the tool handler.
-    """
-
     async def dispatch(self, request: Request, call_next):
         if request.url.path.startswith("/mcp"):
             auth = request.headers.get("authorization", "")
             logger.info(f"{request.method} {request.url.path} {'bearer' if auth.lower().startswith('bearer ') else 'no-auth'}")
-            if not auth.lower().startswith("bearer "):
-                proto = request.headers.get("x-forwarded-proto", "https")
-                host = request.headers.get("x-forwarded-host") or request.headers.get("host", "localhost")
-                resource_url = f"{proto}://{host}/.well-known/oauth-protected-resource"
-                from starlette.responses import Response
-                return Response(
-                    status_code=401,
-                    headers={
-                        "WWW-Authenticate": f'Bearer realm="mcp-exec-azzas", resource_metadata="{resource_url}"',
-                    },
-                )
         return await call_next(request)
 
 

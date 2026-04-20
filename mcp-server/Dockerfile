@@ -22,7 +22,8 @@ COPY scripts/ scripts/
 
 RUN useradd -m -u 1000 mcp \
     && mkdir -p /var/mcp /app/repo /app/config \
-    && chown -R mcp:mcp /app /var/mcp
+    && chown -R mcp:mcp /app /var/mcp \
+    && chmod +x /app/scripts/entrypoint.sh
 USER mcp
 
 ENV PYTHONPATH=/app/src
@@ -32,4 +33,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 EXPOSE 3000
 
-CMD ["python", "-m", "mcp_exec.server"]
+CMD ["/app/scripts/entrypoint.sh"]

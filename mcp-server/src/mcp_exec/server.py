@@ -348,19 +348,16 @@ def main() -> None:
 
     auth_app = build_auth_app(azure=azure, issuer=issuer, allowlist=allowlist)
 
-    # Mount MCP transport under /mcp path
-    mcp_app = None
-    for method_name in ["sse_app", "streamable_http_app"]:
-        if hasattr(mcp, method_name):
-            method = getattr(mcp, method_name)
-            mcp_app = method()
-            print(f"✓ Mounted MCP via {method_name}()", file=__import__('sys').stderr)
-            break
-
-    if mcp_app:
-        auth_app.mount("/mcp", mcp_app)
+    # streamable_http_app() already exposes /mcp internally — mount at root.
+    # sse_app() exposes /sse + /messages — mount at /mcp so they become /mcp/sse.
+    if hasattr(mcp, "streamable_http_app"):
+        auth_app.mount("/", mcp.streamable_http_app())
+        print("✓ Mounted MCP via streamable_http_app() at /mcp", file=__import__('sys').stderr)
+    elif hasattr(mcp, "sse_app"):
+        auth_app.mount("/mcp", mcp.sse_app())
+        print("✓ Mounted MCP via sse_app() at /mcp/sse", file=__import__('sys').stderr)
     else:
-        print("✗ Warning: Could not mount FastMCP app (no sse_app or streamable_http_app)", file=__import__('sys').stderr)
+        print("✗ Warning: Could not mount FastMCP app", file=__import__('sys').stderr)
 
     port = int(os.environ.get("PORT", settings.server.port))
     uvicorn.run(auth_app, host=settings.server.host, port=port)

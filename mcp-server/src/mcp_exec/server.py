@@ -348,12 +348,19 @@ def main() -> None:
 
     auth_app = build_auth_app(azure=azure, issuer=issuer, allowlist=allowlist)
 
-    # Mount MCP SSE transport under /mcp path
-    try:
-        auth_app.mount("/mcp", mcp.sse_app())
-    except AttributeError:
-        # Some FastMCP versions expose `.streamable_http_app()` instead
-        auth_app.mount("/mcp", mcp.streamable_http_app())
+    # Mount MCP transport under /mcp path
+    mcp_app = None
+    for method_name in ["sse_app", "streamable_http_app"]:
+        if hasattr(mcp, method_name):
+            method = getattr(mcp, method_name)
+            mcp_app = method()
+            print(f"✓ Mounted MCP via {method_name}()", file=__import__('sys').stderr)
+            break
+
+    if mcp_app:
+        auth_app.mount("/mcp", mcp_app)
+    else:
+        print("✗ Warning: Could not mount FastMCP app (no sse_app or streamable_http_app)", file=__import__('sys').stderr)
 
     port = int(os.environ.get("PORT", settings.server.port))
     uvicorn.run(auth_app, host=settings.server.host, port=port)

@@ -56,4 +56,23 @@ def build_auth_app(
     def health() -> dict:
         return {"status": "ok"}
 
+    @app.get("/.well-known/oauth-authorization-server")
+    def oauth_metadata(req: Request) -> dict:
+        """OAuth 2.0 Authorization Server Metadata (RFC 8414) for Claude.ai discovery."""
+        # Infer base URL from X-Forwarded-Proto/Host headers (set by reverse proxies) or fallback to request
+        proto = req.headers.get("x-forwarded-proto", "https")
+        host = req.headers.get("x-forwarded-host") or req.headers.get("host", "localhost:3000")
+        base_url = f"{proto}://{host}"
+
+        return {
+            "issuer": base_url,
+            "authorization_endpoint": f"{base_url}/auth/start",
+            "token_endpoint": f"{base_url}/auth/callback",
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code"],
+            "token_endpoint_auth_methods_supported": ["none"],
+            "revocation_endpoint_supported": False,
+            "introspection_endpoint_supported": False,
+        }
+
     return app

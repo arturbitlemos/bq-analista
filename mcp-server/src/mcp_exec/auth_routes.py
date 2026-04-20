@@ -2,12 +2,24 @@ from __future__ import annotations
 
 import secrets
 
+import logging
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware import Middleware
+from fastapi.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+
+logger = logging.getLogger(__name__)
 
 from mcp_exec.allowlist import Allowlist
 from mcp_exec.azure_auth import AzureAuth, AzureAuthError
 from mcp_exec.jwt_tokens import TokenError, TokenIssuer
+
+
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path.startswith("/mcp"):
+            logger.info(f"{request.method} {request.url.path} {request.headers.get('authorization', 'no-auth')}")
+        return await call_next(request)
 
 
 def build_auth_app(
@@ -17,6 +29,7 @@ def build_auth_app(
     allowlist: Allowlist,
 ) -> FastAPI:
     app = FastAPI()
+    app.add_middleware(LoggingMiddleware)
 
     @app.get("/auth/start")
     def start() -> RedirectResponse:

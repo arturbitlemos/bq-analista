@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "caveman": {
+      "source": "juliusbrussee/caveman",
+      "sourceType": "github",
+      "computedHash": "a818cdc41dcfaa50dd891c5cb5e5705968338de02e7e37949ca56e8c30ad4176"
+    },
+    "report-generator": {
+      "source": "claude-office-skills/skills",
+      "sourceType": "github",
+      "computedHash": "a1d8f43dcdb5fd1d2d92bfb8f53fe37065b121b16b3609b54d700f12b0f94450"
+    }
+  }
+}

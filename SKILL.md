@@ -72,14 +72,34 @@ For all business rules, canonical formulas, and analysis templates → read `bus
 
 ## Workflow for Analytics Questions
 
+### Passo 0 — Decidir o formato da resposta
+
+Antes de executar qualquer query, classifique o pedido:
+
+**Resposta inline** (responda direto no chat, sem dashboard):
+- Pergunta pontual com uma métrica ou dimensão ("qual foi o ticket médio de ontem?")
+- Verificação rápida ("quantos pedidos tivemos hoje?")
+- Comparação simples entre dois valores
+- Pedido explícito de resposta rápida
+
+**Relatório analítico** (gera dashboard + publica):
+- Análise com múltiplos KPIs ou seções
+- Pedido de "análise", "relatório", "dashboard", "comparativo completo"
+- Resultado que o usuário vai compartilhar com outras pessoas
+- Análise histórica com mais de 2 dimensões
+
+**Quando não for óbvio**, pergunte ao usuário:
+> "Você quer uma resposta rápida aqui no chat ou um relatório completo para salvar na biblioteca?"
+
+---
+
 1. **Understand the question** — identify dimensions (marca? loja? período?) and metrics (qual KPI?)
 2. **Discover schema** if table is unknown (`bq show --schema`)
 3. **Sample data** to verify column names and value formats
 4. **Dry-run** the query
 5. **Execute** and interpret results in business context
-6. **Build HTML dashboard** (mobile-first, dark green theme — see existing dashboards for reference)
-7. **Publish** the analysis (see Publishing section below)
-8. **After corrections** → update `schema.md` with what you learned
+6. **Se relatório analítico**: Build HTML dashboard (mobile-first, dark green theme — see existing dashboards for reference) e publique (see Publishing section below)
+7. **After corrections** → update `schema.md` with what you learned
 
 ## Output Format
 - Always present numbers with Brazilian formatting (R$ 1.234,56)

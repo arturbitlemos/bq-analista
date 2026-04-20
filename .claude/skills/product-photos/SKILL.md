@@ -3,8 +3,8 @@ name: product-photos
 description: >
   Sempre que o relatório envolver lista de produtos (ranking, análise por SKU, best-sellers,
   piores giros, ruptura, cobertura por produto, etc.), incluir a foto do produto via API
-  `https://images.somalabs.com.br/query/{w}/{h}/{produto}/{cor_produto}`. Ativa automaticamente
-  em qualquer relatório cujo grão seja produto × cor.
+  `https://images.somalabs.com.br/brands/{rede}/products/reference_id/{produto}_{cor}/image`.
+  Ativa automaticamente em qualquer relatório cujo grão seja produto × cor.
   Gatilhos: "relatório de produto", "top produtos", "best-sellers", "piores vendedores",
   "ranking de SKU", "produtos em ruptura", "produtos com cobertura baixa", "análise de produto",
   "matadores", "giro por produto".
@@ -26,14 +26,17 @@ Ativar **sempre** que o output tiver uma lista/tabela cujo grão é produto (ou 
 ## API
 
 ```
-https://images.somalabs.com.br/query/{largura}/{altura}/{produto}/{cor_produto}
+https://images.somalabs.com.br/brands/{rede}/products/reference_id/{produto}_{cor}/image
 ```
 
-- `{largura}` / `{altura}`: pixels (inteiros). Defaults por contexto: **200×300** (tabelas), **400×600** (destaques), **120×180** (listas longas).
-- `{produto}`: valor da coluna `PRODUTO` em qualquer tabela Linx (ex.: `346487`).
-- `{cor_produto}`: valor da coluna `COR_PRODUTO` (ex.: `52701`). **Obrigatório** — produto sem cor não resolve.
+- `{rede}`: ID numérico da rede/marca (coluna `RL_ORIGEM` ou equivalente). Ex.: Farm = `2`.
+- `{produto}`: valor da coluna `PRODUTO` (ex.: `350625`).
+- `{cor}`: valor da coluna `COR_PRODUTO` (ex.: `0013`). **Obrigatório** — produto sem cor não resolve.
+- Separador entre produto e cor é `_` (underscore).
 
-Exemplo canônico: `https://images.somalabs.com.br/query/400/600/346487/52701`
+Exemplo canônico: `https://images.somalabs.com.br/brands/2/products/reference_id/350625_0013/image`
+
+A API entrega a imagem no tamanho nativo — não há parâmetros de largura/altura nem controle de dimensão via URL.
 
 ## Regras de renderização
 
@@ -43,8 +46,8 @@ Coluna `foto` como **primeira coluna** da tabela:
 
 ```html
 <td>
-  <img src="https://images.somalabs.com.br/query/200/300/346487/52701"
-       alt="346487 52701" width="100" height="150"
+  <img src="https://images.somalabs.com.br/brands/2/products/reference_id/350625_0013/image"
+       alt="350625 0013"
        loading="lazy"
        onerror="this.style.display='none'">
 </td>
@@ -52,22 +55,25 @@ Coluna `foto` como **primeira coluna** da tabela:
 
 - `loading="lazy"` em listas com > 10 linhas.
 - `onerror` esconde silenciosamente se a imagem não existir.
-- `src` com resolução 2× maior que o display para telas retina; `width`/`height` reservam espaço no layout.
+- Exibição é controlada via CSS (a API devolve a imagem em tamanho nativo).
 
 ### 2. Output Markdown (resposta direta no chat)
 
 ```markdown
 | Foto | Produto | Cor | Descrição | Vendas |
 |---|---|---|---|---|
-| ![](https://images.somalabs.com.br/query/120/180/346487/52701) | 346487 | 52701 | Vestido X | R$ 1,2M |
+| ![](https://images.somalabs.com.br/brands/2/products/reference_id/350625_0013/image) | 350625 | 0013 | Vestido X | R$ 1,2M |
 ```
 
 ### 3. SQL — montar a URL já na query
 
 ```sql
 SELECT
-  CONCAT('https://images.somalabs.com.br/query/200/300/',
-         v.PRODUTO, '/', v.COR_PRODUTO) AS foto_url,
+  CONCAT('https://images.somalabs.com.br/brands/',
+         CAST(v.RL_ORIGEM AS STRING),
+         '/products/reference_id/',
+         v.PRODUTO, '_', v.COR_PRODUTO,
+         '/image') AS foto_url,
   v.PRODUTO, v.COR_PRODUTO, pc.DESC_COR_PRODUTO,
   p.DESC_PRODUTO, p.COLECAO,
   SUM(v.QTDE_PROD) AS pecas,
@@ -85,20 +91,14 @@ LIMIT 50
 
 Passar a lista de produtos com chave `foto_url` populada; o template renderiza a `<img>` com as dimensões do §1.
 
-## Dimensões recomendadas por contexto
+## Proporção
 
-| Contexto | `src` | Display | Observação |
-|---|---|---|---|
-| Tabela executiva (top 20) | 200×300 | 100×150 | Padrão |
-| Dashboard hero / destaque único | 400×600 | 200×300 | Produto em foco |
-| Lista longa (> 30 linhas) | 120×180 | 60×90 | Performance |
-| Grid de cards (vitrine) | 400×600 | 240×360 | Vitrine visual |
-
-Razão **2:3 retrato** é o default — é o formato das fotos de look da Soma. Não usar quadrado nem paisagem, a menos que seja explicitamente solicitado.
+Razão **2:3 retrato** é o default — é o formato das fotos de look da Soma. Ao aplicar CSS ou container, preservar a proporção; não usar quadrado nem paisagem, a menos que seja explicitamente solicitado.
 
 ## Edge cases
 
 - **`COR_PRODUTO IS NULL`** → célula vazia, não renderizar (API exige cor).
+- **`RL_ORIGEM` desconhecido** → não renderizar; a URL precisa do ID da rede.
 - **Produto agregado por várias cores** → usar a cor com maior venda no período como representante; ou omitir.
 - **Imagem 404** → o `onerror` já resolve; não tentar fallback alternativo.
 - **Produtos inativos** (`PRODUTOS.INATIVO = 1`) → manter a foto (o cadastro histórico continua válido para identificação).
@@ -106,7 +106,6 @@ Razão **2:3 retrato** é o default — é o formato das fotos de look da Soma. 
 ## Checklist antes de entregar um relatório de produto
 
 1. Coluna `foto` / `foto_url` presente e como **primeira coluna**?
-2. Dimensões do `src` coerentes com o contexto?
-3. URL montada com `PRODUTO` **+** `COR_PRODUTO`?
-4. HTML: `loading="lazy"` em listas longas e `onerror` para 404?
-5. Markdown: sintaxe `![](...)` ou `<img>` inline?
+2. URL montada com `{rede}/products/reference_id/{PRODUTO}_{COR_PRODUTO}/image`?
+3. HTML: `loading="lazy"` em listas longas e `onerror` para 404?
+4. Markdown: sintaxe `![](...)` ou `<img>` inline?

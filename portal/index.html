@@ -389,17 +389,19 @@ async function init() {
       document.getElementById('user-email').textContent = accounts[0].username
     }
 
-    await loadLibrary()
+    const configRes = await fetch('/api/config')
+    const { domain } = await configRes.json()
+    await loadLibrary(domain)
   } catch (err) {
     document.getElementById('loading').innerHTML =
       `<p style="color:var(--ink); font-family:var(--font-editorial); font-style:italic;">Erro: ${err.message}</p>`
   }
 }
 
-async function loadLibrary() {
+async function loadLibrary(domain) {
   const [publicRes, privateRes] = await Promise.allSettled([
-    fetch('library/public.json').then(r => r.json()),
-    fetch(`library/${encodeURIComponent(userIdentity)}.json`).then(r => r.json())
+    fetch(`library/${domain}/public.json`).then(r => r.json()),
+    fetch(`library/${domain}/${encodeURIComponent(userIdentity)}.json`).then(r => r.json())
   ])
 
   const publicList = publicRes.status === 'fulfilled' ? publicRes.value : []

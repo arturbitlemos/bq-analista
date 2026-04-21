@@ -7,6 +7,7 @@ export default async (req, res) => {
 
   res.status(200).json({
     clientId: process.env.AZURE_CLIENT_ID,
-    tenantId: process.env.AZURE_TENANT_ID
+    tenantId: process.env.AZURE_TENANT_ID,
+    domain: process.env.PORTAL_DOMAIN ?? 'vendas-linx'
   })
 }

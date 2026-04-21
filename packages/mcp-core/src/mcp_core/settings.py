@@ -9,6 +9,7 @@ from pydantic import BaseModel
 class ServerSettings(BaseModel):
     host: str
     port: int
+    domain: str  # routes analyses/<domain>/ and library/<domain>/ paths
 
 
 class BigQuerySettings(BaseModel):
@@ -16,9 +17,7 @@ class BigQuerySettings(BaseModel):
     max_bytes_billed: int
     query_timeout_s: int
     max_rows: int
-    # Documentary only — dataset access is enforced by IAM on the service account,
-    # not by Python code. Listed here so operators see the intended scope.
-    allowed_datasets: list[str]
+    allowed_datasets: list[str]  # enforced via BQ dry-run in bq_client._check_allowed_datasets
 
 
 class GithubSettings(BaseModel):
@@ -58,7 +57,7 @@ def _settings_from_env() -> Settings:
     """Build Settings entirely from environment variables (Railway / container deployments)."""
     port = int(os.environ.get("PORT", os.environ.get("MCP_PORT", "3000")))
     return Settings(
-        server=ServerSettings(host="0.0.0.0", port=port),
+        server=ServerSettings(host="0.0.0.0", port=port, domain=os.environ["MCP_DOMAIN"]),
         bigquery=BigQuerySettings(
             project_id=os.environ["MCP_BQ_PROJECT_ID"],
             max_bytes_billed=int(os.environ.get("MCP_BQ_MAX_BYTES_BILLED", str(5_000_000_000))),

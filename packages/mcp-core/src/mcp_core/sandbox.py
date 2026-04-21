@@ -41,6 +41,18 @@ def exec_analysis_path(repo_root: Path, domain: str, exec_email: str, filename: 
     return target
 
 
+def public_analysis_path(repo_root: Path, domain: str, filename: str) -> Path:
+    _validate_domain(domain)
+    if not filename.endswith(".html") or len(filename) <= len(".html"):
+        raise PathSandboxError("only non-empty .html files allowed in analyses/")
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise PathSandboxError(f"invalid filename: {filename!r}")
+    base = repo_root / "analyses" / domain / "public"
+    target = base / filename
+    _ensure_inside(base, target)
+    return target
+
+
 def exec_library_path(repo_root: Path, domain: str, exec_email: str) -> Path:
     _validate_domain(domain)
     _validate_email(exec_email)

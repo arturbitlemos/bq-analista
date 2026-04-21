@@ -72,6 +72,7 @@ module.exports = async function handler(req, res) {
   }
 
   const { SESSION_SECRET, GITHUB_TOKEN, GITHUB_REPO, GITHUB_BRANCH = 'main' } = process.env
+  const domain = process.env.PORTAL_DOMAIN ?? 'vendas-linx'
   if (!SESSION_SECRET || !GITHUB_TOKEN || !GITHUB_REPO) {
     return res.status(500).json({ error: 'Variáveis de ambiente não configuradas' })
   }
@@ -89,7 +90,7 @@ module.exports = async function handler(req, res) {
 
   try {
     // 1. Read user's private library and find the entry
-    const privateLibPath = `library/${identity}.json`
+    const privateLibPath = `library/${domain}/${identity}.json`
     const privateLibrary = await readFileJson(privateLibPath)
 
     const entryIdx = privateLibrary.findIndex(e => e.id === analysisId)
@@ -97,8 +98,8 @@ module.exports = async function handler(req, res) {
 
     const entry = privateLibrary[entryIdx]
 
-    // Ownership: file must live under analyses/{identity}/
-    const expectedPrefix = `analyses/${identity}/`
+    // Ownership: file must live under analyses/{domain}/{identity}/
+    const expectedPrefix = `analyses/${domain}/${identity}/`
     if (!entry.file?.startsWith(expectedPrefix)) {
       return res.status(403).json({ error: 'Acesso negado' })
     }
@@ -106,8 +107,8 @@ module.exports = async function handler(req, res) {
     // Prefix public filename with email slug to avoid cross-user collisions
     const origFilename = entry.file.split('/').pop()
     const publicFilename = `${emailSlug(identity)}-${origFilename}`
-    const publicFilePath = `analyses/public/${publicFilename}`
-    const publicLink = `/analyses/public/${publicFilename}`
+    const publicFilePath = `analyses/${domain}/public/${publicFilename}`
+    const publicLink = `/analyses/${domain}/public/${publicFilename}`
 
     if (entry.public) {
       return res.status(200).json({ alreadyPublic: true, publicUrl: publicLink })
@@ -116,7 +117,7 @@ module.exports = async function handler(req, res) {
     // 2. Read HTML and public library in parallel
     const [htmlBase64, publicLibrary] = await Promise.all([
       readFileBase64(entry.file),
-      readFileJson('library/public.json').catch(err => {
+      readFileJson(`library/${domain}/public.json`).catch(err => {
         if (err.status === 404) return []
         throw err
       }),
@@ -158,7 +159,7 @@ module.exports = async function handler(req, res) {
         base_tree: baseTreeSha,
         tree: [
           { path: publicFilePath, mode: '100644', type: 'blob', sha: htmlBlob.sha },
-          { path: 'library/public.json', mode: '100644', type: 'blob', sha: publicLibBlob.sha },
+          { path: `library/${domain}/public.json`, mode: '100644', type: 'blob', sha: publicLibBlob.sha },
           { path: privateLibPath, mode: '100644', type: 'blob', sha: privateLibBlob.sha },
         ],
       }),

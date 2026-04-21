@@ -147,10 +147,160 @@ Variáveis de ambiente no Vercel (`vercel env`):
 
 ## Exec dispatch via MCP (beta)
 
-This repo also hosts a Python MCP server (`mcp-server/`) that lets Azzas executives run BigQuery analyses and publish dashboards to this portal directly from Claude Team on mobile, gated by Azure AD SSO + allowlist.
+This repo also hosts Python MCP servers (um por domínio, em `agents/`) that lets Azzas executives run BigQuery analyses and publish dashboards to this portal directly from Claude Team on mobile, gated by Azure AD SSO + allowlist.
 
 - Architecture spec: `docs/superpowers/specs/2026-04-18-exec-mcp-dispatch-design.md`
-- Implementation plan: `docs/superpowers/plans/2026-04-18-exec-mcp-dispatch.md`
-- MCP server code: `mcp-server/`
+- Implementation plan: `docs/superpowers/plans/2026-04-21-multi-agent-monorepo.md`
+- Shared core: `packages/mcp-core/`
+- Agentes: `agents/<domain>/`
 
-Running status: built but not yet connected to the Azzas workspace. Connect via `mcp-server/infra/claude-team/connector.md`.
+---
+
+## Configuração dos agentes MCP
+
+Cada agente (`agents/<domain>/`) é um MCP server que opera num escopo de dados específico. A configuração é dividida em **dois níveis**:
+
+### Princípio: governança no repo, deployment no env
+
+| Camada | Onde fica | Pra quê serve | Quem edita |
+|---|---|---|---|
+| **`config/settings.toml`** | Repo, checado em PR | **Governança** do agente: domínio, datasets permitidos, limites de query, retenção, TTLs de auth. Define o que o agente pode fazer. | Via PR review |
+| **Env vars** | Railway (ou plist local) | **Deployment**: segredos, projetos GCP (billing e dados), identidade do commit do GitHub. Define onde e com quem o agente roda. | Via dashboard da plataforma |
+
+**Regra de ouro:** se o valor muda entre dev e prod (ou precisa ficar em cofre), vai em env var. Se é uma regra de negócio que precisa ser auditável, vai no `settings.toml`.
+
+### Precedência
+
+Env var > `settings.toml` > default no código.
+
+### Convenção de nomes
+
+Env vars seguem `MCP_<SECTION>_<FIELD>` em UPPER_SNAKE_CASE, espelhando a estrutura do toml:
+
+| `settings.toml` | Env var equivalente |
+|---|---|
+| `[bigquery] project_id` | `MCP_BQ_PROJECT_ID` |
+| `[bigquery] billing_project_id` | `MCP_BQ_BILLING_PROJECT_ID` |
+| `[github] author_email` | `MCP_GITHUB_AUTHOR_EMAIL` |
+
+(Seções longas são abreviadas: `bigquery` → `BQ`.) A tabela exata de quais campos são sobrescrevíveis vive em `packages/mcp-core/src/mcp_core/settings.py` (`_ENV_OVERRIDES`). Para adicionar um novo campo sobrescrevível, acrescente uma linha lá.
+
+### Modelo de projeto BigQuery: billing vs. dados
+
+Dois projetos GCP **distintos**:
+
+- **`project_id`** (dados): onde os datasets vivem (ex: `soma-pipeline-prd`). Usado na validação `allowed_datasets` — o dry-run bloqueia qualquer tabela fora de `project_id.allowed_datasets`.
+- **`billing_project_id`** (billing): onde os jobs rodam e o custo é cobrado (ex: `soma-pipeline-dev`). Se ausente, cai em `project_id`.
+
+A Service Account precisa de:
+- `roles/bigquery.jobUser` no **billing project** (para criar jobs).
+- `roles/bigquery.dataViewer` nos datasets do **data project** (para ler dados).
+
+Essa separação permite centralizar billing/cota numa conta de sandbox enquanto a fonte de verdade continua em produção.
+
+### Segredos — nunca no toml
+
+Esses **sempre** ficam em env var, nunca no `settings.toml`:
+
+- `MCP_BQ_SA_KEY` — JSON da Service Account (inline) ou caminho para o arquivo
+- `MCP_AZURE_TENANT_ID`, `MCP_AZURE_CLIENT_ID`, `MCP_AZURE_CLIENT_SECRET`
+- `MCP_JWT_SECRET`
+- `GITHUB_TOKEN`
+
+---
+
+## Criando um novo agente MCP
+
+### 1. Scaffold (1 comando)
+
+```bash
+scripts/new-agent.sh vendas-ecomm
+```
+
+Isso cria `agents/vendas-ecomm/` copiado de `vendas-linx`, com o `domain` ajustado e `allowed_datasets` vazio.
+
+### 2. Configurar governança (no repo)
+
+Edite os arquivos em `agents/vendas-ecomm/`:
+
+- `config/settings.toml` → preencha `allowed_datasets` com os datasets que esse agente pode tocar.
+- `config/allowed_execs.json` → lista de emails corporativos autorizados a chamar esse MCP.
+- `src/agent/context/schema.md` → documente as tabelas (rode o protocolo PII do `CLAUDE.md` antes!).
+- `src/agent/context/business-rules.md` → documente as regras de negócio do domínio.
+
+Depois, da raiz do repo:
+
+```bash
+uv lock
+```
+
+### 3. Deploy no Railway
+
+Crie um novo serviço apontando para este repo com:
+
+- **Dockerfile path**: `agents/vendas-ecomm/Dockerfile`
+- **Build context**: raiz do repo (`.`)
+- **Branch**: `main`
+
+**Variáveis de ambiente obrigatórias:**
+
+| Variável | Exemplo | Descrição |
+|---|---|---|
+| `MCP_DOMAIN` | `vendas-ecomm` | Igual ao `domain` do `settings.toml`. Usado no fallback quando o toml não existe. |
+| `MCP_BQ_PROJECT_ID` | `soma-pipeline-prd` | Projeto onde os datasets vivem. |
+| `MCP_BQ_BILLING_PROJECT_ID` | `soma-pipeline-dev` | Projeto onde os jobs rodam (billing). |
+| `MCP_BQ_SA_KEY` | `{"type":"service_account",...}` | JSON inline da SA (ou caminho para arquivo dentro do container). |
+| `MCP_AZURE_TENANT_ID` | `...` | Azure AD tenant do grupo. |
+| `MCP_AZURE_CLIENT_ID` | `...` | App Registration client ID. |
+| `MCP_AZURE_CLIENT_SECRET` | `...` | Client secret do App Registration. |
+| `MCP_JWT_SECRET` | (randômico ≥32 bytes) | Assinatura dos JWTs internos. |
+| `GITHUB_TOKEN` | `ghp_...` | PAT com permissão de push no repo. |
+| `GITHUB_REPO` | `abitlemos/bq-analista` | `owner/repo` para o entrypoint clonar. |
+
+**Opcionais (defaults do `settings.toml`):**
+
+| Variável | Override de |
+|---|---|
+| `MCP_GITHUB_AUTHOR_EMAIL` | `[github] author_email` — precisa bater com o dono do `GITHUB_TOKEN` |
+| `MCP_GITHUB_AUTHOR_NAME` | `[github] author_name` |
+| `MCP_GITHUB_BRANCH` | `[github] branch` |
+
+### 4. Validar acesso à SA antes do deploy
+
+Rode no ambiente do Railway para garantir que a SA consegue criar jobs no billing project:
+
+```bash
+railway run python3 - <<'EOF'
+import os, json
+raw = os.environ.get("MCP_BQ_SA_KEY", "").strip()
+if not raw:
+    print("❌ MCP_BQ_SA_KEY vazio")
+else:
+    info = json.loads(raw) if raw.startswith("{") else json.load(open(raw))
+    print(f"SA: {info['client_email']}")
+    print(f"SA project: {info['project_id']}")
+    print(f"Billing (MCP_BQ_BILLING_PROJECT_ID): {os.environ.get('MCP_BQ_BILLING_PROJECT_ID')}")
+    print(f"Data (MCP_BQ_PROJECT_ID): {os.environ.get('MCP_BQ_PROJECT_ID')}")
+EOF
+```
+
+Se `bigquery.jobs.create` falhar, peça ao admin do projeto de billing:
+
+```bash
+gcloud projects add-iam-policy-binding <BILLING_PROJECT> \
+  --member="serviceAccount:<SA_EMAIL>" \
+  --role="roles/bigquery.jobUser"
+```
+
+E para cada dataset no data project:
+
+```bash
+bq add-iam-policy-binding \
+  --member="serviceAccount:<SA_EMAIL>" \
+  --role="roles/bigquery.dataViewer" \
+  <DATA_PROJECT>:<DATASET>
+```
+
+### 5. Healthcheck
+
+Depois do deploy, `GET /health` deve retornar 200. Logs do Railway mostram `Processing request of type ListToolsRequest` quando o Claude Team conecta.

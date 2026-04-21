@@ -47,21 +47,39 @@ class Settings(BaseModel):
     audit: AuditSettings
 
 
+# Deployment-level fields overridable via env vars.
+# Convention: MCP_<SECTION>_<FIELD> maps to settings.<section>.<field>.
+# Env wins over settings.toml; settings.toml wins over code defaults.
+#
+# Overridable here = fields that legitimately differ per deployment
+# (data project, billing project, commit identity). Governance fields
+# (allowed_datasets, query limits, retention, domain) stay toml-only so
+# the agent's contract is visible in the repo and reviewable via PR.
+_ENV_OVERRIDES: tuple[tuple[str, str, str], ...] = (
+    # (env_var, section, field)
+    ("MCP_BQ_PROJECT_ID", "bigquery", "project_id"),
+    ("MCP_BQ_BILLING_PROJECT_ID", "bigquery", "billing_project_id"),
+    ("MCP_GITHUB_AUTHOR_EMAIL", "github", "author_email"),
+    ("MCP_GITHUB_AUTHOR_NAME", "github", "author_name"),
+    ("MCP_GITHUB_BRANCH", "github", "branch"),
+)
+
+
 def load_settings(path: Path) -> Settings:
     if path.exists():
         data = tomllib.loads(path.read_text())
         settings = Settings.model_validate(data)
-        _apply_env_overrides(settings)
-        return settings
-    return _settings_from_env()
+    else:
+        settings = _settings_from_env()
+    _apply_env_overrides(settings)
+    return settings
 
 
 def _apply_env_overrides(settings: Settings) -> None:
-    """Override select settings fields from env vars (env takes precedence over toml)."""
-    if v := os.environ.get("MCP_BQ_PROJECT_ID"):
-        settings.bigquery.project_id = v
-    if v := os.environ.get("MCP_BQ_BILLING_PROJECT_ID"):
-        settings.bigquery.billing_project_id = v
+    for env_var, section, field in _ENV_OVERRIDES:
+        value = os.environ.get(env_var)
+        if value is not None and value != "":
+            setattr(getattr(settings, section), field, value)
 
 
 def _settings_from_env() -> Settings:

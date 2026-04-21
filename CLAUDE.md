@@ -119,3 +119,19 @@ Em caso de dúvida, aplique o Protocolo de Recusa e explique a dúvida ao usuár
 ### Registro de aprendizado
 
 Quando identificar uma coluna nova que contém PII, registre em `references/schema.md` na seção "Colunas PII identificadas" para não precisar reclassificar nas próximas sessões.
+
+---
+
+## Como criar um novo agente MCP
+
+Para scaffolding e configuração de um novo agente (`agents/<domain>/`), siga o guia canônico no **README → "Configuração dos agentes MCP"** e **"Criando um novo agente MCP"**.
+
+Pontos críticos para não esquecer:
+
+- **Governança fica em `config/settings.toml`** (datasets permitidos, limites) — checado no repo, revisado em PR.
+- **Segredos e projetos GCP ficam em env vars** (`MCP_BQ_SA_KEY`, `MCP_BQ_PROJECT_ID`, `MCP_BQ_BILLING_PROJECT_ID`) — nunca commitados.
+- **Precedência**: env > toml > default.
+- **Dois projetos GCP**: `MCP_BQ_PROJECT_ID` = onde os dados vivem (dataset validation); `MCP_BQ_BILLING_PROJECT_ID` = onde os jobs rodam (billing).
+- A SA precisa de `roles/bigquery.jobUser` **no billing project** e `roles/bigquery.dataViewer` **nos datasets do data project**.
+
+Para adicionar um novo campo sobrescrevível por env var, acrescente uma linha na tupla `_ENV_OVERRIDES` em `packages/mcp-core/src/mcp_core/settings.py`.

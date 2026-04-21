@@ -54,6 +54,33 @@ def test_server_settings_requires_domain():
         })
 
 
+def test_env_overrides_toml_for_deployment_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Deployment-specific env vars (e.g. BQ projects) win over settings.toml."""
+    toml = tmp_path / "settings.toml"
+    toml.write_text(
+        '[server]\nhost="0.0.0.0"\nport=3000\ndomain="d"\n'
+        '[bigquery]\nproject_id="toml-data"\nmax_bytes_billed=1\n'
+        'query_timeout_s=60\nmax_rows=100\nallowed_datasets=["x"]\n'
+        '[github]\nrepo_path="/r"\nbranch="main"\n'
+        'author_name="toml-bot"\nauthor_email="toml@x.com"\n'
+        '[auth]\njwt_issuer="i"\naccess_token_ttl_s=1\nrefresh_token_ttl_s=1\n'
+        '[audit]\ndb_path="/a"\nretention_days=1\n'
+    )
+    monkeypatch.setenv("MCP_BQ_PROJECT_ID", "env-data")
+    monkeypatch.setenv("MCP_BQ_BILLING_PROJECT_ID", "env-billing")
+    monkeypatch.setenv("MCP_GITHUB_AUTHOR_EMAIL", "env@x.com")
+
+    s = load_settings(toml)
+
+    assert s.bigquery.project_id == "env-data"
+    assert s.bigquery.billing_project_id == "env-billing"
+    assert s.github.author_email == "env@x.com"
+    # Governance fields stay in toml
+    assert s.bigquery.allowed_datasets == ["x"]
+
+
 def test_settings_domain_loads_from_toml(tmp_path: Path) -> None:
     toml = tmp_path / "settings.toml"
     toml.write_text("""\

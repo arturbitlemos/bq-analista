@@ -52,17 +52,18 @@ export default async function middleware(request) {
   const url = new URL(request.url)
   const pathname = decodeURIComponent(url.pathname)
 
-  // Proteção de /library/{identity}.json
+  // Proteção de /library/{domain}/{identity}.json
   if (pathname.startsWith('/library/')) {
-    const filename = pathname.slice('/library/'.length) // e.g. "user@corp.com.json" or "public.json"
+    const filename = pathname.split('/').pop() // e.g. "user@corp.com.json" or "public.json"
     const fileIdentity = filename.replace(/\.json$/, '')
     if (fileIdentity === 'public') return // qualquer autenticado: deixa passar
     if (fileIdentity !== sessionIdentity) return new Response('Acesso negado', { status: 403 })
     return // identidade bate: deixa passar
   }
 
-  // url.pathname = /analyses/public/... ou /analyses/{identity}/...
-  const segment = pathname.split('/')[2]
+  // url.pathname = /analyses/{domain}/{identity}/{filename}
+  const parts = pathname.split('/')
+  const segment = parts[3] // [0]='' [1]='analyses' [2]=domain [3]=identity
 
   if (!segment) return new Response('Not Found', { status: 404 })
   if (segment === 'public') return // qualquer autenticado: deixa passar

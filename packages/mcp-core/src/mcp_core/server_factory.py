@@ -27,7 +27,13 @@ from mcp_core.context_loader import load_exec_context
 from mcp_core.git_ops import GitOps
 from mcp_core.jwt_tokens import TokenIssuer
 from mcp_core.library import LibraryEntry, prepend_entry
-from mcp_core.sandbox import PathSandboxError, exec_analysis_path, public_library_path
+from mcp_core.sandbox import (
+    PathSandboxError,
+    exec_analysis_path,
+    exec_library_path,
+    public_analysis_path,
+    public_library_path,
+)
 from mcp_core.settings import load_settings
 from mcp_core.sql_validator import SqlValidationError, validate_readonly_sql
 
@@ -198,10 +204,22 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         slug = _slugify(title)
         filename = f"{slug}-{today}-{short_hash}.html"
 
+        # Temporary: while Azure auth is not ready, force all publishes to public
+        # so collaborators testing with a shared email can read each other's reports.
+        force_public = os.environ.get("MCP_FORCE_PUBLIC", "0") == "1"
+
         portal_root = repo_root / "portal"
         try:
-            analysis_path = exec_analysis_path(portal_root, domain, exec_email, filename)
-            library_path = public_library_path(portal_root, domain)
+            if force_public:
+                email_slug = re.sub(r"[^a-z0-9]+", "-", exec_email.lower()).strip("-")[:24] or "user"
+                public_filename = f"{email_slug}-{filename}"
+                analysis_path = public_analysis_path(portal_root, domain, public_filename)
+                library_path = public_library_path(portal_root, domain)
+                link = f"/analyses/{domain}/public/{public_filename}"
+            else:
+                analysis_path = exec_analysis_path(portal_root, domain, exec_email, filename)
+                library_path = exec_library_path(portal_root, domain, exec_email)
+                link = f"/analyses/{domain}/{exec_email}/{filename}"
         except PathSandboxError as e:
             return {"error": f"path_sandbox: {e}"}
 
@@ -210,13 +228,13 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         analysis_path.write_text(html_content)
 
         entry_id = f"{slug}-{short_hash}"
-        link = f"/analyses/{domain}/{exec_email}/{filename}"
+        entry_filename = analysis_path.name
         library_path.parent.mkdir(parents=True, exist_ok=True)
         prepend_entry(
             library_path,
             LibraryEntry(
                 id=entry_id, title=title, brand=brand, date=today,
-                link=link, description=description, tags=tags, filename=filename,
+                link=link, description=description, tags=tags, filename=entry_filename,
             ),
         )
 

@@ -52,7 +52,7 @@ export default async function middleware(request) {
   const url = new URL(request.url)
   const pathname = decodeURIComponent(url.pathname)
 
-  // Proteção de /library/{domain}/{identity}.json
+  // /library/{domain}/{filename}.json
   if (pathname.startsWith('/library/')) {
     const filename = pathname.split('/').pop() // e.g. "user@corp.com.json" or "public.json"
     const fileIdentity = filename.replace(/\.json$/, '')
@@ -61,14 +61,17 @@ export default async function middleware(request) {
     return // identidade bate: deixa passar
   }
 
-  // url.pathname = /analyses/{domain}/{identity}/{filename}
-  const parts = pathname.split('/')
-  const segment = parts[3] // [0]='' [1]='analyses' [2]=domain [3]=identity
+  // /analyses/* — aceita legado (3 seg) e novo (4 seg):
+  //   legado:  /analyses/{public|identity}/{filename}            → identity em parts[1]
+  //   novo:    /analyses/{domain}/{public|identity}/{filename}   → identity em parts[2]
+  const parts = pathname.split('/').filter(Boolean)
+  let identitySegment
+  if (parts.length === 3) identitySegment = parts[1]
+  else if (parts.length === 4) identitySegment = parts[2]
+  else return new Response('Not Found', { status: 404 })
 
-  if (!segment) return new Response('Not Found', { status: 404 })
-  if (segment === 'public') return // qualquer autenticado: deixa passar
-  if (segment !== sessionIdentity) return new Response('Acesso negado', { status: 403 })
-  // identidade bate: deixa passar
+  if (identitySegment === 'public') return
+  if (identitySegment !== sessionIdentity) return new Response('Acesso negado', { status: 403 })
 }
 
 export const config = { matcher: ['/analyses/:path*', '/library/:path*'] }

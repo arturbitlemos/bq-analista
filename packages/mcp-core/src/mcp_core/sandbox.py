@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 _EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+_DOMAIN_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")  # min 1 char, lowercase, hyphens ok
 
 
 class PathSandboxError(ValueError):
@@ -15,30 +16,35 @@ def _validate_email(email: str) -> None:
         raise PathSandboxError(f"invalid exec_email: {email!r}")
 
 
+def _validate_domain(domain: str) -> None:
+    if not _DOMAIN_RE.fullmatch(domain):
+        raise PathSandboxError(f"invalid domain: {domain!r}")
+
+
 def _ensure_inside(base: Path, target: Path) -> None:
-    base_abs = base.resolve()
-    target_abs = target.resolve()
     try:
-        target_abs.relative_to(base_abs)
+        target.resolve().relative_to(base.resolve())
     except ValueError as e:
         raise PathSandboxError(f"path escapes sandbox: {target}") from e
 
 
-def exec_analysis_path(repo_root: Path, exec_email: str, filename: str) -> Path:
+def exec_analysis_path(repo_root: Path, domain: str, exec_email: str, filename: str) -> Path:
+    _validate_domain(domain)
     _validate_email(exec_email)
     if not filename.endswith(".html") or len(filename) <= len(".html"):
         raise PathSandboxError("only non-empty .html files allowed in analyses/")
     if "/" in filename or "\\" in filename or ".." in filename:
         raise PathSandboxError(f"invalid filename: {filename!r}")
-    base = repo_root / "analyses" / exec_email
+    base = repo_root / "analyses" / domain / exec_email
     target = base / filename
     _ensure_inside(base, target)
     return target
 
 
-def exec_library_path(repo_root: Path, exec_email: str) -> Path:
+def exec_library_path(repo_root: Path, domain: str, exec_email: str) -> Path:
+    _validate_domain(domain)
     _validate_email(exec_email)
-    base = repo_root / "library"
+    base = repo_root / "library" / domain
     target = base / f"{exec_email}.json"
     _ensure_inside(base, target)
     return target

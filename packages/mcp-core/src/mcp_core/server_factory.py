@@ -182,7 +182,10 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         description: str, html_content: str,
         tags: list[str], ctx: Context,
     ) -> dict[str, object]:
-        """Publish an HTML dashboard to the exec's sandbox and update the library."""
+        """Publish an HTML dashboard to the public library and return the URL.
+
+        After publishing, share the `url` field directly with the user so they can
+        open the report at https://analysis-lib.vercel.app/."""
         exec_email = _current_email(ctx)
         settings = load_settings(_settings_path())
         repo_root = _repo_root()
@@ -234,8 +237,10 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
             output = e.output.decode(errors="replace") if e.output else str(e)
             return {"error": f"git_commit: {output.strip()}"}
 
+        portal_base = os.environ.get("MCP_PORTAL_URL", "https://analysis-lib.vercel.app").rstrip("/")
+        url = f"{portal_base}{link}"
         await ctx.report_progress(progress=1.0, total=1.0, message="dashboard published")
-        return {"id": entry_id, "link": link, "published_at": today, "commit_sha": sha}
+        return {"id": entry_id, "link": link, "url": url, "published_at": today, "commit_sha": sha}
 
     # ── Base tool: listar_analises ─────────────────────────────────────────
     @mcp.tool()

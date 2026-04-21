@@ -4,10 +4,11 @@ import os
 import secrets
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from mcp_core.allowlist import Allowlist
 from mcp_core.azure_auth import AzureAuth, AzureAuthError
@@ -80,6 +81,14 @@ def build_auth_app(
             "expires_at": pair.expires_at,
             "expires_in_days": days,
         })
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon() -> FileResponse:
+        repo_root = Path(os.environ.get("MCP_REPO_ROOT", "/app/repo"))
+        path = repo_root / "portal" / "public" / "assets" / "favicon-32x32.png"
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="favicon not found")
+        return FileResponse(path, media_type="image/png")
 
     @app.get("/health")
     def health() -> dict[str, object]:

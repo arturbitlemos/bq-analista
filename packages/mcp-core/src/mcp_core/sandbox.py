@@ -48,3 +48,11 @@ def exec_library_path(repo_root: Path, domain: str, exec_email: str) -> Path:
     target = base / f"{exec_email}.json"
     _ensure_inside(base, target)
     return target
+
+
+def public_library_path(repo_root: Path, domain: str) -> Path:
+    _validate_domain(domain)
+    base = repo_root / "library" / domain
+    target = base / "public.json"
+    _ensure_inside(base, target)
+    return target

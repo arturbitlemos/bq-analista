@@ -27,7 +27,7 @@ from mcp_core.context_loader import load_exec_context
 from mcp_core.git_ops import GitOps
 from mcp_core.jwt_tokens import TokenIssuer
 from mcp_core.library import LibraryEntry, prepend_entry
-from mcp_core.sandbox import PathSandboxError, exec_analysis_path, exec_library_path
+from mcp_core.sandbox import PathSandboxError, exec_analysis_path, public_library_path
 from mcp_core.settings import load_settings
 from mcp_core.sql_validator import SqlValidationError, validate_readonly_sql
 
@@ -198,7 +198,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         portal_root = repo_root / "portal"
         try:
             analysis_path = exec_analysis_path(portal_root, domain, exec_email, filename)
-            library_path = exec_library_path(portal_root, domain, exec_email)
+            library_path = public_library_path(portal_root, domain)
         except PathSandboxError as e:
             return {"error": f"path_sandbox: {e}"}
 

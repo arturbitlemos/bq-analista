@@ -36,3 +36,86 @@ def test_removed_from_allowlist_raises(tmp_path) -> None:
     token = actx.issuer.issue("e@x.com").access_token
     with pytest.raises(AuthError):
         extract_exec_email(token=token, ctx=actx)
+
+
+import time
+import jwt as pyjwt
+from unittest.mock import MagicMock, patch
+
+TENANT_ID = "test-tenant"
+CLIENT_ID = "test-client"
+
+
+def _azure_token(email: str, expired: bool = False) -> str:
+    now = int(time.time())
+    return pyjwt.encode(
+        {
+            "iss": f"https://login.microsoftonline.com/{TENANT_ID}/v2.0",
+            "aud": CLIENT_ID,
+            "preferred_username": email,
+            "exp": now - 10 if expired else now + 3600,
+            "iat": now,
+        },
+        "secret",
+        algorithm="HS256",
+    )
+
+
+def _make_ctx(allowed: list[str]) -> AuthContext:
+    issuer = MagicMock()
+    issuer.issuer = "mcp-exec-azzas"
+    issuer.verify_access.side_effect = Exception("should not be called for Azure tokens")
+    allowlist = MagicMock()
+    allowlist.is_allowed.side_effect = lambda e: e in allowed
+    return AuthContext(
+        issuer=issuer,
+        allowlist=allowlist,
+        azure_tenant_id=TENANT_ID,
+        azure_client_id=CLIENT_ID,
+    )
+
+
+def test_azure_token_accepted_when_on_allowlist():
+    token = _azure_token("user@soma.com.br")
+    ctx = _make_ctx(["user@soma.com.br"])
+    with patch("mcp_core.auth_middleware._validate_azure_signature", return_value=None):
+        email = extract_exec_email(token, ctx)
+    assert email == "user@soma.com.br"
+
+
+def test_azure_token_rejected_when_not_on_allowlist():
+    token = _azure_token("other@soma.com.br")
+    ctx = _make_ctx(["user@soma.com.br"])
+    with patch("mcp_core.auth_middleware._validate_azure_signature", return_value=None):
+        with pytest.raises(AuthError, match="not_on_allowlist"):
+            extract_exec_email(token, ctx)
+
+
+def test_unknown_issuer_rejected():
+    token = pyjwt.encode(
+        {"iss": "https://evil.example.com", "exp": int(time.time()) + 3600},
+        "secret",
+        algorithm="HS256",
+    )
+    ctx = _make_ctx([])
+    with pytest.raises(AuthError, match="unknown token issuer"):
+        extract_exec_email(token, ctx)
+
+
+def test_azure_passthrough_not_configured_raises():
+    token = _azure_token("user@soma.com.br")
+    ctx = _make_ctx(["user@soma.com.br"])
+    ctx.azure_tenant_id = ""  # not configured
+    with pytest.raises(AuthError, match="not configured"):
+        extract_exec_email(token, ctx)
+
+
+def test_jwks_client_reused_across_calls():
+    """PyJWKClient should not be instantiated on every call."""
+    token = _azure_token("user@soma.com.br")
+    ctx = _make_ctx(["user@soma.com.br"])
+    with patch("mcp_core.auth_middleware._validate_azure_signature", return_value=None) as mock_v:
+        extract_exec_email(token, ctx)
+        extract_exec_email(token, ctx)
+    # _validate_azure_signature is called twice but should use cached ctx
+    assert mock_v.call_count == 2

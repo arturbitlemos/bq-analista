@@ -13,7 +13,8 @@ class ServerSettings(BaseModel):
 
 
 class BigQuerySettings(BaseModel):
-    project_id: str
+    project_id: str  # data project — used for dataset/table validation
+    billing_project_id: str | None = None  # project where jobs run; falls back to project_id if unset
     max_bytes_billed: int
     query_timeout_s: int
     max_rows: int
@@ -60,6 +61,7 @@ def _settings_from_env() -> Settings:
         server=ServerSettings(host="0.0.0.0", port=port, domain=os.environ["MCP_DOMAIN"]),
         bigquery=BigQuerySettings(
             project_id=os.environ["MCP_BQ_PROJECT_ID"],
+            billing_project_id=os.environ.get("MCP_BQ_BILLING_PROJECT_ID"),
             max_bytes_billed=int(os.environ.get("MCP_BQ_MAX_BYTES_BILLED", str(5_000_000_000))),
             query_timeout_s=int(os.environ.get("MCP_BQ_QUERY_TIMEOUT_S", "60")),
             max_rows=int(os.environ.get("MCP_BQ_MAX_ROWS", "100000")),

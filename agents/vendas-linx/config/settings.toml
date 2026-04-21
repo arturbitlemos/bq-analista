@@ -4,7 +4,7 @@ port = 3000
 domain = "vendas-linx"
 
 [bigquery]
-project_id = "soma-pipeline-dev"
+project_id = "soma-pipeline-prd"
 max_bytes_billed = 5000000000
 query_timeout_s = 60
 max_rows = 100000

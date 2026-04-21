@@ -58,7 +58,7 @@ class BqClient:
         if self.bq is None:
             creds = _bq_credentials_from_env()
             self.bq = bigquery.Client(
-                project=self.settings.project_id,
+                project=self.settings.billing_project_id or self.settings.project_id,
                 credentials=creds,  # None falls back to ADC
             )
 

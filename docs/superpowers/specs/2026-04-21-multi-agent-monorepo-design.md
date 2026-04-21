@@ -21,6 +21,10 @@ O repositório `bq-analista` hoje tem um único MCP server (`mcp-server/`) que s
 | Compartilhamento de código | `packages/mcp-core/` via workspace `uv` |
 | Compartilhamento de contexto | `shared/context/` — princípios, PII, dimensões |
 | Template de novo agente | Script `scripts/new-agent.sh` (não cópia manual) |
+| Enforcement de allowed_datasets | BigQuery dry-run (não regex nem sqlparse) |
+| Auth do factory | Rígido — middleware detecta tipo de token pelo `iss` |
+| Azure SSO passthrough | Suportado — frontend envia token Azure direto, sem re-auth |
+| Azure app registration | Uma registration, múltiplos redirect URIs por agente |
 
 ---
 
@@ -115,7 +119,7 @@ def load_exec_context(agent_root: Path, shared_root: Path) -> ExecContext:
 
 ### `bq_client.py` — enforcement de allowed_datasets
 
-Antes de executar qualquer query, o cliente extrai os datasets referenciados no SQL e valida contra `settings.bigquery.allowed_datasets`. Queries fora do escopo retornam erro sem atingir o BigQuery. Este enforcement é pré-requisito para criar novos agentes.
+Antes de executar qualquer query, o cliente usa o **BigQuery dry-run** para identificar os datasets referenciados e valida contra `settings.bigquery.allowed_datasets`. Dry-run não cobra dados processados e retorna o schema completo das tabelas acessadas — suficiente para extrair os datasets sem parsear SQL manualmente. Queries fora do escopo retornam erro sem executar de fato. Este enforcement é pré-requisito para criar novos agentes.
 
 ### `server_factory.py` — novo helper
 
@@ -129,6 +133,33 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
     main para o entrypoint.
     """
 ```
+
+O factory é rígido — sempre configura os mesmos componentes. A flexibilidade de auth está no `auth_middleware`, não no factory (ver seção abaixo).
+
+### `auth_middleware.py` — dois modos de token
+
+O middleware detecta automaticamente o tipo de token pelo claim `iss`:
+
+```python
+def extract_exec_email(token: str, ctx: AuthContext) -> str:
+    payload = decode_header_only(token)
+    iss = payload.get("iss", "")
+
+    if iss == ctx.issuer.issuer:                      # "mcp-exec-azzas" — JWT interno
+        return validate_internal_jwt(token, ctx)
+    elif "login.microsoftonline.com" in iss:           # Azure AD — SSO passthrough
+        return validate_azure_token(token, ctx)
+    else:
+        raise AuthError("unknown token issuer")
+```
+
+**Modo JWT interno:** fluxo atual — token emitido por `issue_long_lived_token.py` via OAuth Azure. Usado pelo Claude.ai e CLIs.
+
+**Modo Azure SSO passthrough:** frontends já autenticados via MSAL enviam o token Azure diretamente, sem re-auth. O middleware valida assinatura contra o JWKS do tenant, extrai `upn`/`preferred_username`, checa allowlist. Nenhuma etapa extra do lado do frontend.
+
+**Requisito do frontend:** o token Azure deve ter sido solicitado com `scope = api://<client_id>/.default` (audience do app registration do MCP server). Tokens emitidos para o Microsoft Graph (`https://graph.microsoft.com`) não são aceitos.
+
+**App registration Azure:** uma única registration suporta múltiplos redirect URIs — confirmado para o tenant da Soma. Todos os agentes usam a mesma `CLIENT_ID/SECRET`, com redirect URIs distintos por agente cadastrados no painel Azure.
 
 ### `settings.py` — campo `domain`
 
@@ -202,6 +233,18 @@ Cada agente escreve exclusivamente em:
 - `portal/library/<domain>/<email>.json`
 
 Sem sobreposição entre agentes. Colisão de git dentro do mesmo agente continua sequencial — igual ao comportamento atual.
+
+### Migração dos arquivos existentes
+
+Os arquivos atuais em `portal/library/` precisam ser movidos durante a migração do agente `vendas-linx`:
+
+```
+library/artur.lemos@somagrupo.com.br.json  →  library/vendas-linx/artur.lemos@somagrupo.com.br.json
+library/public.json                         →  library/vendas-linx/public.json
+analyses/<email>/                           →  analyses/vendas-linx/<email>/
+```
+
+Este move é feito no mesmo commit da migração do código — o `listar_analises` e `publicar_dashboard` já apontam para o novo path quando o agente sobe. Sem downtime de dados.
 
 ---
 

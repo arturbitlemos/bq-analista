@@ -6,3 +6,11 @@ node_modules/
 .vercel
 .env*.local
 .claude/settings.local.json
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+.venv/
+venv/

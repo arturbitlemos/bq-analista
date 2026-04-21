@@ -321,6 +321,58 @@ Referência completa: `analyst principles.md`.
 
 ---
 
+---
+
+## 12. Venda vs Cota — regras canônicas (validado 2026-04-21)
+
+### 12.1 Fonte de venda — nunca usar LOJAS_PREVISAO_VENDAS.VENDA
+
+`LOJAS_PREVISAO_VENDAS.VENDA` (e `QTDE_VENDA`, `CUSTO`, `DESCONTO`) **não são confiáveis** — o campo existe no schema mas não é atualizado de forma consistente pelo sistema Linx. Nunca usar para calcular atingimento ou qualquer KPI de venda.
+
+**Regra:** toda análise de "venda realizada" usa exclusivamente `TB_WANMTP_VENDAS_LOJA_CAPTADO.VALOR_PAGO_PROD`.
+
+### 12.2 Atingimento de meta — loja física
+
+```sql
+-- Padrão correto: cota de LOJAS_PREVISAO_VENDAS + venda de TB_WANMTP_VENDAS_LOJA_CAPTADO
+WITH cota AS (
+  SELECT FILIAL, SUM(SAFE_CAST(PREVISAO_VALOR AS NUMERIC)) AS meta
+  FROM `soma-pipeline-prd.silver_linx.LOJAS_PREVISAO_VENDAS`
+  WHERE DATA_VENDA BETWEEN :data_inicio AND :data_fim
+  GROUP BY 1
+),
+venda AS (
+  SELECT f.FILIAL AS filial_nome,
+         SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)) AS venda
+  FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
+  LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON v.CODIGO_FILIAL_ORIGEM = f.COD_FILIAL
+  WHERE v.DATA_VENDA BETWEEN :data_inicio AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+    AND v.TIPO_VENDA = 'VENDA_LOJA'
+    AND SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC) > 0
+  GROUP BY 1
+)
+SELECT c.FILIAL, v.venda, c.meta, SAFE_DIVIDE(v.venda, c.meta) AS atingimento
+FROM cota c
+LEFT JOIN venda v ON c.FILIAL = v.filial_nome
+```
+
+### 12.3 Atingimento de meta — ecommerce (digital)
+
+**Contexto estrutural:** os sufixos `CM`, `SB`, `HRG`, `RBX` no nome de uma filial indicam o CNPJ sob o qual ela está registrada — são a **mesma filial operacional** em momentos diferentes da estratégia fiscal do grupo. A cota digital tende a ficar no CNPJ original (ex. `_CM`), enquanto o volume de vendas atual flui pelo CNPJ migrado (ex. `_SB` após incorporação para Soma Brands). Por isso, **nunca comparar cota vs venda digital fazendo join por nome de filial** — o resultado será zero ou errado.
+
+**Regra:** agregar cota e venda digital **por marca (`REDE_LOJAS`)**, usando as filiais canônicas da cota (listadas em `schema.md §11`) e `TIPO_VENDA IN ('VENDA_ECOM','VENDA_OMNI','VENDA_VITRINE')` para a venda.
+
+Padrão SQL completo e tabela de filiais canônicas: ver `schema.md §11`.
+
+### 12.4 Cota mista (física + digital juntos)
+
+Para atingimento total (físico + digital combinados por marca):
+- Cota: somar todas as filiais da marca em `LOJAS_PREVISAO_VENDAS` (não filtrar por ecom)
+- Venda: somar todos os `TIPO_VENDA` com `RL_ORIGEM = <código da marca>`
+- Agregar por `REDE_LOJAS` / marca
+
+---
+
 ## Histórico de atualizações
 
 | Data | Mudança |
@@ -328,3 +380,4 @@ Referência completa: `analyst principles.md`.
 | 2026-04-18 | Criação (modelo `refined_captacao`). |
 | 2026-04-19 | **Rewrite completo** para modelo Linx silver. Chave de pedido validada empiricamente (§3). Canal marcado como pendente (§2). CMV migrado para join com `PRODUTOS_PRECOS` (§4). |
 | 2026-04-19 | Adicionado §8.1 — grão default "por produto" = `PRODUTO + COR_PRODUTO` (agregar tamanho, não agregar cor). |
+| 2026-04-21 | Adicionado §12 — regras canônicas venda vs cota; `LOJAS_PREVISAO_VENDAS.VENDA` documentada como não confiável; mapeamento de filiais ecommerce validado (§11 em schema.md). |

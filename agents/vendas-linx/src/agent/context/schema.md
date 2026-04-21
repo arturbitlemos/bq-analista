@@ -241,6 +241,25 @@ Os **valores** batem (ex.: `"550317"`), mas os **nomes de coluna** são distinto
 - estoque (`ANMN_ESTOQUE_HISTORICO_PROD.FILIAL`) → FILIAIS.`FILIAL` (nome = nome)
 - Para juntar vendas com cota ou estoque, **sempre passar por FILIAIS** (código ↔ nome).
 
+**Armadilha 3 — sufixos de CNPJ: mesma loja, CNPJs distintos.**
+
+Os sufixos no final do nome de uma filial indicam sob qual CNPJ (empresa contábil) ela está registrada. **Operacionalmente são a mesma loja** — foram migradas ao longo do tempo por estratégia fiscal:
+
+| Sufixo | Significado | Período |
+|---|---|---|
+| `CM` | Cidade Maravilhosa (CNPJ original) | anterior à incorporação |
+| `SB` | Soma Brands (CNPJ pós-incorporação) | após migração para Soma Brands |
+| `HRG` | outro CNPJ do grupo | ativo em paralelo |
+| `RBX` | CNPJ legado | geralmente fechado (DATA_FECHAMENTO preenchida) |
+
+Exemplos: `FARM ECOMMERCE CM`, `FARM ECOMMERCE SB` e `FARM ECOMMERCE HRG` são **o mesmo canal de ecommerce da FARM** sob CNPJs diferentes.
+
+**Consequência para análise:**
+- Nunca tratar CM × SB × HRG como lojas distintas para fins comerciais.
+- Para análise de venda/cota/estoque, **sempre agregar pelo nome-base** (sem sufixo) ou pelo `REDE_LOJAS` (código de marca).
+- Ao longo do tempo, a mesma loja pode mudar de `COD_FILIAL` ao migrar de CNPJ — filtrar por `DATA_FECHAMENTO IS NULL` pega só o CNPJ ativo, mas o histórico pode estar no CNPJ anterior.
+- Para séries históricas longas (>1 ano), incluir todos os sufixos conhecidos ou filtrar por `REDE_LOJAS`.
+
 Colunas-chave:
 
 | Coluna | Tipo | Uso |
@@ -283,9 +302,9 @@ Colunas-chave:
 | `PREVISAO_VALOR_MES` | STRING | Meta R$ mensal |
 | `PREVISAO_QTDE` | INTEGER | Meta em peças (diária) |
 | `PREVISAO_QTDE_MES` | INTEGER | Meta em peças (mês) |
-| `VENDA` | STRING | Venda realizada R$ (cast) |
-| `CUSTO` | STRING | Custo R$ (cast) |
-| `DESCONTO` | STRING | Desconto R$ (cast) |
+| `VENDA` | STRING | 🚫 **NÃO USAR** — campo não é atualizado de forma confiável pelo sistema Linx. Não reflete a venda real. Para venda realizada, sempre calcular via `TB_WANMTP_VENDAS_LOJA_CAPTADO`. |
+| `CUSTO` | STRING | Custo R$ (cast) — mesma ressalva: não confiável |
+| `DESCONTO` | STRING | Desconto R$ (cast) — mesma ressalva: não confiável |
 | `QTDE_VENDA` | INTEGER | Qtd vendida |
 | `QTDE_ENTRADA` / `QTDE_SAIDA` / `QTDE_TROCA` | INTEGER | Movimentação |
 | `NUMERO_TICKETS` | INTEGER | Transações |
@@ -299,10 +318,13 @@ Colunas-chave:
 | `TROCA`, `TROCA_CUSTO`, `TROCA_DESCONTO` | STRING | Trocas R$ |
 | `INATIVA_FLASH` | BOOLEAN | Flag |
 
-**Atingimento de meta (padrão):**
+**⛔ Padrão ERRADO — nunca fazer:**
 ```sql
+-- ❌ LOJAS_PREVISAO_VENDAS.VENDA não é confiável — não representa a venda real
 SAFE_DIVIDE(SAFE_CAST(VENDA AS NUMERIC), SAFE_CAST(PREVISAO_VALOR AS NUMERIC)) AS atingimento_valor
 ```
+
+**✅ Padrão correto — venda sempre de TB_WANMTP_VENDAS_LOJA_CAPTADO** (ver §8 e business-rules.md §12)
 
 ⚠️ Muitos valores numéricos estão como STRING — sempre `SAFE_CAST(... AS NUMERIC)`.
 
@@ -584,17 +606,42 @@ GROUP BY 1,2,3,4,5,6,7,8
 ```
 
 ```sql
--- Atingimento de meta por filial (mês corrente)
+-- ⛔ NÃO FAZER — usa LOJAS_PREVISAO_VENDAS.VENDA que não é confiável
+-- SELECT m.FILIAL, SUM(SAFE_CAST(m.VENDA AS NUMERIC)) AS venda ...
+
+-- ✅ Atingimento de meta por filial FÍSICA (mês corrente)
+-- Venda calculada sempre via TB_WANMTP_VENDAS_LOJA_CAPTADO
+WITH cota AS (
+  SELECT
+    m.FILIAL,
+    SUM(SAFE_CAST(m.PREVISAO_VALOR AS NUMERIC)) AS meta_valor
+  FROM `soma-pipeline-prd.silver_linx.LOJAS_PREVISAO_VENDAS` m
+  WHERE DATE_TRUNC(m.DATA_VENDA, MONTH) = DATE_TRUNC(CURRENT_DATE(), MONTH)
+  GROUP BY 1
+),
+venda AS (
+  SELECT
+    f.FILIAL AS filial_nome,
+    SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)) AS venda_liquida
+  FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
+  LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON v.CODIGO_FILIAL_ORIGEM = f.COD_FILIAL
+  WHERE v.DATA_VENDA BETWEEN DATE_TRUNC(CURRENT_DATE(), MONTH)
+                         AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+    AND v.TIPO_VENDA = 'VENDA_LOJA'
+    AND SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC) > 0
+  GROUP BY 1
+)
 SELECT
-  m.FILIAL, f.REGIAO,
-  SUM(SAFE_CAST(m.VENDA AS NUMERIC)) AS venda,
-  SUM(SAFE_CAST(m.PREVISAO_VALOR AS NUMERIC)) AS meta,
-  SAFE_DIVIDE(SUM(SAFE_CAST(m.VENDA AS NUMERIC)),
-              SUM(SAFE_CAST(m.PREVISAO_VALOR AS NUMERIC))) AS atingimento
-FROM `soma-pipeline-prd.silver_linx.LOJAS_PREVISAO_VENDAS` m
-LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON m.FILIAL = f.FILIAL  -- ambos nome (texto)
-WHERE DATE_TRUNC(m.DATA_VENDA, MONTH) = DATE_TRUNC(CURRENT_DATE(), MONTH)
-GROUP BY 1, 2
+  c.FILIAL,
+  f.REGIAO,
+  v.venda_liquida AS venda,
+  c.meta_valor AS meta,
+  SAFE_DIVIDE(v.venda_liquida, c.meta_valor) AS atingimento
+FROM cota c
+LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON c.FILIAL = f.FILIAL
+LEFT JOIN venda v ON c.FILIAL = v.filial_nome
+ORDER BY 1
+-- Para ecommerce, ver §11 e business-rules.md §12
 ```
 
 ```sql
@@ -638,7 +685,101 @@ GROUP BY 1
 - [ ] **10.1 Definir a regra de alocação de canal (Físico × Online)** no modelo Linx — a regra antiga do `refined_captacao` (baseada em `tipo_venda`) não se traduz direto. Candidatos: combinar `TIPO_VENDA` (VENDA_LOJA/VENDA_ECOM/VENDA_OMNI/VENDA_VITRINE) + `SUB_TIPO_VENDA` + indicadores `INDICA_ORIGEM_ECOM` / `INDICA_DESTINO_ECOM` / `INDICA_FAT_ECOM` / `INDICA_PEDIDO_VITRINE` + `SELLER` para identificar marketplace externo. Pendente de decisão do usuário.
 - [ ] **10.2 Regra "excluir franquia física"** no Linx — no modelo antigo era `tipo_venda=FISICO AND programa=franquia`. Candidatos: `FILIAIS.INDICA_FRANQUIA` ou `FILIAIS.FILIAL_PROPRIA`. Pendente de decisão do usuário.
 
-## 11. Validações já fechadas (2026-04-18)
+## 11. Filiais Ecommerce por marca — mapeamento cota × venda (validado 2026-04-21)
+
+> **Contexto:** cada marca tem filiais dedicadas a ecommerce no Linx. A cota digital é registrada nessas filiais em `LOJAS_PREVISAO_VENDAS`, e as vendas digitais saem de `TB_WANMTP_VENDAS_LOJA_CAPTADO` com `TIPO_VENDA IN ('VENDA_ECOM','VENDA_OMNI','VENDA_VITRINE')`.
+>
+> **Sobre os sufixos CM / SB / HRG / RBX:** a mesma filial operacional pode aparecer com sufixos diferentes porque cada sufixo representa o CNPJ sob o qual ela está registrada (ver §4 Armadilha 3). `FARM ECOMMERCE CM` e `FARM ECOMMERCE SB` são **o mesmo canal de ecommerce da FARM** — a diferença é apenas o CNPJ após a incorporação para Soma Brands. Para análise comercial, **trate todos os sufixos da mesma filial como uma única entidade**.
+>
+> **Problema de join:** a cota fica registrada em um sufixo (ex. `_CM`) enquanto o volume de venda atual flui pelo outro (ex. `_SB`). Por isso **nunca comparar cota vs venda digital fazendo join por nome de filial** — o cruzamento correto é por marca (`REDE_LOJAS` / `RL_ORIGEM`).
+
+### Tabela canônica — filiais-base ecommerce por marca (validada 2025)
+
+A coluna "nome-base" é o nome sem sufixo de CNPJ. Todos os sufixos de um mesmo nome-base são a mesma filial operacional.
+
+| Marca | RL | Nome-base ecommerce | Sufixos observados | Filial da COTA ativa (LOJAS_PREVISAO_VENDAS) | Observação |
+|---|---|---|---|---|---|
+| ANIMALE | 1 | `ANIMALE ECOMMERCE` | CM, SB, HRG | `ANIMALE ECOMMERCE CM` | — |
+| BYNV | 16 | `NV ECOMMERCE` / `NV ECOMMERCE RJ` | SB, CM, RJ CM, RJ OFF CM | `NV - ECOMMERCE` (nome legado) | Nome da cota difere do padrão atual |
+| CAROL BASSI | 30 | `CAROL BASSI ECOMMERCE` | (sem sufixo) | `CAROL BASSI ECOMMERCE` | Único — sem split CNPJ |
+| CRIS BARROS | 9 | `CRIS BARROS ECOMMERCE` | CM, SB | `CRIS BARROS ECOMMERCE CM` | — |
+| FABULA | 5 | `FABULA ECOMMERCE` | CM, SB, HRG | `ECOMMERCE FABULA RBX` (nome legado) | Nome da cota é um legado RBX |
+| FARM | 2 | `FARM ECOMMERCE` | CM, SB, HRG | `FARM ECOMMERCE CM` | — |
+| FARM ETC | 26 | `FARM ETC ECOMMERCE` | (sem sufixo) | `FARM ETC ECOMMERCE` | Canal sem volume de venda identificado em 2025 |
+| FOXTON | 7 | `FOXTON ECOMMERCE` | CM, SB, HRG | `FOXTON ECOMMERCE CM` | — |
+| MARIA FILO | 15 | `MF ECOMMERCE` | CM, SB | `MF ECOMMERCE CM` | — |
+| OUTLET | 6 | `CDS OUTLET ECOMMERCE` / `OUTLET ECOMMERCE` | CM, SB | `CDS OUTLET ECOMMERCE CM` | — |
+
+### Regra de join para cota vs venda digital
+
+**Nunca fazer:**
+```sql
+-- ❌ Join por nome de filial — CM da cota ≠ SB onde a venda flui
+JOIN LOJAS_PREVISAO_VENDAS m ON filial_venda = m.FILIAL
+```
+
+**Fazer — agregar por marca (`REDE_LOJAS`):**
+```sql
+-- ✅ Cota: todas as filiais ecommerce da marca (todos os sufixos)
+-- ✅ Venda: TIPO_VENDA digital, todos os sufixos da marca
+-- ✅ Join por REDE_LOJAS — elimina o problema de sufixo
+WITH cota_digital AS (
+  SELECT
+    f.REDE_LOJAS,
+    lr.DESC_REDE_LOJAS AS marca,
+    SUM(SAFE_CAST(m.PREVISAO_VALOR AS NUMERIC)) AS meta_digital
+  FROM `soma-pipeline-prd.silver_linx.LOJAS_PREVISAO_VENDAS` m
+  LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON m.FILIAL = f.FILIAL
+  LEFT JOIN `soma-pipeline-prd.silver_linx.LOJAS_REDE` lr ON f.REDE_LOJAS = lr.REDE_LOJAS
+  WHERE m.FILIAL IN (
+    -- todos os sufixos das filiais ecommerce ativas (CM, SB, HRG, legados)
+    'ANIMALE ECOMMERCE CM',
+    'NV - ECOMMERCE',            -- nome legado BYNV
+    'CAROL BASSI ECOMMERCE',
+    'CRIS BARROS ECOMMERCE CM',
+    'ECOMMERCE FABULA RBX',      -- nome legado FABULA
+    'FARM ECOMMERCE CM',
+    'FARM ETC ECOMMERCE',
+    'FOXTON ECOMMERCE CM',
+    'MF ECOMMERCE CM',
+    'CDS OUTLET ECOMMERCE CM'
+  )
+  AND m.DATA_VENDA BETWEEN :data_inicio AND :data_fim
+  GROUP BY 1, 2
+),
+venda_digital AS (
+  SELECT
+    CAST(v.RL_ORIGEM AS STRING) AS REDE_LOJAS,
+    lr.DESC_REDE_LOJAS AS marca,
+    SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)) AS venda_digital
+  FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
+  LEFT JOIN `soma-pipeline-prd.silver_linx.LOJAS_REDE` lr ON CAST(v.RL_ORIGEM AS STRING) = lr.REDE_LOJAS
+  WHERE v.DATA_VENDA BETWEEN :data_inicio AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+    AND v.TIPO_VENDA IN ('VENDA_ECOM', 'VENDA_OMNI', 'VENDA_VITRINE')
+    AND SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC) > 0
+  GROUP BY 1, 2
+)
+SELECT
+  c.marca,
+  v.venda_digital,
+  c.meta_digital,
+  SAFE_DIVIDE(v.venda_digital, c.meta_digital) AS atingimento_digital
+FROM cota_digital c
+LEFT JOIN venda_digital v USING (REDE_LOJAS)
+ORDER BY 1
+```
+
+### Notas importantes
+- **`LOJAS_PREVISAO_VENDAS.VENDA` nunca usar** — campo não é atualizado de forma confiável. Ver §5.
+- CM, SB, HRG, RBX são CNPJs distintos da **mesma filial operacional** — para fins comerciais, são a mesma coisa (ver §4 Armadilha 3).
+- A cota tende a ficar registrada no CNPJ mais antigo (CM); à medida que a migração acontece, o volume de venda migra para o novo CNPJ (SB ou HRG). O join por `REDE_LOJAS` resolve isso automaticamente.
+- Filiais com nomenclatura totalmente diferente na cota (`NV - ECOMMERCE`, `ECOMMERCE FABULA RBX`) são legados anteriores à padronização de nomes.
+- **FARM ETC** tem cota cadastrada mas sem vendas identificadas em 2025 — possível canal ainda não operacional.
+- OMNI (`VENDA_OMNI`) é contabilizado como digital — ver business-rules.md §2.
+
+---
+
+## 12. Validações já fechadas (2026-04-18)
 
 - ✅ Join `vendas.CODIGO_FILIAL_ORIGEM = FILIAIS.COD_FILIAL` — 11/11 match em amostra. `FILIAIS.FILIAL` é nome, não código.
 - ✅ `DESCONTO_PROD` é armazenado **negativo** (~99% das linhas não-zero).

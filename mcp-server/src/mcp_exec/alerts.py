@@ -13,10 +13,10 @@ HIGH_CALL_RATE_PER_HOUR = 50
 HIGH_ERROR_RATE_THRESHOLD = 0.05
 
 
-def detect_anomalies(log: AuditLog, now: float | None = None) -> list[dict]:
+def detect_anomalies(log: AuditLog, now: float | None = None) -> list[dict[str, object]]:
     now = now or time.time()
     since = now - 3600
-    alerts: list[dict] = []
+    alerts: list[dict[str, object]] = []
 
     with sqlite3.connect(log.db_path) as c:
         c.row_factory = sqlite3.Row

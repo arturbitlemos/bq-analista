@@ -38,7 +38,7 @@ class _BqLike(Protocol):
 
 @dataclass
 class QueryResult:
-    rows: list[dict]
+    rows: list[dict[str, object]]
     row_count: int
     bytes_billed: int
     bytes_processed: int
@@ -69,7 +69,7 @@ class BqClient:
             },
         )
         job = self.bq.query(sql, job_config=cfg)
-        rows: list[dict] = []
+        rows: list[dict[str, object]] = []
         truncated = False
         for i, row in enumerate(job.result(timeout=self.settings.query_timeout_s)):
             if i >= self.settings.max_rows:

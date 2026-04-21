@@ -8,14 +8,14 @@ import subprocess
 import time as _time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, cast
 
 from mcp.server.fastmcp import Context, FastMCP
 
 from mcp_exec.allowlist import Allowlist
 from mcp_exec.audit import AuditLog
 from mcp_exec.auth_middleware import AuthContext, AuthError, extract_exec_email
-from mcp_exec.bq_client import BqClient
+from mcp_exec.bq_client import BqClient, QueryResult
 from mcp_exec.context_loader import load_exec_context
 from mcp_exec.git_ops import GitOps
 from mcp_exec.jwt_tokens import TokenIssuer
@@ -51,8 +51,12 @@ def _repo_root() -> Path:
     return Path(os.environ.get("MCP_REPO_ROOT", "/app/repo"))
 
 
+def _settings_path() -> Path:
+    return Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
+
+
 @mcp.tool()
-def get_context(ctx: Context) -> dict:
+def get_context(ctx: Context) -> dict[str, object]:
     """Return concatenated docs (schema.md, business-rules.md, SKILL.md) plus allowed tables.
 
     Call once at session start to prime Claude with the analytics context.
@@ -65,9 +69,18 @@ def get_context(ctx: Context) -> dict:
 
 
 def _build_bq_client() -> BqClient:
-    settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
-    settings = load_settings(settings_path)
+    settings = load_settings(_settings_path())
     return BqClient(settings=settings.bigquery)
+
+
+def _bq_result_to_dict(result: QueryResult) -> dict[str, object]:
+    return {
+        "rows": result.rows,
+        "row_count": result.row_count,
+        "bytes_billed": result.bytes_billed,
+        "bytes_processed": result.bytes_processed,
+        "truncated": result.truncated,
+    }
 
 
 _AUDIT: AuditLog | None = None
@@ -76,8 +89,7 @@ _AUDIT: AuditLog | None = None
 def _audit_log() -> AuditLog:
     global _AUDIT
     if _AUDIT is None:
-        settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
-        settings = load_settings(settings_path)
+        settings = load_settings(_settings_path())
         _AUDIT = AuditLog(db_path=Path(settings.audit.db_path))
     return _AUDIT
 
@@ -85,8 +97,8 @@ def _audit_log() -> AuditLog:
 def consultar_bq_impl(
     sql: str,
     exec_email: str,
-    progress: Optional[Callable[[str], None]],
-) -> dict:
+    progress: Callable[[str], None] | None,
+) -> dict[str, object]:
     try:
         validate_readonly_sql(sql)
     except SqlValidationError as e:
@@ -99,18 +111,11 @@ def consultar_bq_impl(
         result = client.run_query(sql=sql, exec_email=exec_email)
     except Exception as e:  # noqa: BLE001
         return {"error": f"bq_execution: {e}"}
-    return {
-        "rows": result.rows,
-        "row_count": result.row_count,
-        "bytes_billed": result.bytes_billed,
-        "bytes_processed": result.bytes_processed,
-        "truncated": result.truncated,
-    }
+    return _bq_result_to_dict(result)
 
 
 def _auth_context() -> AuthContext:
-    settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
-    settings = load_settings(settings_path)
+    settings = load_settings(_settings_path())
     secret = os.environ.get("MCP_JWT_SECRET")
     if not secret:
         raise RuntimeError(
@@ -143,7 +148,7 @@ def _current_exec_email(ctx: Context) -> str:
 
 
 @mcp.tool()
-async def consultar_bq(sql: str, ctx: Context) -> dict:
+async def consultar_bq(sql: str, ctx: Context) -> dict[str, object]:
     """Run a SELECT query against BigQuery.
 
     Only SELECT / WITH single-statement SQL is accepted.
@@ -151,46 +156,26 @@ async def consultar_bq(sql: str, ctx: Context) -> dict:
     """
     exec_email = _current_exec_email(ctx)
     start = _time.time()
-    try:
-        validate_readonly_sql(sql)
-    except SqlValidationError as e:
-        out = {"error": f"sql_validation: {e}"}
-        _audit_log().record(
-            exec_email=exec_email, tool="consultar_bq", sql=sql,
-            bytes_scanned=0, row_count=0,
-            duration_ms=int((_time.time() - start) * 1000),
-            result="error", error=out["error"],
-        )
-        return out
-
     await ctx.report_progress(progress=0.0, total=1.0, message="querying BigQuery...")
-    client = _build_bq_client()
-    try:
-        result = client.run_query(sql=sql, exec_email=exec_email)
-    except Exception as e:  # noqa: BLE001
-        out = {"error": f"bq_execution: {e}"}
+    out = consultar_bq_impl(sql=sql, exec_email=exec_email, progress=None)
+    duration_ms = int((_time.time() - start) * 1000)
+    if "error" in out:
         _audit_log().record(
             exec_email=exec_email, tool="consultar_bq", sql=sql,
             bytes_scanned=0, row_count=0,
-            duration_ms=int((_time.time() - start) * 1000),
-            result="error", error=out["error"],
+            duration_ms=duration_ms,
+            result="error", error=cast(str, out["error"]),
         )
         return out
     await ctx.report_progress(progress=1.0, total=1.0, message="query complete")
     _audit_log().record(
         exec_email=exec_email, tool="consultar_bq", sql=sql,
-        bytes_scanned=result.bytes_processed or 0,
-        row_count=result.row_count,
-        duration_ms=int((_time.time() - start) * 1000),
+        bytes_scanned=cast(int, out.get("bytes_processed") or 0),
+        row_count=cast(int, out.get("row_count", 0)),
+        duration_ms=duration_ms,
         result="ok", error=None,
     )
-    return {
-        "rows": result.rows,
-        "row_count": result.row_count,
-        "bytes_billed": result.bytes_billed,
-        "bytes_processed": result.bytes_processed,
-        "truncated": result.truncated,
-    }
+    return out
 
 
 def _slugify(title: str) -> str:
@@ -206,10 +191,9 @@ def publicar_dashboard_impl(
     html_content: str,
     tags: list[str],
     exec_email: str,
-    progress,
-) -> dict:
-    settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
-    settings = load_settings(settings_path)
+    progress: Callable[[str], None] | None,
+) -> dict[str, object]:
+    settings = load_settings(_settings_path())
     repo_root = _repo_root()
 
     today = datetime.now(timezone.utc).date().isoformat()
@@ -274,7 +258,7 @@ async def publicar_dashboard(
     html_content: str,
     tags: list[str],
     ctx: Context,
-) -> dict:
+) -> dict[str, object]:
     """Publish an HTML dashboard to the exec's analysis sandbox + update library."""
     exec_email = _current_exec_email(ctx)
     start = _time.time()
@@ -289,7 +273,7 @@ async def publicar_dashboard(
             exec_email=exec_email, tool="publicar_dashboard", sql=None,
             bytes_scanned=0, row_count=0,
             duration_ms=int((_time.time() - start) * 1000),
-            result="error", error=result["error"],
+            result="error", error=cast(str, result["error"]),
         )
         return result
     await ctx.report_progress(progress=0.5, total=1.0, message="publishing to Vercel...")
@@ -303,7 +287,7 @@ async def publicar_dashboard(
     return result
 
 
-def listar_analises_impl(escopo: str, exec_email: str) -> dict:
+def listar_analises_impl(escopo: str, exec_email: str) -> dict[str, object]:
     if escopo not in {"mine", "public"}:
         return {"error": "escopo must be 'mine' or 'public'"}
     repo_root = _repo_root()
@@ -319,7 +303,7 @@ def listar_analises_impl(escopo: str, exec_email: str) -> dict:
 
 
 @mcp.tool()
-async def listar_analises(escopo: str, ctx: Context) -> dict:
+async def listar_analises(escopo: str, ctx: Context) -> dict[str, object]:
     """List analyses. escopo: 'mine' (own sandbox) or 'public' (shared library)."""
     exec_email = _current_exec_email(ctx)
     start = _time.time()
@@ -329,12 +313,12 @@ async def listar_analises(escopo: str, ctx: Context) -> dict:
             exec_email=exec_email, tool="listar_analises", sql=None,
             bytes_scanned=0, row_count=0,
             duration_ms=int((_time.time() - start) * 1000),
-            result="error", error=result["error"],
+            result="error", error=cast(str, result["error"]),
         )
     else:
         _audit_log().record(
             exec_email=exec_email, tool="listar_analises", sql=None,
-            bytes_scanned=0, row_count=len(result.get("items", [])),
+            bytes_scanned=0, row_count=len(cast(list[object], result.get("items", []))),
             duration_ms=int((_time.time() - start) * 1000),
             result="ok", error=None,
         )
@@ -347,8 +331,7 @@ def main() -> None:
     from mcp_exec.auth_routes import build_auth_app
     from mcp_exec.azure_auth import AzureAuth
 
-    settings_path = Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
-    settings = load_settings(settings_path)
+    settings = load_settings(_settings_path())
 
     azure = AzureAuth(
         tenant_id=os.environ["MCP_AZURE_TENANT_ID"],
@@ -376,7 +359,6 @@ def main() -> None:
 
     # streamable_http_app() exposes /mcp — mount at root so it lands at /mcp.
     auth_app.mount("/", mcp.streamable_http_app())
-    print("✓ MCP mounted via streamable_http_app() at /mcp", file=__import__('sys').stderr)
 
     port = int(os.environ.get("PORT", settings.server.port))
     uvicorn.run(auth_app, host=settings.server.host, port=port)

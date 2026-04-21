@@ -45,7 +45,7 @@ class AuditLog:
                 (time.time(), exec_email, tool, sql, bytes_scanned, row_count, duration_ms, result, error),
             )
 
-    def list_recent(self, limit: int = 100) -> list[dict]:
+    def list_recent(self, limit: int = 100) -> list[dict[str, object]]:
         with sqlite3.connect(self.db_path) as c:
             c.row_factory = sqlite3.Row
             cur = c.execute("SELECT * FROM audit ORDER BY ts DESC LIMIT ?", (limit,))

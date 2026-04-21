@@ -17,7 +17,7 @@ import httpx
 CREDS_DEFAULT = Path.home() / ".mcp" / "credentials.json"
 
 
-def save_credentials(path: Path, payload: dict) -> None:
+def save_credentials(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2))
     os.chmod(path, 0o600)
@@ -28,7 +28,7 @@ def _capture_code(port: int, timeout_s: int = 120) -> str:
     stop_event = threading.Event()
 
     class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):  # noqa: N802
+        def do_GET(self) -> None:  # noqa: N802
             qs = urllib.parse.urlparse(self.path).query
             params = urllib.parse.parse_qs(qs)
             if "code" in params:
@@ -42,7 +42,7 @@ def _capture_code(port: int, timeout_s: int = 120) -> str:
                 self.send_response(400)
                 self.end_headers()
 
-        def log_message(self, *args):  # noqa: D401, N802
+        def log_message(self, *args: object) -> None:  # noqa: D401, N802
             return  # silence default logging
 
     with socketserver.TCPServer(("127.0.0.1", port), Handler) as httpd:

@@ -2,7 +2,7 @@
 
 Claude Desktop spawns this as a local subprocess. The bridge:
   1. Reads creds from ~/.mcp/credentials.json (runs login flow if missing/expired).
-  2. Opens an SSE MCP session to MCP_SERVER_URL with Bearer auth.
+  2. Opens a streamable-HTTP MCP session to MCP_SERVER_URL/mcp with Bearer auth.
   3. Proxies list_tools / call_tool / list_resources / read_resource / list_prompts / get_prompt
      back to Claude Desktop over stdio.
 
@@ -17,11 +17,11 @@ import sys
 import time
 import webbrowser
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from mcp.client.session import ClientSession
-from mcp.client.sse import sse_client
+from mcp.client.streamable_http import streamable_http_client
 from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
 import mcp.types as types
@@ -39,16 +39,16 @@ def _log(msg: str) -> None:
     print(f"[bridge] {msg}", file=sys.stderr, flush=True)
 
 
-def _load_creds() -> dict | None:
+def _load_creds() -> dict[str, object] | None:
     if not CREDS_PATH.exists():
         return None
     try:
-        return json.loads(CREDS_PATH.read_text())
+        return json.loads(CREDS_PATH.read_text())  # type: ignore[no-any-return]
     except (OSError, ValueError):
         return None
 
 
-def _save_creds(payload: dict) -> None:
+def _save_creds(payload: dict[str, object]) -> None:
     CREDS_PATH.parent.mkdir(parents=True, exist_ok=True)
     CREDS_PATH.write_text(json.dumps(payload, indent=2))
     os.chmod(CREDS_PATH, 0o600)
@@ -62,20 +62,20 @@ def _try_refresh(server_url: str, refresh_token: str) -> str | None:
             timeout=15,
         )
         if r.status_code == 200:
-            return r.json()["access_token"]
+            return str(r.json()["access_token"])
     except httpx.HTTPError as e:
         _log(f"refresh failed: {e}")
     return None
 
 
-def _interactive_login(server_url: str) -> dict:
+def _interactive_login(server_url: str) -> dict[str, object]:
     _log(f"opening browser for SSO login at {server_url}/auth/start ...")
     webbrowser.open(f"{server_url}/auth/start")
     code = _capture_code(port=CALLBACK_PORT, timeout_s=180)
     r = httpx.get(f"{server_url}/auth/callback", params={"code": code}, timeout=30)
     if r.status_code != 200:
         raise RuntimeError(f"auth/callback failed: {r.status_code} {r.text}")
-    payload = r.json()
+    payload: dict[str, object] = r.json()
     _save_creds(payload)
     _log(f"logged in as {payload.get('email')}")
     return payload
@@ -85,11 +85,11 @@ def _ensure_access_token(server_url: str) -> str:
     creds = _load_creds()
     now = int(time.time())
 
-    if creds and creds.get("expires_at", 0) - REFRESH_MARGIN_S > now:
-        return creds["access_token"]
+    if creds and cast(int, creds.get("expires_at", 0)) - REFRESH_MARGIN_S > now:
+        return cast(str, creds["access_token"])
 
     if creds and creds.get("refresh_token"):
-        new_access = _try_refresh(server_url, creds["refresh_token"])
+        new_access = _try_refresh(server_url, cast(str, creds["refresh_token"]))
         if new_access:
             creds["access_token"] = new_access
             # Refreshed access tokens inherit issuer TTL; approximate expires_at.
@@ -99,7 +99,7 @@ def _ensure_access_token(server_url: str) -> str:
         _log("refresh token rejected; falling back to full SSO login")
 
     creds = _interactive_login(server_url)
-    return creds["access_token"]
+    return cast(str, creds["access_token"])
 
 
 def _build_bridge(session: ClientSession) -> Server:
@@ -124,7 +124,8 @@ def _build_bridge(session: ClientSession) -> Server:
     async def _list_resources() -> list[types.Resource]:
         try:
             return (await session.list_resources()).resources
-        except Exception:
+        except Exception as e:
+            _log(f"list_resources unavailable: {e}")
             return []
 
     @bridge.read_resource()
@@ -138,7 +139,8 @@ def _build_bridge(session: ClientSession) -> Server:
     async def _list_prompts() -> list[types.Prompt]:
         try:
             return (await session.list_prompts()).prompts
-        except Exception:
+        except Exception as e:
+            _log(f"list_prompts unavailable: {e}")
             return []
 
     @bridge.get_prompt()
@@ -150,13 +152,13 @@ def _build_bridge(session: ClientSession) -> Server:
 
 async def _run() -> None:
     server_url = os.environ.get("MCP_SERVER_URL", DEFAULT_SERVER).rstrip("/")
-    sse_url = f"{server_url}/mcp/sse/"
+    mcp_url = f"{server_url}/mcp"
 
     token = _ensure_access_token(server_url)
     headers = {"Authorization": f"Bearer {token}"}
 
-    _log(f"connecting to {sse_url}")
-    async with sse_client(sse_url, headers=headers) as (read, write):
+    _log(f"connecting to {mcp_url}")
+    async with streamable_http_client(mcp_url, headers=headers) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             _log("remote session initialized")

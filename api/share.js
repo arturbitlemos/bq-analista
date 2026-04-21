@@ -116,7 +116,10 @@ module.exports = async function handler(req, res) {
     // 2. Read HTML and public library in parallel
     const [htmlBase64, publicLibrary] = await Promise.all([
       readFileBase64(entry.file),
-      readFileJson('library/public.json').catch(() => []),
+      readFileJson('library/public.json').catch(err => {
+        if (err.status === 404) return []
+        throw err
+      }),
     ])
 
     // 3. Build updated state

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from typing import cast
 
 import jwt
 
@@ -61,15 +62,15 @@ class TokenIssuer:
         refresh, _ = self._encode("refresh", email, self.refresh_ttl_s)
         return TokenPair(access_token=access, refresh_token=refresh, expires_at=exp)
 
-    def _decode(self, token: str) -> dict:
+    def _decode(self, token: str) -> dict[str, object]:
         try:
-            return jwt.decode(token, self.secret, algorithms=[self.alg], issuer=self.issuer)
+            return jwt.decode(token, self.secret, algorithms=[self.alg], issuer=self.issuer)  # type: ignore[return-value]
         except jwt.ExpiredSignatureError as e:
             raise TokenExpiredError("token expired") from e
         except jwt.InvalidTokenError as e:
             raise TokenInvalidError(str(e)) from e
 
-    def verify_access(self, token: str) -> dict:
+    def verify_access(self, token: str) -> dict[str, object]:
         claims = self._decode(token)
         if claims.get("kind") != "access":
             raise TokenInvalidError("not an access token")
@@ -79,5 +80,5 @@ class TokenIssuer:
         claims = self._decode(refresh_token)
         if claims.get("kind") != "refresh":
             raise TokenInvalidError("not a refresh token")
-        access, _ = self._encode("access", claims["email"], self.access_ttl_s)
+        access, _ = self._encode("access", cast(str, claims["email"]), self.access_ttl_s)
         return access

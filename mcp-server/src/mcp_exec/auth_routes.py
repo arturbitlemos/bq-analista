@@ -2,25 +2,18 @@ from __future__ import annotations
 
 import os
 import secrets
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
+from typing import Any
 
-import logging
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from starlette.middleware.base import BaseHTTPMiddleware
-
-logger = logging.getLogger(__name__)
 
 from mcp_exec.allowlist import Allowlist
 from mcp_exec.azure_auth import AzureAuth, AzureAuthError
 from mcp_exec.jwt_tokens import TokenError, TokenIssuer
 
-
-class MCPAuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if request.url.path.startswith("/mcp"):
-            auth = request.headers.get("authorization", "")
-            logger.info(f"{request.method} {request.url.path} {'bearer' if auth.lower().startswith('bearer ') else 'no-auth'}")
-        return await call_next(request)
+_LifespanT = Callable[[Any], AbstractAsyncContextManager[None]] | None
 
 
 def build_auth_app(
@@ -28,11 +21,10 @@ def build_auth_app(
     azure: AzureAuth,
     issuer: TokenIssuer,
     allowlist: Allowlist,
-    lifespan=None,
+    lifespan: _LifespanT = None,
 ) -> FastAPI:
     # redirect_slashes=False prevents FastAPI from redirecting /mcp → /mcp/
     app = FastAPI(redirect_slashes=False, lifespan=lifespan)
-    app.add_middleware(MCPAuthMiddleware)
 
     @app.get("/auth/start")
     def start() -> RedirectResponse:
@@ -90,22 +82,11 @@ def build_auth_app(
         })
 
     @app.get("/health")
-    def health() -> dict:
+    def health() -> dict[str, object]:
         return {"status": "ok"}
 
-    @app.get("/mcp-info")
-    def mcp_info() -> dict:
-        """Debug endpoint to verify MCP server is responding."""
-        return {
-            "name": "mcp-exec-azzas",
-            "version": "1.0",
-            "status": "ok",
-            "auth_required": True,
-            "message": "Use Bearer token to access /mcp SSE endpoint",
-        }
-
     @app.get("/.well-known/oauth-authorization-server")
-    def oauth_metadata(req: Request) -> dict:
+    def oauth_metadata(req: Request) -> dict[str, object]:
         """OAuth 2.0 Authorization Server Metadata (RFC 8414) for Claude.ai discovery."""
         proto = req.headers.get("x-forwarded-proto", "https")
         host = req.headers.get("x-forwarded-host") or req.headers.get("host", "localhost:3000")
@@ -123,7 +104,7 @@ def build_auth_app(
         }
 
     @app.get("/.well-known/oauth-protected-resource")
-    def oauth_protected_resource(req: Request) -> dict:
+    def oauth_protected_resource(req: Request) -> dict[str, object]:
         """OAuth 2.0 Protected Resource Metadata (RFC 9728) for Claude.ai discovery."""
         proto = req.headers.get("x-forwarded-proto", "https")
         host = req.headers.get("x-forwarded-host") or req.headers.get("host", "localhost")

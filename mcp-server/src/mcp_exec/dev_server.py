@@ -6,20 +6,17 @@ Use for local testing. Production uses main() which requires Azure env vars.
 import os
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
 from mcp_exec.allowlist import Allowlist
 from mcp_exec.jwt_tokens import TokenIssuer
 from mcp_exec.settings import load_settings
 
-# Re-export the MCP instance from server.py
 from mcp_exec.server import mcp
 
 
 def dev_main() -> None:
     """Start MCP server for local development (no Azure, mock auth)."""
     import uvicorn
-    from fastapi import FastAPI, Request, HTTPException
-    from fastapi.responses import JSONResponse
+    from fastapi import FastAPI, HTTPException
 
     settings_path = Path(os.environ.get("MCP_SETTINGS", "./config/settings.toml"))
     settings = load_settings(settings_path)
@@ -45,26 +42,22 @@ def dev_main() -> None:
     app = FastAPI(title="mcp-exec-dev")
 
     @app.get("/health")
-    def health():
+    def health() -> dict[str, object]:
         return {"status": "ok", "mode": "development"}
 
     @app.get("/auth/issue-token")
-    def issue_token(email: str):
+    def issue_token(email: str) -> dict[str, object]:
         """Dev-only: issue a token for an email without Azure AD flow."""
         if not allowlist.is_allowed(email):
             raise HTTPException(status_code=403, detail=f"{email} not in allowlist")
         tokens = issuer.issue(email)
         return {"access_token": tokens.access_token, "email": email}
 
-    # Mount MCP tools
-    try:
-        app.mount("/mcp", mcp.sse_app())
-    except AttributeError:
-        app.mount("/mcp", mcp.streamable_http_app())
+    app.mount("/mcp", mcp.streamable_http_app())
 
     print(f"\n✓ Dev server ready (http://{settings.server.host}:{settings.server.port})")
     print(f"  GET  /health                   — health check")
-    print(f"  POST /auth/issue-token?email=X — get token (dev only)")
+    print(f"  GET  /auth/issue-token?email=X — get token (dev only)")
     print(f"  MCP tools at /mcp/...")
     uvicorn.run(app, host=settings.server.host, port=settings.server.port)
 

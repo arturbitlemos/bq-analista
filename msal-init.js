@@ -21,4 +21,3 @@ async function initMsal() {
 }
 
 export { initMsal, InteractionRequiredAuthError }
-export const getMsalInstance = () => msalInstance

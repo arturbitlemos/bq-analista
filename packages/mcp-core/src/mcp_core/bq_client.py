@@ -12,6 +12,10 @@ from google.oauth2 import service_account
 from mcp_core.settings import BigQuerySettings
 
 
+class DatasetNotAllowedError(ValueError):
+    pass
+
+
 def _bq_credentials_from_env() -> service_account.Credentials | None:
     """Parse MCP_BQ_SA_KEY (JSON content or path) into Credentials. Returns None if unset."""
     raw = os.environ.get("MCP_BQ_SA_KEY")
@@ -58,7 +62,24 @@ class BqClient:
                 credentials=creds,  # None falls back to ADC
             )
 
+    def _check_allowed_datasets(self, sql: str) -> None:
+        """Run BQ dry-run to extract referenced datasets; raise if any is not allowed."""
+        cfg = bigquery.QueryJobConfig(
+            dry_run=True,
+            use_query_cache=False,
+            maximum_bytes_billed=self.settings.max_bytes_billed,
+        )
+        job = self.bq.query(sql, job_config=cfg)
+        # job.result() is not needed for dry-run; referenced_tables is populated immediately
+        for table_ref in job.referenced_tables:
+            if table_ref.dataset_id not in self.settings.allowed_datasets:
+                raise DatasetNotAllowedError(
+                    f"dataset '{table_ref.dataset_id}' not in allowed_datasets "
+                    f"{self.settings.allowed_datasets}"
+                )
+
     def run_query(self, sql: str, exec_email: str) -> QueryResult:
+        self._check_allowed_datasets(sql)  # raises DatasetNotAllowedError if unauthorized
         cfg = bigquery.QueryJobConfig(
             dry_run=False,
             use_query_cache=True,

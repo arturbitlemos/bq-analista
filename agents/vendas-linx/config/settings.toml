@@ -1,0 +1,26 @@
+[server]
+host = "0.0.0.0"
+port = 3000
+domain = "vendas-linx"
+
+[bigquery]
+project_id = "soma-pipeline-prd"
+max_bytes_billed = 5000000000
+query_timeout_s = 60
+max_rows = 100000
+allowed_datasets = ["silver_linx"]
+
+[github]
+repo_path = "/app/repo"
+branch = "main"
+author_name = "Artur Lemos"
+author_email = "abitlemos@gmail.com"
+
+[auth]
+jwt_issuer = "mcp-exec-azzas"
+access_token_ttl_s = 1800
+refresh_token_ttl_s = 2592000
+
+[audit]
+db_path = "/var/mcp/audit.db"
+retention_days = 90

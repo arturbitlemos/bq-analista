@@ -195,9 +195,10 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         slug = _slugify(title)
         filename = f"{slug}-{today}-{short_hash}.html"
 
+        portal_root = repo_root / "portal"
         try:
-            analysis_path = exec_analysis_path(repo_root, domain, exec_email, filename)
-            library_path = exec_library_path(repo_root, domain, exec_email)
+            analysis_path = exec_analysis_path(portal_root, domain, exec_email, filename)
+            library_path = exec_library_path(portal_root, domain, exec_email)
         except PathSandboxError as e:
             return {"error": f"path_sandbox: {e}"}
 
@@ -240,12 +241,14 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
     @mcp.tool()
     async def listar_analises(escopo: str, ctx: Context) -> dict[str, object]:
         """List analyses. escopo: 'mine' (own sandbox) or 'public' (shared library)."""
+        if escopo not in ("mine", "public"):
+            return {"error": "invalid_escopo: must be 'mine' or 'public'"}
         exec_email = _current_email(ctx)
         settings = load_settings(_settings_path())
         repo_root = _repo_root()
         domain = settings.server.domain
         email_key = exec_email if escopo == "mine" else "public"
-        lib = repo_root / "library" / domain / f"{email_key}.json"
+        lib = repo_root / "portal" / "library" / domain / f"{email_key}.json"
         if not lib.exists():
             return {"items": []}
         try:

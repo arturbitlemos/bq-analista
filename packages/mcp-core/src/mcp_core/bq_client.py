@@ -72,10 +72,13 @@ class BqClient:
         job = self.bq.query(sql, job_config=cfg)
         # job.result() is not needed for dry-run; referenced_tables is populated immediately
         for table_ref in job.referenced_tables:
-            if table_ref.dataset_id not in self.settings.allowed_datasets:
+            if (
+                table_ref.project != self.settings.project_id
+                or table_ref.dataset_id not in self.settings.allowed_datasets
+            ):
                 raise DatasetNotAllowedError(
-                    f"dataset '{table_ref.dataset_id}' not in allowed_datasets "
-                    f"{self.settings.allowed_datasets}"
+                    f"'{table_ref.project}.{table_ref.dataset_id}' not in allowed scope "
+                    f"(project={self.settings.project_id}, datasets={self.settings.allowed_datasets})"
                 )
 
     def run_query(self, sql: str, exec_email: str) -> QueryResult:

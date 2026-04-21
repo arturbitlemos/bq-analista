@@ -6,7 +6,7 @@ if [ -n "$GITHUB_TOKEN" ] && [ -n "$GITHUB_REPO" ]; then
     if [ ! -d "/app/repo/.git" ]; then
         git clone "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git" /app/repo
     else
-        git -C /app/repo pull --ff-only
+        git -C /app/repo fetch origin main && git -C /app/repo reset --hard origin/main
     fi
 fi
 

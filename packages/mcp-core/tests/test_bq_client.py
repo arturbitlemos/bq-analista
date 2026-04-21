@@ -66,9 +66,10 @@ def _settings_allowed(allowed: list[str]) -> BigQuerySettings:
     )
 
 
-def _table_ref(dataset_id: str):
+def _table_ref(dataset_id: str, project: str = "proj"):
     ref = MagicMock()
     ref.dataset_id = dataset_id
+    ref.project = project
     return ref
 
 
@@ -121,6 +122,20 @@ def test_dry_run_first_call_has_dry_run_true():
     first_cfg = mock_bq.query.call_args_list[0][1]["job_config"]
     assert first_cfg.dry_run is True
     assert first_cfg.use_query_cache is False
+
+
+def test_dry_run_blocks_cross_project_access():
+    """A query referencing the correct dataset but a different project must be blocked."""
+    mock_bq = MagicMock()
+    dry_job = MagicMock()
+    dry_job.referenced_tables = [_table_ref("silver_linx", project="other-project")]
+    mock_bq.query.return_value = dry_job
+
+    client = BqClient(settings=_settings_allowed(["silver_linx"]), bq=mock_bq)
+    with pytest.raises(DatasetNotAllowedError, match="other-project"):
+        client.run_query("SELECT 1", exec_email="user@soma.com.br")
+
+    assert mock_bq.query.call_count == 1
 
 
 def test_dry_run_query_without_tables_is_allowed():

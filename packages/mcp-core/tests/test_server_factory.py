@@ -46,5 +46,5 @@ def test_build_mcp_app_raises_without_jwt_secret():
         # build_mcp_app itself doesn't fail — _get_auth_context() fails at request time
         # but main() should fail if MCP_JWT_SECRET is absent
         _, main = build_mcp_app(agent_name="test-agent")
-        with pytest.raises((RuntimeError, KeyError)):
+        with patch("mcp_core.server_factory.uvicorn.run"), pytest.raises((RuntimeError, KeyError)):
             main()  # tries to read MCP_JWT_SECRET

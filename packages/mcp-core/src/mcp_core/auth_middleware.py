@@ -43,10 +43,10 @@ def _peek_iss(token: str) -> str:
         raise AuthError(f"malformed token: {e}") from e
 
 
-def _validate_azure_signature(token: str, ctx: AuthContext) -> None:
-    """Verify Azure AD token signature and audience using cached JWKS."""
+def _validate_azure_signature(token: str, ctx: AuthContext) -> dict:
+    """Verify Azure AD token signature and audience; return validated payload."""
     signing_key = ctx._get_jwks_client().get_signing_key_from_jwt(token)
-    pyjwt.decode(
+    return pyjwt.decode(
         token,
         signing_key.key,
         algorithms=["RS256"],
@@ -54,8 +54,7 @@ def _validate_azure_signature(token: str, ctx: AuthContext) -> None:
     )
 
 
-def _extract_azure_email(token: str) -> str:
-    payload = pyjwt.decode(token, options={"verify_signature": False})
+def _extract_azure_email(payload: dict) -> str:
     email = payload.get("preferred_username") or payload.get("upn") or ""
     if not email:
         raise AuthError("azure token missing preferred_username/upn claim")
@@ -77,8 +76,8 @@ def extract_exec_email(token: str, ctx: AuthContext) -> str:
         # Azure AD SSO passthrough — frontend sends its own token directly
         if not ctx.azure_tenant_id or not ctx.azure_client_id:
             raise AuthError("azure passthrough not configured on this agent")
-        _validate_azure_signature(token, ctx)
-        email = _extract_azure_email(token)
+        payload = _validate_azure_signature(token, ctx)
+        email = _extract_azure_email(payload)
 
     else:
         raise AuthError(f"unknown token issuer: {iss!r}")

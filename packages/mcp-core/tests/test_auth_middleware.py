@@ -78,7 +78,8 @@ def _make_ctx(allowed: list[str]) -> AuthContext:
 def test_azure_token_accepted_when_on_allowlist():
     token = _azure_token("user@soma.com.br")
     ctx = _make_ctx(["user@soma.com.br"])
-    with patch("mcp_core.auth_middleware._validate_azure_signature", return_value=None):
+    payload = {"preferred_username": "user@soma.com.br"}
+    with patch("mcp_core.auth_middleware._validate_azure_signature", return_value=payload):
         email = extract_exec_email(token, ctx)
     assert email == "user@soma.com.br"
 
@@ -86,7 +87,8 @@ def test_azure_token_accepted_when_on_allowlist():
 def test_azure_token_rejected_when_not_on_allowlist():
     token = _azure_token("other@soma.com.br")
     ctx = _make_ctx(["user@soma.com.br"])
-    with patch("mcp_core.auth_middleware._validate_azure_signature", return_value=None):
+    payload = {"preferred_username": "other@soma.com.br"}
+    with patch("mcp_core.auth_middleware._validate_azure_signature", return_value=payload):
         with pytest.raises(AuthError, match="not_on_allowlist"):
             extract_exec_email(token, ctx)
 
@@ -111,11 +113,45 @@ def test_azure_passthrough_not_configured_raises():
 
 
 def test_jwks_client_reused_across_calls():
-    """PyJWKClient should not be instantiated on every call."""
-    token = _azure_token("user@soma.com.br")
+    """PyJWKClient should be instantiated once (lazy init), not on every call."""
     ctx = _make_ctx(["user@soma.com.br"])
-    with patch("mcp_core.auth_middleware._validate_azure_signature", return_value=None) as mock_v:
-        extract_exec_email(token, ctx)
-        extract_exec_email(token, ctx)
-    # _validate_azure_signature is called twice but should use cached ctx
-    assert mock_v.call_count == 2
+    with patch("jwt.PyJWKClient", return_value=MagicMock()) as mock_cls:
+        client1 = ctx._get_jwks_client()
+        client2 = ctx._get_jwks_client()
+    assert mock_cls.call_count == 1
+    assert client1 is client2
+
+
+def test_azure_rs256_signature_validated():
+    """_validate_azure_signature verifies RS256 with JWKS, returns payload with email claim."""
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.backends import default_backend
+    import jwt as pyjwt
+    from mcp_core.auth_middleware import _validate_azure_signature, AuthContext
+
+    private_key = rsa.generate_private_key(
+        public_exponent=65537, key_size=2048, backend=default_backend()
+    )
+    now = int(time.time())
+    token = pyjwt.encode(
+        {
+            "iss": f"https://login.microsoftonline.com/{TENANT_ID}/v2.0",
+            "aud": CLIENT_ID,
+            "preferred_username": "rsuser@soma.com.br",
+            "exp": now + 3600,
+            "iat": now,
+        },
+        private_key,
+        algorithm="RS256",
+    )
+
+    mock_signing_key = MagicMock()
+    mock_signing_key.key = private_key.public_key()
+    mock_client = MagicMock()
+    mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
+
+    ctx = _make_ctx(["rsuser@soma.com.br"])
+    ctx._jwks_client = mock_client  # inject cached client
+
+    payload = _validate_azure_signature(token, ctx)
+    assert payload["preferred_username"] == "rsuser@soma.com.br"

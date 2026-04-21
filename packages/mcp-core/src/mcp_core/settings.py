@@ -50,8 +50,18 @@ class Settings(BaseModel):
 def load_settings(path: Path) -> Settings:
     if path.exists():
         data = tomllib.loads(path.read_text())
-        return Settings.model_validate(data)
+        settings = Settings.model_validate(data)
+        _apply_env_overrides(settings)
+        return settings
     return _settings_from_env()
+
+
+def _apply_env_overrides(settings: Settings) -> None:
+    """Override select settings fields from env vars (env takes precedence over toml)."""
+    if v := os.environ.get("MCP_BQ_PROJECT_ID"):
+        settings.bigquery.project_id = v
+    if v := os.environ.get("MCP_BQ_BILLING_PROJECT_ID"):
+        settings.bigquery.billing_project_id = v
 
 
 def _settings_from_env() -> Settings:

@@ -103,9 +103,11 @@ Razão **2:3 retrato** é o default — é o formato das fotos de look da Soma. 
 - **Imagem 404** → o `onerror` já resolve; não tentar fallback alternativo.
 - **Produtos inativos** (`PRODUTOS.INATIVO = 1`) → manter a foto (o cadastro histórico continua válido para identificação).
 
-## Checklist antes de entregar um relatório de produto
+## Gate obrigatório — ANTES de fechar o HTML
 
-1. Coluna `foto` / `foto_url` presente e como **primeira coluna**?
-2. URL montada com `{rede}/products/reference_id/{PRODUTO}_{COR_PRODUTO}/image`?
-3. HTML: `loading="lazy"` em listas longas e `onerror` para 404?
-4. Markdown: sintaxe `![](...)` ou `<img>` inline?
+Se o relatório tem grão de produto × cor, **pare antes de renderizar o HTML final** e confirme os dois itens abaixo. Se qualquer um falhar, corrija antes de entregar — **relatório sem foto em grão produto × cor é entrega incompleta, não é uma escolha editorial.**
+
+1. **Coluna foto presente e como PRIMEIRA coluna da tabela?** Se não, adicionar agora.
+2. **URL montada corretamente?** Formato: `https://images.somalabs.com.br/brands/{RL_ORIGEM}/products/reference_id/{PRODUTO}_{COR_PRODUTO}/image`. Com `loading="lazy"` e `onerror="this.style.display='none'"` em HTML; `![](...)` em Markdown.
+
+Se estiver renderizando via Artifact/`present_files`, esse gate precisa passar antes do tool call.

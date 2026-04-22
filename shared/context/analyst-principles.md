@@ -111,7 +111,7 @@ Never go straight to a complex metric. Follow this order:
 | Giro de Estoque | `cmv / estoque_médio` | 4–8x/ano moda | <3x = capital parado |
 | Cobertura (Days on Hand) | `estoque / (vendas_dia)` | — | Cruza com lead time |
 
-> *Benchmarks são estimativas de mercado para varejo de moda premium, não dados da Farm especificamente. Sempre compare contra histórico interno antes de usar benchmarks externos.
+> *Benchmarks são estimativas de mercado para varejo de moda premium, não dados internos do grupo Azzas 2154 especificamente. Sempre compare contra histórico interno antes de usar benchmarks externos.
 >
 > **GMROI benchmark fashion: 2,5–4,0x. Fonte: Opensend Retail Analytics (2025), ISM Supply Management (2019)
 >

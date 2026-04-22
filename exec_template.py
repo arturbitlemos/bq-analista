@@ -1,6 +1,6 @@
 """HTML template generator for executive dashboards.
 
-Generates standalone HTML dashboards following Farm/Soma branding.
+Generates standalone HTML dashboards following Azzas 2154 branding.
 Reuses structure from existing analyses but parameterized for report-generator.
 """
 

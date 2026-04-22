@@ -100,7 +100,7 @@ class Insight:
 
 ## Features
 
-✓ Farm/Soma branding (Navy + white color scheme)
+✓ Azzas 2154 branding (Navy + white color scheme)
 ✓ Responsive design (mobile + desktop)
 ✓ Smooth animations on load
 ✓ Single HTML file (inlined CSS, no external deps)

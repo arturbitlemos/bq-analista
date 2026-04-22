@@ -1,9 +1,9 @@
 ---
 name: querying-farm-sales
-description: Use this skill whenever the user asks questions about sales, revenue, stores, products, brands, or retail KPIs using BigQuery. Covers venda líquida, venda bruta, CMV, markup, ticket médio, PA, and brand/store dimensions. Triggers on any analytics question about Farm Group data.
+description: Use this skill whenever the user asks questions about sales, revenue, stores, products, brands, or retail KPIs using BigQuery. Covers venda líquida, venda bruta, CMV, markup, ticket médio, PA, and brand/store dimensions. Triggers on any analytics question about Azzas 2154 data.
 ---
 
-# Farm Group — BigQuery Sales Analytics
+# Azzas 2154 — BigQuery Sales Analytics
 
 ## Setup Check
 Before any query, verify auth:

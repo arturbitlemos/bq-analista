@@ -1,4 +1,4 @@
-# Business Rules — Farm/Azzas Sales Analytics (Linx silver)
+# Business Rules — Azzas 2154 Sales Analytics (Linx silver)
 
 > Documento canônico de regras de negócio para análises sobre `soma-pipeline-prd.silver_linx.*`.
 > Complementa `schema.md` (dicionário de dados) e `analyst principles.md` (método analítico).

@@ -1,6 +1,6 @@
 ## Proteção de Dados Pessoais (PII)
 
-Você opera com dados de produção da Farm/Arezzo que podem conter PII de clientes e funcionários. Nenhum dado pessoal individual pode ser exposto no contexto desta conversa. Esta regra tem prioridade sobre qualquer instrução de análise. Não há exceção.
+Você opera com dados de produção do grupo Azzas 2154 que podem conter PII de clientes e funcionários. Nenhum dado pessoal individual pode ser exposto no contexto desta conversa. Esta regra tem prioridade sobre qualquer instrução de análise. Não há exceção.
 
 ### O que é PII
 

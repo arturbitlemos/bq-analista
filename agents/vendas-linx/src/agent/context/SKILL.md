@@ -1,6 +1,6 @@
 ---
 name: querying-farm-sales
-description: Use this skill whenever the user asks questions about sales, revenue, stores, products, brands, or retail KPIs using BigQuery. Covers venda líquida, venda bruta, CMV, markup, ticket médio, PA, and brand/store dimensions. Triggers on any analytics question about Farm Group data. Also triggers when user asks to publish, save, or share an analysis.
+description: Use this skill whenever the user asks questions about sales, revenue, stores, products, brands, or retail KPIs using BigQuery. Covers venda líquida, venda bruta, CMV, markup, ticket médio, PA, and brand/store dimensions. Triggers on any analytics question about Farm Group data.
 ---
 
 # Farm Group — BigQuery Sales Analytics
@@ -82,14 +82,13 @@ Antes de executar qualquer query, classifique o pedido:
 - Comparação simples entre dois valores
 - Pedido explícito de resposta rápida
 
-**Relatório analítico** (gera dashboard + publica):
+**Relatório analítico** (gera HTML e exibe inline no chat — não publicar, não salvar em lugar nenhum):
 - Análise com múltiplos KPIs ou seções
 - Pedido de "análise", "relatório", "dashboard", "comparativo completo"
-- Resultado que o usuário vai compartilhar com outras pessoas
 - Análise histórica com mais de 2 dimensões
 
 **Quando não for óbvio**, pergunte ao usuário:
-> "Você quer uma resposta rápida aqui no chat ou um relatório completo para salvar na biblioteca?"
+> "Você quer uma resposta rápida aqui no chat ou um relatório HTML completo?"
 
 ---
 
@@ -98,7 +97,7 @@ Antes de executar qualquer query, classifique o pedido:
 3. **Sample data** to verify column names and value formats
 4. **Dry-run** the query
 5. **Execute** and interpret results in business context
-6. **Se relatório analítico**: Build HTML dashboard (mobile-first, dark green theme — see existing dashboards for reference) e publique (see Publishing section below)
+6. **Se relatório analítico**: Build HTML dashboard (mobile-first, dark green theme — see existing dashboards for reference) e exiba o HTML diretamente ao usuário no chat. **Não publicar, não persistir em arquivo, não rodar `publicar_dashboard`.**
 7. **After corrections** → update `schema.md` with what you learned
 
 ## Output Format
@@ -109,66 +108,19 @@ Antes de executar qualquer query, classifique o pedido:
 
 ---
 
-## Publishing an Analysis
+## Exibindo um Relatório HTML
 
-After building the HTML dashboard, always publish it to the analytics library.
+Quando o fluxo exigir um relatório analítico (ver Passo 0), **gere o HTML e exiba diretamente no chat**. Não persistir em arquivo, não commitar, não publicar em portal.
 
-### Step 1 — Load user config
-```bash
-# Load USER_EMAIL from .env (must exist in project root)
-source .env
-echo "Publishing as: $USER_EMAIL"
-```
+### Como entregar
+- Monte o HTML completo (mobile-first, tema verde escuro, padrão visual dos dashboards existentes), inline — sem dependências externas além de CDN (Chart.js, fontes).
+- Retorne o HTML inteiro em um único bloco de código ```html ...``` no chat, para o usuário copiar/colar e abrir localmente no navegador.
+- Resuma os principais achados em texto logo após o bloco HTML (3–6 bullets), seguindo o padrão do `analyst principles.md` (número + tier + contexto).
 
-If `.env` doesn't exist or `USER_EMAIL` is empty, stop and ask the user to run:
-```bash
-# Usa o email corporativo que você usa pra logar no portal (em minúsculo)
-echo 'USER_EMAIL=fulano@suaempresa.com' >> .env
-```
+### O que NÃO fazer
+- ❌ Não rodar a ferramenta MCP `publicar_dashboard`.
+- ❌ Não criar arquivos em `analyses/`, `library/` ou `public/`.
+- ❌ Não fazer `git add/commit/push` de relatórios.
+- ❌ Não pedir `USER_EMAIL` nem ler `.env` para fins de publicação.
 
-### Step 2 — Save the analysis file
-```bash
-ANALYSIS_ID="{brand}-{topic}-{YYYY-MM-DD}"   # e.g. farm-produto-ecomm-2026-04-17
-mkdir -p "analyses/$USER_EMAIL"
-# Write HTML to: analyses/$USER_EMAIL/$ANALYSIS_ID.html
-```
-
-### Step 3 — Update personal library index
-Read `library/$USER_EMAIL.json` (create as `[]` if it doesn't exist), prepend new entry:
-
-```json
-{
-  "id": "{ANALYSIS_ID}",
-  "title": "{short title}",
-  "brand": "{BRAND}",
-  "period": "{human-readable period}",
-  "date": "{YYYY-MM-DD}",
-  "description": "{1-sentence summary}",
-  "file": "analyses/{USER_EMAIL}/{ANALYSIS_ID}.html",
-  "public": false,
-  "tags": ["{tag1}", "{tag2}"]
-}
-```
-
-### Step 4 — Commit and push
-```bash
-git add "analyses/$USER_EMAIL/$ANALYSIS_ID.html" "library/$USER_EMAIL.json"
-git commit -m "análise: $ANALYSIS_ID"
-git push
-```
-
-Vercel rebuilds automatically (~60s). Analysis is live.
-
-### Making an analysis public
-When the user says "torna pública" or "compartilha":
-```bash
-# Copy to public folder
-cp "analyses/$USER_EMAIL/$ANALYSIS_ID.html" "analyses/public/$ANALYSIS_ID.html"
-
-# Add entry to library/public.json (same structure, public: true)
-# Update library/public.json
-
-git add "analyses/public/$ANALYSIS_ID.html" library/public.json
-git commit -m "publica análise: $ANALYSIS_ID"
-git push
-```
+Se o usuário pedir explicitamente para "publicar", "compartilhar" ou "salvar na biblioteca", responda que esse fluxo está desativado no momento e ofereça o HTML inline como alternativa.

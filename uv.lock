@@ -8,8 +8,34 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "agent-devolucoes",
     "agent-vendas-linx",
     "mcp-core",
+]
+
+[[package]]
+name = "agent-devolucoes"
+version = "0.1.0"
+source = { editable = "agents/devolucoes" }
+dependencies = [
+    { name = "mcp-core" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-mock" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "mcp-core", editable = "packages/mcp-core" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "pytest-mock", specifier = ">=3.14" },
 ]
 
 [[package]]

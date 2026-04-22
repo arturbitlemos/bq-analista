@@ -110,17 +110,26 @@ Antes de executar qualquer query, classifique o pedido:
 
 ## Exibindo um Relatório HTML
 
-Quando o fluxo exigir um relatório analítico (ver Passo 0), **gere o HTML e exiba diretamente no chat**. Não persistir em arquivo, não commitar, não publicar em portal.
+Quando o fluxo exigir um relatório analítico (ver Passo 0), **renderize o HTML inline na interface** — nunca cole o HTML como bloco de código pro usuário copiar.
 
-### Como entregar
-- Monte o HTML completo (mobile-first, tema verde escuro, padrão visual dos dashboards existentes), inline — sem dependências externas além de CDN (Chart.js, fontes).
-- Retorne o HTML inteiro em um único bloco de código ```html ...``` no chat, para o usuário copiar/colar e abrir localmente no navegador.
-- Resuma os principais achados em texto logo após o bloco HTML (3–6 bullets), seguindo o padrão do `analyst principles.md` (número + tier + contexto).
+### Como entregar (ordem de preferência)
+
+1. **Artifact HTML** (preferido quando disponível): crie um artifact do tipo `text/html` com o relatório completo. O usuário vê o dashboard renderizado na hora, sem copy/paste.
+2. **File system tools** (quando o ambiente tem `create_file` + `present_files`, ex. claude.ai com analysis tools): rode `create_file` salvando em `/mnt/user-data/outputs/<nome>.html` e em seguida `present_files` com esse path. O relatório é exibido inline.
+3. **Fallback — só se nenhuma das duas acima estiver disponível**: avise o usuário que o ambiente atual não suporta renderização inline e pergunte se ele quer o HTML como bloco de código ou se prefere que você abra como artifact em outra sessão.
+
+**Nunca** devolva o HTML num bloco ```` ```html ... ``` ```` a não ser no fallback (passo 3) e só após avisar o usuário.
+
+### Conteúdo do HTML
+- Mobile-first, tema verde escuro, padrão visual dos dashboards existentes.
+- Sem dependências externas além de CDN (Chart.js, fontes).
+- Logo após criar o artifact/arquivo, resuma os principais achados no chat em 3–6 bullets, seguindo o padrão do `analyst-principles.md` (número + tier + contexto).
 
 ### O que NÃO fazer
+- ❌ Não colar o HTML como bloco de código no chat (exceto fallback explícito).
 - ❌ Não rodar a ferramenta MCP `publicar_dashboard`.
-- ❌ Não criar arquivos em `analyses/`, `library/` ou `public/`.
+- ❌ Não criar arquivos em `analyses/`, `library/` ou `public/` do repositório.
 - ❌ Não fazer `git add/commit/push` de relatórios.
 - ❌ Não pedir `USER_EMAIL` nem ler `.env` para fins de publicação.
 
-Se o usuário pedir explicitamente para "publicar", "compartilhar" ou "salvar na biblioteca", responda que esse fluxo está desativado no momento e ofereça o HTML inline como alternativa.
+Se o usuário pedir explicitamente para "publicar", "compartilhar" ou "salvar na biblioteca", responda que esse fluxo está desativado no momento e ofereça o artifact inline como alternativa.

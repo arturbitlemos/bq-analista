@@ -10,12 +10,13 @@ description: Use this skill for every analysis session. Contains the epistemic p
 ### The Prime Directive
 **Never invent a number. Never fill a gap with a plausible-sounding estimate.**
 
-Every figure in a response must come from one of these three sources:
+Every figure in a response must come from one of these two sources:
 1. A query result returned by BigQuery in this session
 2. A number explicitly provided by the user
-3. An industry benchmark — clearly labeled as such with source
 
-If none of the above applies, say: *"Não tenho esse dado disponível nesta sessão."*
+Se não tem nenhum dos dois, diga: *"Não tenho esse dado disponível nesta sessão."*
+
+**Regra de comparação:** toda métrica relevante (venda, ticket médio, PA, margem, markup, desconto, etc.) deve ser contextualizada **vs LY (Last Year — mesmo período do ano anterior)** usando `DATA_VENDA_RELATIVA` para ajuste de calendário (ver `business-rules.md` §6). **Nunca usar benchmark de mercado como referência** — comparação é sempre contra histórico interno do grupo Azzas 2154. Se não houver dado de LY disponível, diga explicitamente em vez de recorrer a benchmark externo.
 
 ---
 
@@ -40,9 +41,11 @@ Use these labels consistently in every response:
 | Label | When to use |
 |---|---|
 | ✅ **Dado real** | Number came from query in this session |
-| 📊 **Benchmark de mercado** | Industry reference (state source) |
+| 📈 **LY (histórico interno)** | Comparação vs mesmo período do ano anterior — via query |
 | 🔶 **Estimativa** | Calculated from real data + formula |
 | ❓ **Dado indisponível** | Not in current data — do not invent |
+
+> ⚠️ Não usar mais o label `📊 Benchmark de mercado` — benchmarks externos estão banidos. Sempre comparar contra LY via query.
 
 **Rule 4 — When uncertain, ask — never assume**
 If a question is ambiguous (which period? which brand? líquida ou bruta?), clarify before running. A wrong query on a large table wastes cost and produces misleading results.
@@ -81,41 +84,37 @@ Never go straight to a complex metric. Follow this order:
 
 #### Revenue & Discounting
 
-| KPI | Formula | Benchmark Fashion* | Alert |
+| KPI | Formula | Comparação padrão | Alert |
 |---|---|---|---|
-| Venda Líquida | bruta − descontos − devol. − cancel. | — | Base de toda análise |
-| Taxa de Desconto | `(bruta − líquida) / bruta` | 15–25% saudável | >35% = pressão de margem |
-| Mix Líquido/Bruto | `líquida / bruta` | >0,75 saudável | — |
+| Venda Líquida | bruta − descontos − devol. − cancel. | vs LY (mesmo período) | Base de toda análise |
+| Taxa de Desconto | `(bruta − líquida) / bruta` | vs LY | Variação negativa sobre LY = pressão de margem |
+| Mix Líquido/Bruto | `líquida / bruta` | vs LY | — |
 
 #### Ticket & Produtividade
 
-| KPI | Formula | Benchmark Fashion* | Alert |
+| KPI | Formula | Comparação padrão | Alert |
 |---|---|---|---|
-| Ticket Médio | `líquida / qtd_transacoes` | Varia por posicionamento | Queda = down-trading |
-| PA (Peças/Atendimento) | `qtd_pecas / qtd_transacoes` | 1,8–2,5 moda premium | <1,5 = venda atomizada |
-| Preço Médio por Peça | `líquida / qtd_pecas` | — | Compara posicionamento |
+| Ticket Médio | `líquida / qtd_transacoes` | vs LY | Queda vs LY = down-trading |
+| PA (Peças/Atendimento) | `qtd_pecas / qtd_transacoes` | vs LY | Queda vs LY = venda atomizada |
+| Preço Médio por Peça | `líquida / qtd_pecas` | vs LY | Sinaliza reposicionamento |
 
 #### Rentabilidade
 
-| KPI | Formula | Benchmark Fashion* | Alert |
+| KPI | Formula | Comparação padrão | Alert |
 |---|---|---|---|
-| Markup | `líquida / cmv` | 2,5–4,0x moda premium | <2,0 = margem sob pressão |
-| Margem Bruta % | `(líquida − cmv) / líquida` | 55–70% moda premium | <45% = operação em risco |
-| GMROI | `margem_bruta / custo_médio_estoque` | 2,5–4,0x fashion** | <1,0 = destruição de valor |
+| Markup | `líquida / cmv` | vs LY | Queda vs LY = margem sob pressão |
+| Margem Bruta % | `(líquida − cmv) / líquida` | vs LY | Queda vs LY = operação em risco |
+| GMROI | `margem_bruta / custo_médio_estoque` | vs LY | Queda vs LY = destruição de valor |
 
 #### Estoque & Giro
 
-| KPI | Formula | Benchmark Fashion* | Alert |
+| KPI | Formula | Comparação padrão | Alert |
 |---|---|---|---|
-| Sell-Through Rate | `unidades_vendidas / unidades_recebidas` | 40–60% no 1º mês*** | <30% = risco de encalhe |
-| Giro de Estoque | `cmv / estoque_médio` | 4–8x/ano moda | <3x = capital parado |
-| Cobertura (Days on Hand) | `estoque / (vendas_dia)` | — | Cruza com lead time |
+| Sell-Through Rate | `unidades_vendidas / unidades_recebidas` | vs LY (mesma coleção / estágio de ciclo) | Queda vs LY = risco de encalhe |
+| Giro de Estoque | `cmv / estoque_médio` | vs LY | Queda vs LY = capital parado |
+| Cobertura (Days on Hand) | `estoque / (vendas_dia)` | vs LY | Cruza com lead time |
 
-> *Benchmarks são estimativas de mercado para varejo de moda premium, não dados internos do grupo Azzas 2154 especificamente. Sempre compare contra histórico interno antes de usar benchmarks externos.
->
-> **GMROI benchmark fashion: 2,5–4,0x. Fonte: Opensend Retail Analytics (2025), ISM Supply Management (2019)
->
-> ***Sell-through benchmark: 40–60% no 1º mês. Fonte: Axonify Retail KPI Guide (2026)
+> **Regra canônica:** toda métrica acima deve ser comparada contra **LY (mesmo período do ano anterior)** via query, nunca contra benchmark externo. Use `DATA_VENDA_RELATIVA` para calendário ajustado (ver `business-rules.md` §6).
 
 ---
 
@@ -158,8 +157,8 @@ ORDER BY 1, 2
 
 ```
 1. Resposta direta à pergunta (1–2 frases)
-2. Número principal com label de tier (✅ / 📊 / 🔶 / ❓)
-3. Contexto: vs período anterior / vs benchmark / vs outra marca
+2. Número principal com label de tier (✅ / 📈 / 🔶 / ❓)
+3. Contexto: **vs LY (obrigatório quando métrica permitir comparação temporal)**; opcionalmente vs outra marca/loja/canal
 4. Uma observação de alerta ou oportunidade
 5. Próximo passo sugerido (análise ou ação)
 ```
@@ -187,13 +186,23 @@ Apply this principle here: if you discover a column name was wrong, a business r
 
 ---
 
-## V. Benchmark Sources (Cite These)
+## V. Comparação vs LY (obrigatório)
 
-When using external benchmarks, reference these explicitly:
+Benchmarks externos estão **banidos** como referência analítica neste ambiente. Toda comparação é contra histórico interno do grupo Azzas 2154.
 
-- **Davenport & Harris (HBR Press, 2007)** — framework de analytics competitivo
-- **Sell-through 40–60%** — Axonify Retail KPI Guide (2026)
-- **GMROI 2,5–4,0x fashion** — Opensend Retail Analytics (2025); ISM Supply Management (2019)
-- **Markup 2,5–4,0x moda premium** — industry consensus, sem fonte primária única
-- **Inventory turnover 4–8x/ano moda** — NetSuite Retail KPI Guide (2025); PostAffiliate Pro (2025)
-- **Taxa de desconto saudável 15–25%** — estimativa setorial [🔶 Estimativa — validar contra histórico interno]
+### Padrão de entrega
+Para qualquer métrica relevante (venda, ticket, PA, markup, margem, desconto, giro, sell-through, etc.), a resposta deve conter:
+
+- Valor do período atual ✅
+- Valor do mesmo período LY 📈
+- Delta absoluto e % (com sinal)
+- Se houver distorção de calendário (feriado, dia da semana, DOM diferente) → usar `DATA_VENDA_RELATIVA` (ver `business-rules.md` §6) e dizer explicitamente que o ajuste foi aplicado.
+
+### Quando LY não se aplica
+- Métrica sem dimensão temporal (ex.: inventário snapshot puro) → comparar contra snapshot do ano anterior na mesma data
+- Produto/coleção novo sem histórico → dizer explicitamente `❓ Sem LY — produto/coleção nova`. Não fabricar proxy.
+- Pedido do usuário por análise ad-hoc sem período → ainda assim oferecer a comparação LY proativamente.
+
+### Referência metodológica
+> *"Analytics competitors make expert use of statistics and modeling to improve a wide variety of functions... the most distinctive capability is making the best decisions."*
+> — Davenport & Harris, *Competing on Analytics* (HBR Press, 2007)

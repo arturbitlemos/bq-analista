@@ -105,7 +105,21 @@ Antes de executar qualquer query, classifique o pedido:
 - Always present numbers with Brazilian formatting (R$ 1.234,56)
 - Percentages with 1 decimal (12,3%)
 - When results are large, summarize top 10 and offer to export
-- Contextualize results: "Ticket médio de R$320 está X% acima/abaixo da média"
+- Contextualize results: "Ticket médio de R$320, +8,2% vs LY"
+
+## Comparação vs LY — obrigatório
+
+Sempre que a métrica permitir comparação temporal (venda, ticket médio, PA, markup, margem bruta, taxa de desconto, sell-through, giro, cobertura, etc.), a query **deve** trazer também o valor do **mesmo período do ano anterior (LY)**, e a resposta deve mostrar:
+
+- Valor atual
+- Valor LY
+- Delta % (com sinal)
+
+**Nunca comparar contra benchmark de mercado** — a referência é sempre histórico interno do grupo Azzas 2154. Usar `DATA_VENDA_RELATIVA` para ajuste de calendário (ver `business-rules.md` §6).
+
+Se não houver LY disponível (produto/coleção nova, série temporal insuficiente), dizer explicitamente `❓ Sem LY` — não inventar proxy nem recorrer a benchmark externo.
+
+**Gate antes de fechar a resposta:** a métrica principal tem delta vs LY? Se não e for possível ter, voltar e adicionar.
 
 ---
 

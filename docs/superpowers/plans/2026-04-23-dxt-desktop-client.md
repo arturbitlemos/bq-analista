@@ -1759,56 +1759,163 @@ git commit -m "feat(dxt): router com prefixo <agent>__<tool>"
 
 ---
 
-## Task 14: DXT `forward.ts` — HTTPS call com Bearer + tradução de erros
+## Task 14: DXT `forward.ts` — MCP Streamable HTTP client com Bearer + tradução de erros
 
 **Files:**
 - Create: `packages/mcp-client-dxt/src/forward.ts`
 - Create: `packages/mcp-client-dxt/tests/forward.test.ts`
 
+**Protocolo:** Os agentes Python expõem MCP em `{agentUrl}/mcp` via Streamable HTTP (confirmado em `packages/mcp-core/src/mcp_core/server_factory.py:314` e `bridge.py:161`). Cada chamada usa a sessão MCP: `initialize` → `tools/call`. O SDK `@modelcontextprotocol/sdk` já é dependência — usar `StreamableHTTPClientTransport` + `Client`.
+
+**Design:**
+- `forward.ts` mantém um pool de `Client` sessions por `agentUrl` (chave = url)
+- Bearer token é injetado via `fetch` customizado no transport (dinâmico: re-lê a cada request pra suportar refresh)
+- Em erro 401: invalida a sessão e lança `ForwardError('auth_invalid')`; caller faz refresh/re-auth e tenta de novo
+- Factory é injetável pra testabilidade (testes usam fake sessions, produção usa MCP SDK)
+
 - [ ] **Step 1: Teste**
 
+`packages/mcp-client-dxt/tests/forward.test.ts`:
+
 ```ts
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { forwardToolCall, ForwardError } from '../src/forward';
+import { describe, it, expect, beforeEach } from 'vitest';
+import {
+  forwardToolCall,
+  ForwardError,
+  _resetPoolForTesting,
+  type ForwardSession,
+  type ForwardSessionFactory,
+} from '../src/forward';
 
-describe('forward', () => {
-  beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn());
+function fakeSession(behavior: {
+  onCall?: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+  onClose?: () => Promise<void>;
+  callCount?: { n: number };
+}): ForwardSession {
+  return {
+    async callTool(name, args) {
+      if (behavior.callCount) behavior.callCount.n += 1;
+      return behavior.onCall ? behavior.onCall(name, args) : { content: [] };
+    },
+    async close() {
+      if (behavior.onClose) await behavior.onClose();
+    },
+  };
+}
+
+describe('forwardToolCall', () => {
+  beforeEach(() => _resetPoolForTesting());
+
+  it('sucesso retorna payload do agente', async () => {
+    const factory: ForwardSessionFactory = async () =>
+      fakeSession({ onCall: async () => ({ content: [{ type: 'text', text: 'ok' }] }) });
+    const r = await forwardToolCall(
+      { agentUrl: 'https://a.x', tool: 'consultar_bq', args: { q: 1 }, getAccessToken: () => 'T' },
+      factory,
+    );
+    expect(r).toEqual({ content: [{ type: 'text', text: 'ok' }] });
   });
 
-  it('sucesso retorna payload', async () => {
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ result: 'ok' }),
-    });
-    const r = await forwardToolCall({ agentUrl: 'https://a.x', tool: 'consultar_bq', args: {}, accessToken: 'T' });
-    expect(r).toEqual({ result: 'ok' });
+  it('reusa sessão do pool entre chamadas no mesmo agentUrl', async () => {
+    let created = 0;
+    const counter = { n: 0 };
+    const factory: ForwardSessionFactory = async () => {
+      created += 1;
+      return fakeSession({ callCount: counter });
+    };
+    await forwardToolCall({ agentUrl: 'https://a.x', tool: 'x', args: {}, getAccessToken: () => 'T' }, factory);
+    await forwardToolCall({ agentUrl: 'https://a.x', tool: 'y', args: {}, getAccessToken: () => 'T' }, factory);
+    expect(created).toBe(1);
+    expect(counter.n).toBe(2);
   });
 
-  it('401 vira ForwardError(kind=auth_invalid)', async () => {
-    (globalThis.fetch as any).mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
-    await expect(forwardToolCall({ agentUrl: 'https://a.x', tool: 'x', args: {}, accessToken: 'T' }))
-      .rejects.toMatchObject({ kind: 'auth_invalid' });
+  it('401 → ForwardError(auth_invalid) e remove sessão do pool', async () => {
+    const factory: ForwardSessionFactory = async () =>
+      fakeSession({
+        onCall: async () => {
+          const err: any = new Error('unauthorized');
+          err.code = 401;
+          throw err;
+        },
+      });
+    await expect(
+      forwardToolCall({ agentUrl: 'https://a.x', tool: 'x', args: {}, getAccessToken: () => 'T' }, factory),
+    ).rejects.toMatchObject({ kind: 'auth_invalid', status: 401 });
+    // próxima chamada deve forçar factory nova (pool limpo)
+    let created = 0;
+    const factory2: ForwardSessionFactory = async () => {
+      created += 1;
+      return fakeSession({});
+    };
+    await forwardToolCall({ agentUrl: 'https://a.x', tool: 'x', args: {}, getAccessToken: () => 'T' }, factory2);
+    expect(created).toBe(1);
   });
 
-  it('403 vira ForwardError(kind=forbidden)', async () => {
-    (globalThis.fetch as any).mockResolvedValue({ ok: false, status: 403, json: async () => ({}) });
-    await expect(forwardToolCall({ agentUrl: 'https://a.x', tool: 'x', args: {}, accessToken: 'T' }))
-      .rejects.toMatchObject({ kind: 'forbidden' });
+  it('403 → ForwardError(forbidden)', async () => {
+    const factory: ForwardSessionFactory = async () =>
+      fakeSession({
+        onCall: async () => {
+          const err: any = new Error('forbidden');
+          err.code = 403;
+          throw err;
+        },
+      });
+    await expect(
+      forwardToolCall({ agentUrl: 'https://b.x', tool: 'x', args: {}, getAccessToken: () => 'T' }, factory),
+    ).rejects.toMatchObject({ kind: 'forbidden', status: 403 });
   });
 
-  it('5xx vira ForwardError(kind=unavailable)', async () => {
-    (globalThis.fetch as any).mockResolvedValue({ ok: false, status: 503, json: async () => ({}) });
-    await expect(forwardToolCall({ agentUrl: 'https://a.x', tool: 'x', args: {}, accessToken: 'T' }))
-      .rejects.toMatchObject({ kind: 'unavailable' });
+  it('5xx → ForwardError(unavailable)', async () => {
+    const factory: ForwardSessionFactory = async () =>
+      fakeSession({
+        onCall: async () => {
+          const err: any = new Error('bad gateway');
+          err.code = 502;
+          throw err;
+        },
+      });
+    await expect(
+      forwardToolCall({ agentUrl: 'https://c.x', tool: 'x', args: {}, getAccessToken: () => 'T' }, factory),
+    ).rejects.toMatchObject({ kind: 'unavailable', status: 502 });
+  });
+
+  it('erro de rede (sem código HTTP) → ForwardError(network)', async () => {
+    const factory: ForwardSessionFactory = async () =>
+      fakeSession({
+        onCall: async () => {
+          throw new Error('ECONNRESET');
+        },
+      });
+    await expect(
+      forwardToolCall({ agentUrl: 'https://d.x', tool: 'x', args: {}, getAccessToken: () => 'T' }, factory),
+    ).rejects.toMatchObject({ kind: 'network' });
+  });
+
+  it('factory failure (connect falhou) → ForwardError(unavailable) e NÃO cacheia', async () => {
+    let attempts = 0;
+    const factory: ForwardSessionFactory = async () => {
+      attempts += 1;
+      throw new Error('connect refused');
+    };
+    await expect(
+      forwardToolCall({ agentUrl: 'https://e.x', tool: 'x', args: {}, getAccessToken: () => 'T' }, factory),
+    ).rejects.toMatchObject({ kind: 'unavailable' });
+    await expect(
+      forwardToolCall({ agentUrl: 'https://e.x', tool: 'x', args: {}, getAccessToken: () => 'T' }, factory),
+    ).rejects.toMatchObject({ kind: 'unavailable' });
+    expect(attempts).toBe(2);
   });
 });
 ```
 
-- [ ] **Step 2: `src/forward.ts`**
+- [ ] **Step 2: Run teste (falha: module não existe)**
+
+- [ ] **Step 3: `src/forward.ts`**
 
 ```ts
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+
 export type ForwardErrorKind = 'auth_invalid' | 'forbidden' | 'unavailable' | 'network' | 'malformed';
 
 export class ForwardError extends Error {
@@ -1825,52 +1932,108 @@ export interface ForwardParams {
   agentUrl: string;
   tool: string;
   args: unknown;
-  accessToken: string;
+  getAccessToken: () => string;
   timeoutMs?: number;
 }
 
-export async function forwardToolCall(p: ForwardParams): Promise<unknown> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), p.timeoutMs ?? 60_000);
-  let res: Response;
+export interface ForwardSession {
+  callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
+  close(): Promise<void>;
+}
+
+export type ForwardSessionFactory = (
+  agentUrl: string,
+  getAccessToken: () => string,
+) => Promise<ForwardSession>;
+
+const pool = new Map<string, ForwardSession>();
+
+export function _resetPoolForTesting(): void {
+  for (const s of pool.values()) {
+    void s.close().catch(() => undefined);
+  }
+  pool.clear();
+}
+
+export async function forwardToolCall(
+  p: ForwardParams,
+  factory: ForwardSessionFactory = defaultFactory,
+): Promise<unknown> {
+  let session = pool.get(p.agentUrl);
+  if (!session) {
+    try {
+      session = await factory(p.agentUrl, p.getAccessToken);
+    } catch (err) {
+      throw translate(err);
+    }
+    pool.set(p.agentUrl, session);
+  }
   try {
-    res = await fetch(`${p.agentUrl}/tools/${encodeURIComponent(p.tool)}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${p.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ arguments: p.args }),
-      signal: controller.signal,
-    });
+    return await session.callTool(p.tool, (p.args ?? {}) as Record<string, unknown>);
   } catch (err) {
-    clearTimeout(timeout);
-    throw new ForwardError('network', String((err as Error).message ?? err));
+    const translated = translate(err);
+    if (translated.kind === 'auth_invalid' || translated.kind === 'network') {
+      pool.delete(p.agentUrl);
+      await session.close().catch(() => undefined);
+    }
+    throw translated;
   }
-  clearTimeout(timeout);
-  if (res.status === 401) throw new ForwardError('auth_invalid', 'unauthorized', 401);
-  if (res.status === 403) throw new ForwardError('forbidden', 'not allowlisted', 403);
-  if (res.status >= 500) throw new ForwardError('unavailable', `agent ${res.status}`, res.status);
-  if (!res.ok) throw new ForwardError('malformed', `unexpected status ${res.status}`, res.status);
-  try {
-    return await res.json();
-  } catch {
-    throw new ForwardError('malformed', 'non-JSON response');
+}
+
+function translate(err: unknown): ForwardError {
+  const e = err as { code?: number; message?: string };
+  if (typeof e.code === 'number') {
+    if (e.code === 401) return new ForwardError('auth_invalid', 'unauthorized', 401);
+    if (e.code === 403) return new ForwardError('forbidden', 'not allowlisted', 403);
+    if (e.code >= 500) return new ForwardError('unavailable', `agent ${e.code}`, e.code);
+    return new ForwardError('malformed', `unexpected status ${e.code}`, e.code);
   }
+  return new ForwardError('network', String(e.message ?? err));
+}
+
+async function defaultFactory(
+  agentUrl: string,
+  getAccessToken: () => string,
+): Promise<ForwardSession> {
+  const transport = new StreamableHTTPClientTransport(new URL(`${agentUrl.replace(/\/$/, '')}/mcp`), {
+    fetch: async (input, init) => {
+      const headers = new Headers(init?.headers);
+      headers.set('Authorization', `Bearer ${getAccessToken()}`);
+      return fetch(input, { ...init, headers });
+    },
+  });
+  const client = new Client({ name: 'mcp-client-dxt', version: '1.0.0' });
+  await client.connect(transport);
+  return {
+    async callTool(name, args) {
+      return await client.callTool({ name, arguments: args });
+    },
+    async close() {
+      try {
+        await client.close();
+      } catch {
+        /* ignore */
+      }
+    },
+  };
 }
 ```
 
-Nota: o formato exato da request (`POST /tools/<name>` com `{ arguments }`) pode precisar ser ajustado pra match com o que os agentes Python expõem hoje. Antes de rodar o teste manual em staging, verificar em `agents/vendas-linx/src/agent/` ou `packages/mcp-core/src/mcp_core/server_factory.py` e adaptar. Se o protocolo for MCP puro (JSON-RPC), trocar o body por `{ "method": "tools/call", "params": { "name": p.tool, "arguments": p.args } }`.
+- [ ] **Step 4: Run testes**
 
-- [ ] **Step 3: Verificar forma do request real contra os agentes**
+Run: `cd packages/mcp-client-dxt && npm test`
+Expected: todos passam.
 
-Abrir `packages/mcp-core/src/mcp_core/server_factory.py` e `packages/mcp-core/src/mcp_core/bridge.py` pra confirmar o endpoint de tool call. Ajustar `forward.ts` conforme.
+- [ ] **Step 5: Typecheck**
 
-- [ ] **Step 4: Run testes, commit**
+Run: `cd packages/mcp-client-dxt && npm run typecheck`
+Expected: zero erros.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add packages/mcp-client-dxt/src/forward.ts packages/mcp-client-dxt/tests/forward.test.ts
-git commit -m "feat(dxt): forward HTTPS com Bearer e tradução de erros"
+git commit -m "feat(dxt): forward via MCP streamable HTTP client com pool + erro tradução"
 ```
 
 ---
@@ -2077,9 +2240,11 @@ async function main() {
         agentUrl: route.agent.url,
         tool: route.tool,
         args,
-        accessToken: authState.access_token,
+        getAccessToken: () => authState.access_token,
       });
-      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+      // forward retorna o CallToolResult do agente Python (já no formato MCP).
+      // Passar direto pro Claude Desktop sem re-serializar.
+      return result as { content: unknown[]; isError?: boolean };
     } catch (err) {
       if (err instanceof ForwardError) {
         if (err.kind === 'auth_invalid') {

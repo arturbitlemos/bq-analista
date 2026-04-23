@@ -2,7 +2,7 @@
 
 **Data:** 2026-04-23
 **Status:** Em design — aguardando revisão
-**Escopo:** Cliente Claude Desktop (`.dxt`) pra consumir os agentes MCP do grupo Azzas, com autenticação corporativa via Azure AD e distribuição pelo portal `analysis-lib.vercel.app`.
+**Escopo:** Cliente Claude Desktop (`.dxt`) pra consumir os agentes MCP do grupo Azzas, com autenticação corporativa via Azure AD e distribuição pelo portal `bq-analista.vercel.app`.
 
 ---
 
@@ -28,7 +28,7 @@ Hoje os agentes MCP vivem na Railway como servidores HTTP. A única forma confi�
 
 ```
 Usuário (Mac / Windows)
- ├─ Browser → portal analysis-lib.vercel.app
+ ├─ Browser → portal bq-analista.vercel.app
  │    - /onboarding   (SPA, atrás do SSO)
  │    - /download/azzas-mcp-<version>.dxt
  │    - /api/mcp/auth/start + /callback + /refresh
@@ -88,7 +88,7 @@ packages/mcp-client-dxt/
   "access_expires_at": "2026-04-23T14:30:00Z",
   "refresh_expires_at": "2026-04-30T14:00:00Z",
   "email": "fulano@somagrupo.com.br",
-  "server": "https://analysis-lib.vercel.app"
+  "server": "https://bq-analista.vercel.app"
 }
 ```
 
@@ -104,7 +104,7 @@ portal/api/mcp/
 └── version.js          # GET  → { latest, min }
 ```
 
-**Azure App Registration:** reusa a App do portal, adicionando `AZURE_CLIENT_SECRET` no env Vercel (hoje é SPA public client; vira confidential client). Redirect URIs adicionados: `https://analysis-lib.vercel.app/api/mcp/auth/callback`.
+**Azure App Registration:** reusa a App do portal, adicionando `AZURE_CLIENT_SECRET` no env Vercel (hoje é SPA public client; vira confidential client). Redirect URIs adicionados: `https://bq-analista.vercel.app/api/mcp/auth/callback`.
 
 **Validações no callback:**
 
@@ -169,7 +169,7 @@ Endpoints `/auth/start` e `/auth/callback` dos agentes Python ficam como **legac
 1. User pede tool no Claude Desktop (ex: `vendas_linx__consultar_bq`)
 2. DXT tenta ler `~/.mcp/credentials.json` → arquivo não existe
 3. DXT sobe HTTP loopback server em porta livre de [8765..8799], rota `/cb`
-4. DXT abre browser em `https://analysis-lib.vercel.app/api/mcp/auth/start?redirect_uri=http://localhost:PORT/cb&state=<HMAC>`
+4. DXT abre browser em `https://bq-analista.vercel.app/api/mcp/auth/start?redirect_uri=http://localhost:PORT/cb&state=<HMAC>`
 5. Vercel `auth/start` valida, seta cookie `mcp_oauth_state`, 302 pra Azure AD `/authorize` (response_type=code, scope=openid+profile+email)
 6. User loga (ou SSO click-through)
 7. Azure 302 pra `/api/mcp/auth/callback?code=...`
@@ -183,7 +183,7 @@ Endpoints `/auth/start` e `/auth/callback` dos agentes Python ficam como **legac
 ### 4.2 Uso recorrente (access expirado, refresh válido)
 
 1. DXT detecta `access_expires_at < now`
-2. POST `https://analysis-lib.vercel.app/api/mcp/auth/refresh` com header `Authorization: Bearer <refresh_jwt>`
+2. POST `https://bq-analista.vercel.app/api/mcp/auth/refresh` com header `Authorization: Bearer <refresh_jwt>`
 3. Vercel valida signature, `typ=refresh`, `exp`, `tid`
 4. Vercel emite novo access JWT (refresh não rotaciona)
 5. DXT atualiza `credentials.json`, prossegue com tool call
@@ -251,7 +251,7 @@ Reusa estilo do portal (guia em `identidade-visual-azzas.md`). HTML+JS estático
 
 | Caso | User vê | DXT faz |
 |---|---|---|
-| DXT < `min_dxt_version` | ⚠️ Sua versão do Azzas MCP (v1.0.0) não é mais suportada. Baixe a nova em analysis-lib.vercel.app/onboarding. | Hard gate: todo tool call retorna esse erro |
+| DXT < `min_dxt_version` | ⚠️ Sua versão do Azzas MCP (v1.0.0) não é mais suportada. Baixe a nova em bq-analista.vercel.app/onboarding. | Hard gate: todo tool call retorna esse erro |
 | Nova versão disponível (>= min) | (silencioso no chat) | Portal mostra ribbon na próxima visita |
 
 ### 6.5 Protocolo

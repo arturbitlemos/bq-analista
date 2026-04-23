@@ -4,13 +4,13 @@
 
 **Goal:** Entregar o cliente `.dxt` do Azzas MCP no Claude Desktop, cross-platform, com auth corporativa Azure via portal Vercel e onboarding self-service.
 
-**Architecture:** Cliente Node (TypeScript) empacotado como `.dxt`, servido pelo portal `analysis-lib.vercel.app`. Auth via Azure AD code-exchange em serverless JS na Vercel, mintando JWT compatível com `mcp-core` existente. DXT faz loopback OAuth no primeiro uso, persiste credenciais em `~/.mcp/credentials.json`, e forwarda tool calls pros agentes Railway com `Authorization: Bearer`. Manifesto dinâmico (`/api/mcp/agents`) permite adicionar agentes sem release do DXT.
+**Architecture:** Cliente Node (TypeScript) empacotado como `.dxt`, servido pelo portal `bq-analista.vercel.app`. Auth via Azure AD code-exchange em serverless JS na Vercel, mintando JWT compatível com `mcp-core` existente. DXT faz loopback OAuth no primeiro uso, persiste credenciais em `~/.mcp/credentials.json`, e forwarda tool calls pros agentes Railway com `Authorization: Bearer`. Manifesto dinâmico (`/api/mcp/agents`) permite adicionar agentes sem release do DXT.
 
 **Tech Stack:** TypeScript (Node 20), esbuild para bundle, `@modelcontextprotocol/sdk`, `open` para browser spawn, `undici` pra HTTP. Vercel serverless com Node runtime, CommonJS (pra match com padrão atual do portal). Vitest pra testes TS, node:test pra testes JS do portal, pytest pra interop Python. Base spec: `docs/superpowers/specs/2026-04-23-dxt-desktop-client-design.md`.
 
 **Pré-requisitos operacionais (fora do código, manuais):**
 
-1. Adicionar plataforma Web na App Registration Azure existente com redirect `https://analysis-lib.vercel.app/api/mcp/auth/callback`
+1. Adicionar plataforma Web na App Registration Azure existente com redirect `https://bq-analista.vercel.app/api/mcp/auth/callback`
 2. Gerar client secret na App Registration (24 meses)
 3. Setar no env Vercel (production + preview): `AZURE_CLIENT_SECRET`, `MCP_JWT_SECRET` (já pode existir — mesmo valor das Railways)
 4. Garantir que `MCP_JWT_SECRET` no env das Railways bate exatamente com o valor setado na Vercel
@@ -787,7 +787,7 @@ module.exports = async function handler(req, res) {
 
 - [ ] **Step 3: Refinar teste — `req.headers.host`**
 
-Edit teste pra passar `req.headers = { host: 'analysis-lib.vercel.app' }` em cada caso.
+Edit teste pra passar `req.headers = { host: 'bq-analista.vercel.app' }` em cada caso.
 
 - [ ] **Step 4: Run testes**
 
@@ -858,7 +858,7 @@ test('callback com tid correto redireciona loopback com tokens', async () => {
   const req = {
     method: 'GET',
     query: { code: 'az-code', state: 'placeholder' },
-    headers: { cookie: `mcp_oauth_state=${STATE}`, host: 'analysis-lib.vercel.app' },
+    headers: { cookie: `mcp_oauth_state=${STATE}`, host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();
   await handler(req, res);
@@ -877,7 +877,7 @@ test('callback com tid errado redireciona loopback com error=wrong_tenant', asyn
   const req = {
     method: 'GET',
     query: { code: 'az-code', state: 'placeholder' },
-    headers: { cookie: `mcp_oauth_state=${STATE}`, host: 'analysis-lib.vercel.app' },
+    headers: { cookie: `mcp_oauth_state=${STATE}`, host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();
   await handler(req, res);
@@ -891,7 +891,7 @@ test('callback sem cookie rejeita com invalid_state', async () => {
   const req = {
     method: 'GET',
     query: { code: 'az-code', state: 'placeholder' },
-    headers: { host: 'analysis-lib.vercel.app' },
+    headers: { host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();
   await handler(req, res);
@@ -1370,7 +1370,7 @@ const sample: Credentials = {
   access_expires_at: new Date(Date.now() + 1800_000).toISOString(),
   refresh_expires_at: new Date(Date.now() + 7 * 86400_000).toISOString(),
   email: 'x@azzas.com.br',
-  server: 'https://analysis-lib.vercel.app',
+  server: 'https://bq-analista.vercel.app',
 };
 
 describe('auth credentials', () => {
@@ -1897,7 +1897,7 @@ import { forwardToolCall, ForwardError } from './forward.js';
 import { compareSemver, isStale } from './version.js';
 import { MSG } from './errors.js';
 
-const PORTAL_URL = process.env.AZZAS_MCP_PORTAL_URL || 'https://analysis-lib.vercel.app';
+const PORTAL_URL = process.env.AZZAS_MCP_PORTAL_URL || 'https://bq-analista.vercel.app';
 const DXT_VERSION = '1.0.0'; // sync com package.json e manifest.json
 
 let cachedManifest: Manifest | null = null;
@@ -2443,7 +2443,7 @@ Adicionar logo depois do título, **antes** da seção "Para consultar análises
 
 **Para todos os usuários corporativos.** Nenhuma instalação técnica no seu computador.
 
-1. Acesse **[analysis-lib.vercel.app/onboarding](https://analysis-lib.vercel.app/onboarding)** e faça login com sua conta `@somagrupo.com.br`
+1. Acesse **[bq-analista.vercel.app/onboarding](https://bq-analista.vercel.app/onboarding)** e faça login com sua conta `@somagrupo.com.br`
 2. Baixe o arquivo `azzas-mcp-*.dxt`
 3. Abra o Claude Desktop (Mac ou Windows) e arraste o `.dxt` pra dentro da janela
 4. Desktop pergunta *"Install Azzas MCP?"* — clique em Install
@@ -2504,7 +2504,7 @@ Rodar antes de cada release. Preencher com data e versão.
 - [ ] `.dxt` arrastado pra Claude Desktop aparece no menu de extensões
 - [ ] Tool `vendas_linx__get_context` aparece na lista do Claude
 - [ ] Primeiro tool call: mensagem "🔐 Autenticação necessária" aparece
-- [ ] Browser abre em `analysis-lib.vercel.app/api/mcp/auth/start`
+- [ ] Browser abre em `bq-analista.vercel.app/api/mcp/auth/start`
 - [ ] Após login Azure real, redirect pro loopback funciona, user vê "Pronto!"
 - [ ] Segunda pergunta executa tool sem nova auth
 - [ ] `~/.mcp/credentials.json` existe com mode 0600
@@ -2595,7 +2595,7 @@ E-mail com link do preview + instruções do README.
 
 - [ ] **Step 5: Revert `PORTAL_URL` pra prod**
 
-Após aprovação, editar `index.ts` de volta pra `analysis-lib.vercel.app` e rebuild.
+Após aprovação, editar `index.ts` de volta pra `bq-analista.vercel.app` e rebuild.
 
 - [ ] **Step 6: Commit revert**
 
@@ -2617,7 +2617,7 @@ git push origin dxt-v1.0.0
 
 - [ ] **Step 2: Verificar prod**
 
-Abrir `https://analysis-lib.vercel.app/onboarding`, confirmar:
+Abrir `https://bq-analista.vercel.app/onboarding`, confirmar:
 - Versão mostra 1.0.0
 - Download funciona
 - Lista de agentes aparece

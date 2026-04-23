@@ -52,6 +52,8 @@ export default async function middleware(request) {
   const url = new URL(request.url)
   const pathname = decodeURIComponent(url.pathname)
 
+  if (pathname === '/onboarding' || pathname === '/onboarding/') return;
+
   // /library/{domain}/{filename}.json
   if (pathname.startsWith('/library/')) {
     const filename = pathname.split('/').pop() // e.g. "user@corp.com.json" or "public.json"
@@ -74,4 +76,4 @@ export default async function middleware(request) {
   if (identitySegment !== sessionIdentity) return new Response('Acesso negado', { status: 403 })
 }
 
-export const config = { matcher: ['/analyses/:path*', '/library/:path*'] }
+export const config = { matcher: ['/analyses/:path*', '/library/:path*', '/onboarding'] }

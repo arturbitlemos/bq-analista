@@ -2,13 +2,29 @@
 
 Biblioteca privada de dashboards de BI do grupo. Cada analista tem sua própria pasta de análises (só ele vê) e pode marcar uma análise como pública (todo mundo logado vê).
 
-**Portal em produção:** https://analysis-lib.vercel.app/
+**Portal em produção:** https://bq-analista.vercel.app/
+
+---
+
+## 🚀 Quero usar o Azzas MCP no meu Claude Desktop
+
+**Para todos os usuários corporativos.** Nenhuma instalação técnica no seu computador.
+
+1. Acesse **[bq-analista.vercel.app/onboarding](https://bq-analista.vercel.app/onboarding)** e faça login com sua conta `@somagrupo.com.br`
+2. Baixe o arquivo `azzas-mcp-*.dxt`
+3. Abra o Claude Desktop (Mac ou Windows) e arraste o `.dxt` pra dentro da janela
+4. Desktop pergunta *"Install Azzas MCP?"* — clique em Install
+5. Peça uma análise no chat. Na primeira vez, um browser vai abrir pedindo login corporativo. Depois de logar, peça de novo e pronto.
+
+A sessão dura 7 dias. Depois disso, vai pedir login de novo.
+
+Para troubleshooting e arquitetura técnica, continue lendo este README.
 
 ---
 
 ## Para consultar análises
 
-1. Abra https://analysis-lib.vercel.app/
+1. Abra https://bq-analista.vercel.app/
 2. Faça login com sua conta `@somagrupo.com.br` (SSO Azure)
 3. A biblioteca aparece com todas as análises públicas + suas análises privadas
 4. Clique num card pra abrir o dashboard
@@ -25,7 +41,7 @@ Só isso. Se você só quer **ler** análises, pode parar aqui.
 
 ```bash
 # Clone
-git clone https://github.com/arturbitlemos/bq-analista.git
+git clone https://github.com/somalabs/bq-analista.git
 cd bq-analista
 
 # Configure seu email (o mesmo que você usa pra logar no portal)
@@ -112,7 +128,7 @@ App Registration no Azure AD do tenant do grupo, com:
 
 - **Plataforma:** Single-page application
 - **Redirect URIs:**
-  - `https://analysis-lib.vercel.app/`
+  - `https://bq-analista.vercel.app/`
   - `http://localhost:3000/` (pra dev local)
 - **Scopes solicitados:** `openid profile`
 - **Claim usado como identidade:** `preferred_username` (email corporativo)

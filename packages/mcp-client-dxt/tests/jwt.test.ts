@@ -32,4 +32,18 @@ describe('jwt', () => {
     expect(decodeToken(newAccess, SECRET, ISSUER).kind).toBe('access');
     expect(() => refreshAccess(pair.access, SECRET, ISSUER, 1800)).toThrow(/not a refresh/);
   });
+
+  it('issueTokens rejeita secret com menos de 32 bytes', () => {
+    expect(() => issueTokens({
+      email: 'foo@azzas.com.br',
+      secret: 'short',
+      issuer: ISSUER,
+      accessTtlS: 1800,
+      refreshTtlS: 604800,
+    })).toThrow(/at least 32 bytes/);
+  });
+
+  it('decodeToken rejeita secret com menos de 32 bytes', () => {
+    expect(() => decodeToken('fake.token.here', 'short', ISSUER)).toThrow(/at least 32 bytes/);
+  });
 });

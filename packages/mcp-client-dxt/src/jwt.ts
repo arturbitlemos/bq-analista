@@ -58,6 +58,7 @@ export function issueTokens(params: IssueParams): TokenPair {
 }
 
 export function decodeToken(token: string, secret: string, issuer: string): TokenClaims {
+  checkSecret(secret);
   const options: VerifyOptions = { algorithms: ['HS256'], issuer };
   const claims = jwt.verify(token, secret, options);
   if (typeof claims === 'string') throw new Error('unexpected string claims');

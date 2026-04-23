@@ -235,6 +235,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
             LibraryEntry(
                 id=entry_id, title=title, brand=brand, date=today,
                 link=link, description=description, tags=tags, filename=entry_filename,
+                author_email=exec_email,
             ),
         )
 

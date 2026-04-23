@@ -77,6 +77,8 @@ COALESCE(
 - **Com `PEDIDO_SITE` preenchido** (ecom, omni, vitrine, e parte do físico): `PEDIDO_SITE` é único globalmente (0% colisão de filial em 30 dias).
 - **Sem `PEDIDO_SITE`** (físico puro): compor com `(data, filial, ticket)`.
 
+> ⚠️ **Por que esta chave usa `CODIGO_FILIAL_ORIGEM` mesmo com o default analítico sendo DESTINO:** o `TICKET` é sequencial **por filial origem** (loja que emitiu o ticket no caixa). A composição com ORIGEM garante unicidade — foi validada empiricamente (100% cobertura, 0 colisões). Trocar para DESTINO quebra a unicidade. Esta é uma regra técnica de chave, **não** o default de atribuição analítica (esse virou DESTINO em 2026-04-22 — ver §8).
+
 ### Validação (30 dias, rodada em 2026-04-19)
 
 | `TIPO_VENDA` | Linhas | Pedidos distintos | Itens/pedido | Linhas sem chave |
@@ -180,27 +182,27 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 
 Modelo Linx tem 5 pares `RL_xxx / CODIGO_FILIAL_xxx / FILIAL_xxx` — ver `schema.md` §1.
 
-**Default em análises de venda:** `RL_ORIGEM` + `CODIGO_FILIAL_ORIGEM` (loja que consumiu estoque). Só trocar para `FAT`, `ATEND`, `VENDEDOR` ou `DESTINO` quando **explicitamente pedido**.
+**Default em análises de venda:** `RL_DESTINO` + `CODIGO_FILIAL_DESTINO` (loja de destino da venda). Só trocar para `FAT`, `ATEND`, `VENDEDOR` ou `ORIGEM` quando **explicitamente pedido**.
 
 ### Marca (nome legível)
 
-`RL_ORIGEM` vem como código. Resolver via `LOJAS_REDE`:
+`RL_DESTINO` vem como código **INTEGER** — cast obrigatório no join:
 
 ```sql
 LEFT JOIN `soma-pipeline-prd.silver_linx.LOJAS_REDE` r
-  ON v.RL_ORIGEM = r.RL
+  ON CAST(v.RL_DESTINO AS STRING) = r.REDE_LOJAS
 ```
 
-O texto da marca fica em `r.REDE_LOJAS` (ou coluna equivalente — ver `schema.md` §3 para nome canônico da coluna).
+O texto da marca fica em `r.DESC_REDE_LOJAS` (ver `schema.md` §3).
 
 ### Filial (nome legível)
 
 ```sql
 LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f
-  ON v.CODIGO_FILIAL_ORIGEM = f.COD_FILIAL
+  ON v.CODIGO_FILIAL_DESTINO = f.COD_FILIAL
 ```
 
-**Gotcha validado (2026-04-18):** o join é `CODIGO_FILIAL_ORIGEM = COD_FILIAL`, **não** `= FILIAL` (FILIAL é o nome, COD_FILIAL é o código numérico).
+**Gotcha validado (2026-04-18):** o join é `CODIGO_FILIAL_xxx = COD_FILIAL`, **não** `= FILIAL` (FILIAL é o nome, COD_FILIAL é o código numérico). Mesma convenção para os 5 contextos (DESTINO default, ORIGEM/FAT/ATEND/VENDEDOR sob pedido).
 
 ---
 
@@ -275,12 +277,12 @@ Não pular direto para KPI complexo sem ancorar volume primeiro.
 ## 10. Tipos de análise catalogados
 
 ### 10.1 Produto × Marca × Canal
-- **Dimensões:** `PRODUTO + COR_PRODUTO` (grão default, §8.1), `RL_ORIGEM`, canal (§2 — pendente)
+- **Dimensões:** `PRODUTO + COR_PRODUTO` (grão default, §8.1), `RL_DESTINO`, canal (§2 — pendente)
 - **Métricas:** top N por receita, peças, ticket médio, desconto
 - **Período típico:** 7 ou 30 dias
 
 ### 10.2 Loja × Marca (ranking)
-- **Dimensões:** `CODIGO_FILIAL_ORIGEM`, `RL_ORIGEM`
+- **Dimensões:** `CODIGO_FILIAL_DESTINO`, `RL_DESTINO`
 - **Métricas:** receita, ticket, PA, sell-through
 - **Filtro típico:** `TIPO_VENDA = 'VENDA_LOJA'` quando a análise for estritamente físico
 
@@ -345,7 +347,7 @@ venda AS (
   SELECT f.FILIAL AS filial_nome,
          SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)) AS venda
   FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
-  LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON v.CODIGO_FILIAL_ORIGEM = f.COD_FILIAL
+  LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON v.CODIGO_FILIAL_DESTINO = f.COD_FILIAL
   WHERE v.DATA_VENDA BETWEEN :data_inicio AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
     AND v.TIPO_VENDA = 'VENDA_LOJA'
     AND SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC) > 0
@@ -368,7 +370,7 @@ Padrão SQL completo e tabela de filiais canônicas: ver `schema.md §11`.
 
 Para atingimento total (físico + digital combinados por marca):
 - Cota: somar todas as filiais da marca em `LOJAS_PREVISAO_VENDAS` (não filtrar por ecom)
-- Venda: somar todos os `TIPO_VENDA` com `RL_ORIGEM = <código da marca>`
+- Venda: somar todos os `TIPO_VENDA` com `RL_DESTINO = <código da marca>`
 - Agregar por `REDE_LOJAS` / marca
 
 ---
@@ -381,3 +383,4 @@ Para atingimento total (físico + digital combinados por marca):
 | 2026-04-19 | **Rewrite completo** para modelo Linx silver. Chave de pedido validada empiricamente (§3). Canal marcado como pendente (§2). CMV migrado para join com `PRODUTOS_PRECOS` (§4). |
 | 2026-04-19 | Adicionado §8.1 — grão default "por produto" = `PRODUTO + COR_PRODUTO` (agregar tamanho, não agregar cor). |
 | 2026-04-21 | Adicionado §12 — regras canônicas venda vs cota; `LOJAS_PREVISAO_VENDAS.VENDA` documentada como não confiável; mapeamento de filiais ecommerce validado (§11 em schema.md). |
+| 2026-04-22 | **Troca do default de filial/rede: ORIGEM → DESTINO.** `RL_DESTINO` + `CODIGO_FILIAL_DESTINO` passam a ser o contexto padrão em §8, §10, §12 e nos exemplos SQL de schema.md §6/§8/§11. `RL_DESTINO` é INTEGER → requer `CAST(... AS STRING)` no join com `LOJAS_REDE`. §3 (chave_pedido) mantém `CODIGO_FILIAL_ORIGEM` — é chave técnica validada empiricamente, não default analítico. |

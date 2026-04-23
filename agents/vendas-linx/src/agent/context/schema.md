@@ -54,7 +54,9 @@ O modelo Linx traz até 5 pares `RL_xxx + FILIAL_xxx + CODIGO_FILIAL_xxx`:
 
 Indicadores ecom por contexto: `INDICA_ORIGEM_ECOM`, `INDICA_DESTINO_ECOM`, `INDICA_FAT_ECOM`, `INDICA_VENDEDOR_ECOM`, `INDICA_PEDIDO_VITRINE`.
 
-**Default para análise de venda em loja:** usar `CODIGO_FILIAL_ORIGEM` / `RL_ORIGEM` (loja que consumiu o estoque). Só use FAT, VENDEDOR, ATEND ou DESTINO quando **explicitamente solicitado** — nunca assuma.
+**Default para análise de venda em loja:** usar `CODIGO_FILIAL_DESTINO` / `RL_DESTINO` (loja de destino da venda). Só use FAT, VENDEDOR, ATEND ou ORIGEM quando **explicitamente solicitado** — nunca assuma.
+
+> ⚠️ `RL_DESTINO` é INTEGER (não STRING como `RL_ORIGEM`/`RL_FAT`/`RL_ATEND`). Ao joinar com `LOJAS_REDE.REDE_LOJAS` (STRING), use `CAST(v.RL_DESTINO AS STRING) = lr.REDE_LOJAS`.
 
 **Valores**
 | Coluna | Tipo | Descrição |
@@ -206,7 +208,7 @@ Esta tabela é um **lookup posicional**: cada linha é uma grade com até 48 pos
 | `REDE_SIGLA` | STRING | Sigla |
 | `ANM_SEQUENCIAL` | STRING | Sequencial interno |
 
-**Uso:** de-para de `RL_FAT` / `RL_ORIGEM` / etc. da venda para nome da marca.
+**Uso:** de-para de `RL_DESTINO` (default) / `RL_FAT` / `RL_ORIGEM` / etc. da venda para nome da marca.
 
 > ⚠️ Note que no modelo Linx `RL_*` em vendas aparece como STRING (em RL_ATEND, RL_FAT, RL_ORIGEM) ou INTEGER (RL_DESTINO, RL_VENDEDOR). Cast consistente pode ser necessário no JOIN.
 
@@ -232,11 +234,11 @@ Os nomes dos campos são diferentes entre tabelas (fácil de digitar errado no S
 | `LOJAS_PREVISAO_VENDAS` | — (só nome) | `FILIAL` |
 | `ANMN_ESTOQUE_HISTORICO_PROD*` | — (só nome) | `FILIAL` |
 
-Os **valores** batem (ex.: `"550317"`), mas os **nomes de coluna** são distintos. Sempre conferir antes de escrever o JOIN: `v.CODIGO_FILIAL_ORIGEM = f.COD_FILIAL`, nunca `v.COD_FILIAL` nem `f.CODIGO_FILIAL`.
+Os **valores** batem (ex.: `"550317"`), mas os **nomes de coluna** são distintos. Sempre conferir antes de escrever o JOIN: `v.CODIGO_FILIAL_DESTINO = f.COD_FILIAL` (default), nunca `v.COD_FILIAL` nem `f.CODIGO_FILIAL`.
 - **2.157 filiais** no cadastro total.
 
 **Regras de join (cola):**
-- vendas (`CODIGO_FILIAL_ORIGEM`) → FILIAIS.`COD_FILIAL`
+- vendas (`CODIGO_FILIAL_DESTINO`, default) → FILIAIS.`COD_FILIAL`
 - cota (`LOJAS_PREVISAO_VENDAS.FILIAL`) → FILIAIS.`FILIAL` (nome = nome)
 - estoque (`ANMN_ESTOQUE_HISTORICO_PROD.FILIAL`) → FILIAIS.`FILIAL` (nome = nome)
 - Para juntar vendas com cota ou estoque, **sempre passar por FILIAIS** (código ↔ nome).
@@ -415,22 +417,22 @@ bq query --dry_run --use_legacy_sql=false 'SELECT ...'
 **Protocolo ao responder "qual o giro de X":**
 1. **Estabelecer o período de análise** antes de qualquer coisa. Se o usuário não disser, perguntar (últimos 30d? mês corrente? coleção X?).
 2. **Default = peças**. Não inferir "valor" do contexto. Se o usuário pedir giro em valor/R$, **confirmar a regra**: numerador = venda líquida realizada; denominador = venda líquida + estoque_pecas × VO (preço varejo original).
-3. Somar venda no período usando `CODIGO_FILIAL_ORIGEM` / `RL_ORIGEM` como default.
+3. Somar venda no período usando `CODIGO_FILIAL_DESTINO` / `RL_DESTINO` como default.
 4. Puxar **1 foto de estoque** na data final do período (ver protocolo anti-custo §6).
 5. Calcular e interpretar: giro alto (próximo de 1) = saída > posição; giro baixo (próximo de 0) = estoque parado.
 
 ```sql
--- Giro em PEÇAS (default) — por produto × filial_origem
+-- Giro em PEÇAS (default) — por produto × filial_destino
 -- ATENÇÃO: vendas usa CÓDIGO de filial; estoque usa NOME. Ponte via FILIAIS.
 WITH vendas AS (
   SELECT
     f.FILIAL AS filial_nome,
-    v.CODIGO_FILIAL_ORIGEM AS filial_cod,
+    v.CODIGO_FILIAL_DESTINO AS filial_cod,
     v.PRODUTO, v.COR_PRODUTO,
     SUM(v.QTDE_PROD) AS pecas_vendidas
   FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
   LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f
-    ON v.CODIGO_FILIAL_ORIGEM = f.COD_FILIAL
+    ON v.CODIGO_FILIAL_DESTINO = f.COD_FILIAL
   WHERE v.DATA_VENDA BETWEEN @data_inicio AND @data_fim
   GROUP BY 1, 2, 3, 4
 ),
@@ -457,12 +459,12 @@ LEFT JOIN estoque_final e USING (filial_nome, PRODUTO, COR_PRODUTO)
 WITH vendas AS (
   SELECT
     f.FILIAL AS filial_nome,
-    v.CODIGO_FILIAL_ORIGEM AS filial_cod,
+    v.CODIGO_FILIAL_DESTINO AS filial_cod,
     v.PRODUTO, v.COR_PRODUTO,
     SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)) AS venda_liquida
   FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
   LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f
-    ON v.CODIGO_FILIAL_ORIGEM = f.COD_FILIAL
+    ON v.CODIGO_FILIAL_DESTINO = f.COD_FILIAL
   WHERE v.DATA_VENDA BETWEEN @data_inicio AND @data_fim
   GROUP BY 1, 2, 3, 4
 ),
@@ -499,7 +501,7 @@ LEFT JOIN preco_vo p USING (PRODUTO)
 
 **Protocolo ao responder "qual a cobertura de X":**
 1. **SEMPRE perguntar para quantos dias** o usuário quer projetar (30d? 60d? até fim da coleção?). Não assuma.
-2. **Grão é sempre por loja** (`FILIAL` em `FILIAIS` via `CODIGO_FILIAL_ORIGEM`). Só consolidar por cidade/região/marca **após** calcular por loja — nunca começar agregado.
+2. **Grão é sempre por loja** (`FILIAL` em `FILIAIS` via `CODIGO_FILIAL_DESTINO`). Só consolidar por cidade/região/marca **após** calcular por loja — nunca começar agregado.
 3. **Fonte da venda projetada (em ordem de preferência):**
    - (a) **Cota (`LOJAS_PREVISAO_VENDAS.PREVISAO_QTDE` / `PREVISAO_VALOR`)** quando existir para a filial no período.
    - (b) **Forecast da curva histórica** quando não houver cota — projetar a venda diária média dos últimos 30–90 dias da própria loja, ajustada pela sazonalidade da curva.
@@ -535,7 +537,7 @@ fallback_hist AS (
          SUM(v.QTDE_PROD) / 30.0 AS pecas_dia_hist
   FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
   LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f
-    ON v.CODIGO_FILIAL_ORIGEM = f.COD_FILIAL
+    ON v.CODIGO_FILIAL_DESTINO = f.COD_FILIAL
   WHERE v.DATA_VENDA BETWEEN DATE_SUB(data_ref, INTERVAL 30 DAY) AND DATE_SUB(data_ref, INTERVAL 1 DAY)
   GROUP BY 1
 )
@@ -583,20 +585,20 @@ Colunas com **potencial** PII (classificar na próxima sessão via amostra): `PE
 
 ```sql
 -- Venda enriquecida com marca, filial, produto, cor
--- DEFAULT: filial/rede de ORIGEM (use FAT só se pedido explicitamente)
+-- DEFAULT: filial/rede de DESTINO (use FAT/ORIGEM só se pedido explicitamente)
 SELECT
   v.DATA_VENDA,
   lr.DESC_REDE_LOJAS AS marca,
-  f.REGIAO, v.CODIGO_FILIAL_ORIGEM,
+  f.REGIAO, v.CODIGO_FILIAL_DESTINO,
   p.DESC_PRODUTO, p.COLECAO, p.ANM_TIPO_PRODUTO,
   pc.DESC_COR_PRODUTO,
   SUM(v.QTDE_PROD) AS pecas,
   SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)) AS venda_liquida
 FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
 LEFT JOIN `soma-pipeline-prd.silver_linx.LOJAS_REDE` lr
-  ON CAST(v.RL_ORIGEM AS STRING) = lr.REDE_LOJAS
+  ON CAST(v.RL_DESTINO AS STRING) = lr.REDE_LOJAS
 LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f
-  ON v.CODIGO_FILIAL_ORIGEM = f.COD_FILIAL
+  ON v.CODIGO_FILIAL_DESTINO = f.COD_FILIAL
 LEFT JOIN `soma-pipeline-prd.silver_linx.PRODUTOS` p
   ON v.PRODUTO = p.PRODUTO
 LEFT JOIN `soma-pipeline-prd.silver_linx.PRODUTO_CORES` pc
@@ -624,7 +626,7 @@ venda AS (
     f.FILIAL AS filial_nome,
     SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)) AS venda_liquida
   FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
-  LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON v.CODIGO_FILIAL_ORIGEM = f.COD_FILIAL
+  LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON v.CODIGO_FILIAL_DESTINO = f.COD_FILIAL
   WHERE v.DATA_VENDA BETWEEN DATE_TRUNC(CURRENT_DATE(), MONTH)
                          AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
     AND v.TIPO_VENDA = 'VENDA_LOJA'
@@ -691,7 +693,7 @@ GROUP BY 1
 >
 > **Sobre os sufixos CM / SB / HRG / RBX:** a mesma filial operacional pode aparecer com sufixos diferentes porque cada sufixo representa o CNPJ sob o qual ela está registrada (ver §4 Armadilha 3). `FARM ECOMMERCE CM` e `FARM ECOMMERCE SB` são **o mesmo canal de ecommerce da FARM** — a diferença é apenas o CNPJ após a incorporação para Soma Brands. Para análise comercial, **trate todos os sufixos da mesma filial como uma única entidade**.
 >
-> **Problema de join:** a cota fica registrada em um sufixo (ex. `_CM`) enquanto o volume de venda atual flui pelo outro (ex. `_SB`). Por isso **nunca comparar cota vs venda digital fazendo join por nome de filial** — o cruzamento correto é por marca (`REDE_LOJAS` / `RL_ORIGEM`).
+> **Problema de join:** a cota fica registrada em um sufixo (ex. `_CM`) enquanto o volume de venda atual flui pelo outro (ex. `_SB`). Por isso **nunca comparar cota vs venda digital fazendo join por nome de filial** — o cruzamento correto é por marca (`REDE_LOJAS` / `RL_DESTINO`).
 
 ### Tabela canônica — filiais-base ecommerce por marca (validada 2025)
 
@@ -749,11 +751,11 @@ WITH cota_digital AS (
 ),
 venda_digital AS (
   SELECT
-    CAST(v.RL_ORIGEM AS STRING) AS REDE_LOJAS,
+    CAST(v.RL_DESTINO AS STRING) AS REDE_LOJAS,
     lr.DESC_REDE_LOJAS AS marca,
     SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)) AS venda_digital
   FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
-  LEFT JOIN `soma-pipeline-prd.silver_linx.LOJAS_REDE` lr ON CAST(v.RL_ORIGEM AS STRING) = lr.REDE_LOJAS
+  LEFT JOIN `soma-pipeline-prd.silver_linx.LOJAS_REDE` lr ON CAST(v.RL_DESTINO AS STRING) = lr.REDE_LOJAS
   WHERE v.DATA_VENDA BETWEEN :data_inicio AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
     AND v.TIPO_VENDA IN ('VENDA_ECOM', 'VENDA_OMNI', 'VENDA_VITRINE')
     AND SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC) > 0
@@ -781,12 +783,12 @@ ORDER BY 1
 
 ## 12. Validações já fechadas (2026-04-18)
 
-- ✅ Join `vendas.CODIGO_FILIAL_ORIGEM = FILIAIS.COD_FILIAL` — 11/11 match em amostra. `FILIAIS.FILIAL` é nome, não código.
+- ✅ Join `vendas.CODIGO_FILIAL_DESTINO = FILIAIS.COD_FILIAL` (default) — 11/11 match em amostra (validação original rodada com `CODIGO_FILIAL_ORIGEM`; mesma convenção de `COD_FILIAL`). `FILIAIS.FILIAL` é nome, não código.
 - ✅ `DESCONTO_PROD` é armazenado **negativo** (~99% das linhas não-zero).
 - ✅ `TIPO_VENDA` tem 4 valores: VENDA_LOJA, VENDA_ECOM, VENDA_OMNI, VENDA_VITRINE.
 - ✅ `SUB_TIPO_VENDA` tem 6 valores (ver §1).
 - ✅ `SELLER` (16 valores), `PERFIL_VENDEDOR` (14), `DESC_CARGO` (cargos genéricos) — todos **não-PII**.
-- ✅ Top 10 marcas via `LOJAS_REDE` (origem, últimos 30 dias):
+- ✅ Top 10 marcas via `LOJAS_REDE` (origem, últimos 30 dias — ranking histórico; default atual é DESTINO):
   1. FARM (2) — R$ 77,3M, 128 lojas
   2. ANIMALE (1) — R$ 40,8M, 62 lojas
   3. BYNV (16) — R$ 35,2M, 29 lojas *(antes "NV" no modelo antigo)*

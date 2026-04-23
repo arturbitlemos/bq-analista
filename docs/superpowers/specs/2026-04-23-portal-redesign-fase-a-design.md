@@ -1,7 +1,7 @@
 # Portal Redesign — Fase A
 
 **Data:** 2026-04-23
-**Escopo:** redesign do portal `bq-analista.vercel.app` focado em descoberta de onboarding, alinhamento visual à marca Azzas 2154, e organização da library de análises pra escalar a 100-300 items por analista.
+**Escopo:** redesign do portal `bq-analista.vercel.app` focado em descoberta de onboarding, alinhamento visual à marca Azzas 2154, organização da library de análises pra escalar a 100-300 items por analista, e página de sucesso de autenticação do DXT (aba que abre no browser após login).
 
 **Fora do escopo (Fase B, futuro):** análises replicáveis/parametrizáveis — re-execução com novos períodos/parâmetros pela UI. Brainstorm separado.
 
@@ -105,6 +105,13 @@ Sem banner, sem profile dropdown, sem CTA empty-state. Um único ponto de entrad
 - Agentes em cards com left-border navy, fundo creme
 - Troubleshooting em parágrafos curtos com `<strong>` pra perguntas
 
+**Página de sucesso de auth (loopback `127.0.0.1:878X/cb`):**
+- HTML autocontido, servido pelo DXT local após o callback OAuth — tem que funcionar online (Google Fonts via CDN) e parecer da marca
+- Dois estados: **sucesso** (query string tem `access`) e **erro** (query string tem `error`)
+- **Sucesso:** fundo creme, logo "AZZAS *análises*" no topo, ícone de check em navy (SVG inline, 48px), headline em Red Hat 400 ~32px "Login concluído", editorial em Playfair italic "Bem-vindo, {email}.", sub "Você já pode fechar esta aba e voltar pro Claude Desktop.", pequeno countdown "Fechando em 3s..." (opcional, fecha via `window.close()` — só funciona se a aba foi aberta por outro tab, senão expira o countdown sem fechar)
+- **Erro:** fundo creme, mesmo logo, ícone ⚠ em navy, headline "Login não concluído", mensagem humana baseada no código de erro: `wrong_tenant` → "Você não está no tenant corporativo Azzas.", `invalid_code` → "A autorização expirou ou falhou.", qualquer outro → o `error_description` se houver, ou "Algo deu errado."; sub "Volte pro Claude Desktop e tente novamente. Se persistir, contate ai.labs@somagrupo.com.br."
+- Mesmo tratamento tipográfico do `/onboarding`. Nenhum link externo nem botão — usuário fecha manualmente ou via auto-close
+
 ---
 
 ## Arquitetura e arquivos
@@ -120,6 +127,9 @@ Sem banner, sem profile dropdown, sem CTA empty-state. Um único ponto de entrad
 | `packages/mcp-core/src/mcp_core/library.py` | Adiciona campo `author_email: str` em `LibraryEntry`. Necessário pra distinguir "Minhas" de "Time" quando tudo cai em public.json (modo `MCP_FORCE_PUBLIC=1`). |
 | `packages/mcp-core/src/mcp_core/server_factory.py` | `publicar_dashboard` passa `author_email=exec_email` ao criar `LibraryEntry`. |
 | `packages/mcp-core/tests/test_library.py` | Atualiza teste pra cobrir o novo campo. |
+| `packages/mcp-client-dxt/src/auth.ts` | Troca a string `<h1>Pronto!</h1>...` inline (linha ~88) por uma função `renderCallbackPage(params)` que retorna HTML rebrandado. Função em novo arquivo `packages/mcp-client-dxt/src/callback-page.ts` pra isolar HTML do código de rede. |
+| `packages/mcp-client-dxt/src/callback-page.ts` | **Novo.** Exporta `renderCallbackPage(params: LoopbackParams): string` — produz HTML autocontido com marca Azzas pra sucesso ou erro. |
+| `packages/mcp-client-dxt/src/__tests__/callback-page.test.ts` | **Novo.** Snapshot ou asserção de presença: quando `params.error` setado → contém headline "Login não concluído" e a mensagem traduzida; quando `params.access` setado → contém headline "Login concluído" e o email. |
 
 ### Arquivos a criar
 
@@ -249,6 +259,8 @@ Nota: o schema do `library.json` ganha um campo `author_email` (adição retroco
 - Link "Instalar no Claude ↗" leva pra `/onboarding`, fica marcado como `active` lá.
 - `/onboarding` renderiza com hero navy, todos os elementos com a marca.
 - Em mobile (≤ 375px), grid fica 1 coluna, header não quebra.
+- Tela de sucesso do DXT: após login Azure, a aba que abre mostra tela rebrandada (check navy, "Login concluído", email), não mais "Pronto!" puro.
+- Tela de erro do DXT: simular com um tenant errado → aba mostra variante de erro com mensagem humana + instrução de voltar pro Claude.
 
 ### Automático
 
@@ -259,10 +271,10 @@ Nota: o schema do `library.json` ganha um campo `author_email` (adição retroco
 
 ## Rollout
 
-Deploy em dois passos, em ordem:
+Três vetores de deploy, podem ir no mesmo push (pipelines rodam em paralelo):
 
-1. **Backend primeiro** — commit das mudanças em `mcp-core` (library.py + server_factory.py + test). Push em `main` dispara redeploy Railway dos dois agentes (vendas-linx e devoluções). A partir daí, toda nova análise publicada via agente ganha `author_email`. Entries antigas seguem sem o campo (front-end lida via fallback).
+1. **Agentes Railway** — `mcp-core` (library.py + server_factory.py + test) redeployam automático via GitHub Actions. Novas análises ganham `author_email`, antigas caem no fallback por filename.
+2. **Portal Vercel** — `index.html` + `onboarding.html` + `vercel.json` redeployam automático. Usuários veem portal novo.
+3. **DXT client** — `callback-page.ts` + alteração em `auth.ts` exigem rebuild do `.dxt` (bump de versão patch, `1.0.0` → `1.0.1`) e reinstall no Claude Desktop. Sem rebuild, usuários continuam vendo o "Pronto!" antigo (a tela é renderizada pelo processo Node local).
 
-2. **Frontend depois** — commit de `index.html` + `onboarding.html`. Push em `main` dispara redeploy Vercel. A partir daí, usuários veem o portal novo.
-
-Pode ser o mesmo push (backend + frontend no mesmo commit) se a CI rodar os dois workflows em paralelo. Zero mudança de infraestrutura (env vars, domínios, etc).
+Zero mudança de infraestrutura (env vars, domínios, etc). DXT v1.0.1 pode ser disponibilizada no onboarding sem forçar — quem precisar ver a tela nova só após próxima instalação.

@@ -1,0 +1,57 @@
+name: Deploy Agents to Railway
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'agents/**'
+      - 'packages/mcp-core/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/deploy-agents.yml'
+  workflow_dispatch:
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      agents: ${{ steps.list.outputs.agents }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Discover agents
+        id: list
+        run: |
+          agents=$(find agents -mindepth 2 -maxdepth 2 -name railway.toml \
+                   | xargs -n1 dirname \
+                   | xargs -n1 basename \
+                   | sort -u \
+                   | jq -R . | jq -s -c .)
+          if [ "$agents" = "[]" ]; then
+            echo "::error::No agents with railway.toml found under agents/"
+            exit 1
+          fi
+          echo "agents=$agents" >> "$GITHUB_OUTPUT"
+          echo "Discovered agents: $agents"
+
+  deploy:
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        agent: ${{ fromJson(needs.discover.outputs.agents) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy ${{ matrix.agent }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service ${{ matrix.agent }} --ci

@@ -26,13 +26,16 @@
 
 | Tab | Conteúdo | Count badge |
 |-----|----------|-------------|
-| **Minhas** (default) | Análises publicadas pelo usuário logado, não arquivadas | nº de itens |
-| **Time** | Todas as análises públicas do domínio, de qualquer autor, não arquivadas pelo usuário | nº de itens |
+| **Minhas** (default) | Análises publicadas pelo usuário logado em qualquer agente, não arquivadas | nº de itens |
+| **Time** | Todas as análises públicas de qualquer autor em qualquer agente, não arquivadas pelo usuário | nº de itens |
 | **Arquivadas** | Itens que o usuário arquivou (sejam suas ou do time) | nº de itens |
 
-**Busca:** input de texto abaixo das tabs, procura em `title`, `description`, `tags` da tab ativa. Case-insensitive, match por substring.
+**Cross-domain:** a library é agregada — análises aparecem independente de qual agente as publicou (Vendas Linx, Devoluções, ou agentes futuros). Cada card indica o agente de origem na linha de meta.
+
+**Busca:** input de texto abaixo das tabs, procura em `title`, `description`, `tags` e `brand` da tab ativa. Case-insensitive, match por substring.
 
 **Facets (dropdowns) ao lado da busca:**
+- **Agente** — lista distinct dos agentes presentes (Vendas Linx / Devoluções / ...)
 - **Marca** — lista distinct de `brand` dos items da tab ativa
 - **Período** — agrupadores: "Últimos 7 dias" / "Últimos 30 dias" / "Este trimestre" / "Este ano" / "Tudo"
 - **Ordem** — "Mais recente" (default) / "Mais antiga" / "Título A→Z"
@@ -84,7 +87,7 @@ Sem banner, sem profile dropdown, sem CTA empty-state. Um único ponto de entrad
 - Thumb com gradiente derivado da marca (Navy/Steel/Blue-soft/Cream — rotação determinística por brand string, sem imagem ainda)
 - Chip de marca (ALL CAPS, Red Hat 600, 9px, letter-spacing) sobre o thumb
 - Menu `⋯` sobre o thumb
-- Corpo: título (Red Hat 600, 13px), meta (período + recência, ink-faint, 11px), descrição (ink-soft, 11px), tags como chips bege (ALL CAPS, 9px)
+- Corpo: título (Red Hat 600, 13px), meta line com formato `<AGENTE> · <período> · <recência>` onde o nome do agente vem em Red Hat 600 10px uppercase cor `--steel` como primeiro elemento (ink-faint, 11px no resto), descrição (ink-soft, 11px), tags como chips bege (ALL CAPS, 9px)
 
 **Onboarding hero:**
 - Fundo navy sólido
@@ -114,6 +117,9 @@ Sem banner, sem profile dropdown, sem CTA empty-state. Um único ponto de entrad
 | `portal/onboarding.html` | Refatoração completa: aplica design tokens navy+cream+Playfair, hero escuro, passos em grid, agentes em cards, header igual ao `/`. |
 | `portal/vercel.json` | Já tem rewrite `/onboarding` → `/onboarding.html` (feito em commit anterior). Sem mudança. |
 | `portal/middleware.js` | Sem mudança — `/onboarding` já passa pelo check de sessão. |
+| `packages/mcp-core/src/mcp_core/library.py` | Adiciona campo `author_email: str` em `LibraryEntry`. Necessário pra distinguir "Minhas" de "Time" quando tudo cai em public.json (modo `MCP_FORCE_PUBLIC=1`). |
+| `packages/mcp-core/src/mcp_core/server_factory.py` | `publicar_dashboard` passa `author_email=exec_email` ao criar `LibraryEntry`. |
+| `packages/mcp-core/tests/test_library.py` | Atualiza teste pra cobrir o novo campo. |
 
 ### Arquivos a criar
 
@@ -146,20 +152,24 @@ Leitura e escrita em helpers no próprio `index.html`:
 ### Load inicial (`/`)
 
 1. Middleware valida sessão → passa através.
-2. Página bota loader, chama `/api/config` (mantém fluxo atual) pra obter `domain`.
-3. `fetch('/library/<domain>/<email>.json')` + `fetch('/library/<domain>/public.json')` em paralelo.
-4. Merge dos dois arrays em `allItems`. Dedupe por `id` (pode existir o mesmo id em ambos; prioriza o do email).
-5. Lê `localStorage['azzas_archived']` → `archivedIds`.
-6. Calcula counts:
-   - `mine` = items de `email.json` não arquivados
-   - `team` = items de `public.json` não arquivados
-   - `archived` = items em qualquer lista que estão arquivados
-7. Renderiza tab ativa (default: `mine`).
+2. Página bota loader, chama `/api/mcp/agents` (já existe) pra obter a lista de agentes. Cada agente tem `name` (slug, ex: `vendas-linx`) e `label` (ex: `Vendas Linx`). O `name` é o diretório em `portal/library/<name>/`.
+3. Pra cada agente na lista, dispara em paralelo: `fetch('/library/<agent.name>/<email>.json')` + `fetch('/library/<agent.name>/public.json')`. Falhas individuais (404 se o arquivo ainda não existe) são tratadas como array vazio, não erro.
+4. Ao carregar cada item, anexa `agent: { name, label }` e `source: "private" | "public"` pra saber de onde veio. Merge em `allItems` único.
+5. Dedupe por `id`. Se o mesmo id aparece em privado e público, prioriza o privado.
+6. Lê `localStorage['azzas_archived']` → `archivedIds`.
+7. Classifica cada item como "mine" ou "team":
+   - `mine` = `source === "private"` OU (`source === "public"` E `item.author_email === currentEmail`)
+   - `team` = `source === "public"` E `item.author_email !== currentEmail`
+   - Fallback (pra items antigos sem `author_email`): considera `mine` se `item.filename` começa com o slug do email do usuário atual; senão `team`.
+8. Calcula counts (excluindo arquivados):
+   - `mine` count, `team` count, `archived` count (todos independente de classificação mine/team)
+9. Renderiza tab ativa (default: `mine`).
 
 ### Filtros
 
 - **Tab:** muda universo de items.
-- **Busca:** filtra por substring em `title+description+tags.join(' ')`.
+- **Busca:** filtra por substring em `title + description + tags.join(' ') + brand` (case-insensitive).
+- **Agente:** filtra por `item.agent.name === selectedAgent`.
 - **Marca:** filtra por `item.brand === selectedBrand`.
 - **Período:** filtra por `item.date` (usa `Date.parse`) contra janela relativa a hoje.
 - **Ordem:** sort final.
@@ -214,10 +224,11 @@ Re-render roda em cliente sem chamar backend de novo.
 - **Não** criar sistema de favoritos/pins.
 - **Não** criar coleções/pastas nomeadas pelo usuário.
 - **Não** adicionar comentários, reações ou notificações.
-- **Não** mudar o schema do `library.json`.
 - **Não** mudar o fluxo de auth (MSAL segue igual).
 - **Não** extrair CSS pra stylesheet separado.
 - **Não** persistir "arquivado" no backend — local apenas por enquanto.
+
+Nota: o schema do `library.json` ganha um campo `author_email` (adição retrocompatível — entries antigas sem o campo caem no fallback por filename slug).
 
 ---
 
@@ -227,8 +238,13 @@ Re-render roda em cliente sem chamar backend de novo.
 
 - Login flow continua funcionando (Azure AD → sessão → `/`).
 - Tabs mudam o universo corretamente, counts batem.
-- Busca filtra e "Nenhuma análise" aparece quando sem match.
+- "Minhas" mostra análises que eu publiquei (validar com análise publicada via agente, com `author_email` preenchido).
+- "Time" mostra análises de outros autores, não arquivadas pelo usuário atual.
+- Busca filtra por título, descrição, tags E marca. "Nenhuma análise" aparece quando sem match.
+- Facet de agente lista só agentes com items na tab ativa.
 - Facet de marca lista só marcas presentes na tab ativa.
+- Cards mostram agente na linha de meta no formato `AGENTE · período · recência`.
+- Análises antigas (sem `author_email`) caem no fallback por filename slug.
 - Arquivar remove da tab atual, aparece em "Arquivadas", restaurar reverte.
 - Link "Instalar no Claude ↗" leva pra `/onboarding`, fica marcado como `active` lá.
 - `/onboarding` renderiza com hero navy, todos os elementos com a marca.
@@ -236,10 +252,17 @@ Re-render roda em cliente sem chamar backend de novo.
 
 ### Automático
 
-- Nenhum teste automatizado novo nesta fase — é redesign de páginas estáticas sem lógica de negócio nova. O worklow `vitest` existente do portal cobre os handlers da API, que não são tocados.
+- Atualiza `packages/mcp-core/tests/test_library.py` pra cobrir `author_email` no `LibraryEntry`.
+- Nenhum teste novo pra frontend nesta fase — é redesign de páginas estáticas sem lógica de negócio nova. O workflow `vitest` existente do portal cobre os handlers da API, que não são tocados.
 
 ---
 
 ## Rollout
 
-Deploy direto pra produção via push em `main`. Single deploy — duas páginas HTML. Zero mudança de infraestrutura.
+Deploy em dois passos, em ordem:
+
+1. **Backend primeiro** — commit das mudanças em `mcp-core` (library.py + server_factory.py + test). Push em `main` dispara redeploy Railway dos dois agentes (vendas-linx e devoluções). A partir daí, toda nova análise publicada via agente ganha `author_email`. Entries antigas seguem sem o campo (front-end lida via fallback).
+
+2. **Frontend depois** — commit de `index.html` + `onboarding.html`. Push em `main` dispara redeploy Vercel. A partir daí, usuários veem o portal novo.
+
+Pode ser o mesmo push (backend + frontend no mesmo commit) se a CI rodar os dois workflows em paralelo. Zero mudança de infraestrutura (env vars, domínios, etc).

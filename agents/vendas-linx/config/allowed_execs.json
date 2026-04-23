@@ -1,6 +1,8 @@
 {
   "allowed_emails": [
-    "artur.lemos@somagrupo.com.br"
+    "artur.lemos@somagrupo.com.br",
+    "luiz.vasconcelos@somagrupo.com.br",
+    "mateus.portelinha@somagrupo.com.br"
   ],
   "notes": "Copy to allowed_execs.json and edit. Emails must match Azure AD upn exactly."
 }

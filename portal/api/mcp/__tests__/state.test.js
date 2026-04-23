@@ -20,3 +20,12 @@ test('secret errado rejeitado', () => {
   const signed = signState('http://localhost:8765/cb', SECRET);
   assert.equal(verifyState(signed, 'y'.repeat(32)), null);
 });
+
+test('signState rejeita secret curto', () => {
+  assert.throws(() => signState('http://localhost:8765/cb', 'short'), /at least 32 bytes/);
+});
+
+test('verifyState retorna null com secret curto', () => {
+  const signed = signState('http://localhost:8765/cb', SECRET);
+  assert.equal(verifyState(signed, 'short'), null);
+});

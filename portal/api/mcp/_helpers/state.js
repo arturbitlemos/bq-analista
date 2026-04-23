@@ -1,8 +1,16 @@
 const crypto = require('crypto');
 
 const TTL_S = 600;
+const MIN_SECRET_BYTES = 32;
+
+function checkSecret(secret) {
+  if (Buffer.byteLength(secret, 'utf8') < MIN_SECRET_BYTES) {
+    throw new Error(`state secret must be at least ${MIN_SECRET_BYTES} bytes`);
+  }
+}
 
 function signState(redirectUri, secret) {
+  checkSecret(secret);
   const nonce = crypto.randomBytes(16).toString('base64url');
   const exp = Math.floor(Date.now() / 1000) + TTL_S;
   const payload = `${nonce}~${exp}~${redirectUri}`;
@@ -11,6 +19,7 @@ function signState(redirectUri, secret) {
 }
 
 function verifyState(stateValue, secret) {
+  if (Buffer.byteLength(secret, 'utf8') < MIN_SECRET_BYTES) return null;
   const parts = stateValue.split('~');
   if (parts.length < 4) return null;
   const hmac = parts.pop();

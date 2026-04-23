@@ -4,80 +4,150 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Azzas MCP — Onboarding</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Red+Hat+Display:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" sizes="32x32" href="/public/assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/public/assets/favicon-16x16.png">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f5f5f7; color: #1d1d1f; }
-    header { background: #fff; border-bottom: 1px solid #e5e5ea; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
-    main { max-width: 760px; margin: 0 auto; padding: 2rem; }
-    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
-    .hero { background: #fff; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; }
-    .btn-primary { display: inline-block; background: #0071e3; color: #fff; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1rem; margin-top: 1rem; }
-    .btn-primary:hover { background: #0077ed; }
-    section { background: #fff; padding: 1.5rem 2rem; border-radius: 12px; margin-bottom: 1.5rem; }
-    ol { padding-left: 1.5rem; }
-    ol li { margin-bottom: 0.75rem; }
-    .agents-list { list-style: none; padding: 0; }
-    .agents-list li { padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; }
-    .agents-list li.coming-soon { color: #86868b; }
-    .troubleshooting li { margin-bottom: 1rem; }
-    .troubleshooting strong { display: block; }
-    .ribbon-update { background: #fff9db; padding: 0.75rem 2rem; border-bottom: 1px solid #fcefb4; text-align: center; font-size: 0.9rem; display: none; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #000; --ink-soft: #595959; --ink-faint: #999;
+      --surface: #fff; --surface-cream: #F9F6EA; --surface-warm: #E8E8E4;
+      --navy: #274566; --steel: #3D5A73; --blue-soft: #A1C6ED; --blue-light: #C5D9ED;
+      --font-primary: 'Red Hat Display', Arial, sans-serif;
+      --font-editorial: 'Playfair Display', Georgia, serif;
+    }
+    body { background: var(--surface); font-family: var(--font-primary); color: var(--ink); min-height: 100vh; }
+    a { color: inherit; }
+
+    /* Ribbon */
+    .ribbon { background: var(--surface-cream); padding: 0.75rem 2rem; border-bottom: 1px solid var(--surface-warm); text-align: center; font-size: 0.85rem; color: var(--ink-soft); display: none; }
+    .ribbon.visible { display: block; }
+
+    /* Header */
+    header { background: var(--surface); border-bottom: 1px solid var(--surface-warm); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    .brand { font-size: 0.85rem; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; color: var(--ink); }
+    .brand em { font-family: var(--font-editorial); font-style: italic; font-weight: 400; text-transform: none; letter-spacing: normal; color: var(--steel); font-size: 1rem; margin-left: 0.25rem; }
+    nav { display: flex; gap: 1.25rem; align-items: center; font-size: 0.85rem; }
+    nav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted transparent; padding: 0.25rem 0; }
+    nav a.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+    nav a:hover { color: var(--navy); }
+    .user-chip { background: var(--surface-warm); padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.75rem; color: var(--ink-soft); }
+
+    /* Hero */
+    .hero { background: var(--navy); color: var(--surface); padding: 4rem 2rem; }
+    .hero-inner { max-width: 760px; margin: 0 auto; }
+    .eyebrow { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--blue-soft); margin-bottom: 1rem; font-weight: 600; }
+    h1 { font-weight: 400; font-size: clamp(2rem, 5vw, 2.75rem); letter-spacing: -0.02em; line-height: 1.08; margin-bottom: 0.5rem; }
+    .editorial { font-family: var(--font-editorial); font-style: italic; font-weight: 400; font-size: clamp(1.1rem, 2.5vw, 1.4rem); color: var(--blue-light); margin-bottom: 1.75rem; line-height: 1.3; }
+    .hero p { max-width: 560px; font-size: 1rem; font-weight: 300; color: #D6E2ED; line-height: 1.6; margin-bottom: 2rem; }
+    .cta { display: inline-block; background: var(--surface); color: var(--navy); padding: 1rem 1.75rem; border-radius: 4px; font-weight: 600; font-size: 0.95rem; text-decoration: none; letter-spacing: 0.02em; transition: transform 0.1s; }
+    .cta:hover { transform: translateY(-1px); }
+    .sub-cta { font-size: 0.8rem; color: var(--blue-soft); margin-top: 0.85rem; }
+
+    /* Sections */
+    section.content { padding: 3rem 2rem; border-bottom: 1px solid var(--surface-warm); }
+    section.content-inner { max-width: 760px; margin: 0 auto; }
+    section.content.alt { background: var(--surface-warm); }
+    .section-heading { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 1.25rem; font-weight: 600; }
+
+    /* Steps grid */
+    .steps { list-style: none; padding: 0; counter-reset: step; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 760px; margin: 0 auto; }
+    .steps li { counter-increment: step; display: flex; gap: 1rem; align-items: flex-start; }
+    .steps li::before { content: counter(step, decimal-leading-zero); font-family: var(--font-editorial); font-style: italic; color: var(--navy); font-size: 1.75rem; min-width: 2rem; line-height: 1; padding-top: 0.1rem; font-weight: 400; }
+    .steps .step-text { font-size: 0.95rem; color: var(--ink-soft); line-height: 1.55; font-weight: 300; }
+    .steps .step-text strong { color: var(--ink); font-weight: 600; }
+
+    /* Agents grid */
+    .agents { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 760px; margin: 0 auto; }
+    .agent { background: var(--surface-cream); padding: 1.25rem 1.5rem; border-left: 3px solid var(--navy); }
+    .agent h3 { font-size: 1rem; margin-bottom: 0.3rem; font-weight: 600; }
+    .agent p { font-size: 0.85rem; color: var(--ink-soft); font-weight: 300; line-height: 1.5; }
+
+    /* Troubleshooting */
+    .troubleshooting { font-size: 0.95rem; color: var(--ink-soft); line-height: 1.6; max-width: 760px; margin: 0 auto; font-weight: 300; }
+    .troubleshooting p { margin-bottom: 0.85rem; }
+    .troubleshooting strong { color: var(--ink); font-weight: 600; display: block; margin-bottom: 0.1rem; }
+    .troubleshooting a { color: var(--navy); text-decoration: underline; }
+
+    /* Footer */
+    footer { padding: 2rem; text-align: center; font-size: 0.8rem; color: var(--ink-faint); }
+    footer a { color: var(--ink-soft); }
+
     @media (max-width: 680px) {
-      main { padding: 1rem; }
-      header { padding: 0.75rem 1rem; }
-      .btn-primary { display: block; text-align: center; }
+      header { padding: 0.85rem 1rem; flex-wrap: wrap; }
+      nav { flex-wrap: wrap; gap: 0.75rem; }
+      .hero { padding: 2.5rem 1.25rem; }
+      section.content { padding: 2rem 1.25rem; }
+      .steps, .agents { grid-template-columns: 1fr; gap: 1.25rem; }
     }
   </style>
 </head>
 <body>
-  <div id="ribbon" class="ribbon-update"></div>
+  <div id="ribbon" class="ribbon"></div>
+
   <header>
-    <div><strong>Azzas 2154</strong></div>
-    <div id="user-info">—</div>
+    <div class="brand">AZZAS <em>análises</em></div>
+    <nav>
+      <a href="/">Análises</a>
+      <a href="/onboarding" class="active">Instalar no Claude</a>
+      <span class="user-chip" id="user-info">—</span>
+    </nav>
   </header>
-  <main>
-    <div class="hero">
-      <h1>Azzas MCP no Claude Desktop</h1>
-      <p>Análises de BigQuery diretamente do seu Claude, com sua identidade corporativa.</p>
-      <a id="download-btn" class="btn-primary" href="/api/download-dxt">Baixar Azzas MCP v<span id="dxt-version">—</span>.dxt</a>
-      <p style="font-size: 0.85rem; color: #86868b; margin-top: 0.5rem;">macOS e Windows &middot; última atualização: <span id="last-updated">—</span></p>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">Azzas 2154 · Claude Desktop</div>
+      <h1>Análises onde você já está conversando.</h1>
+      <p class="editorial">Uma extensão. Seu BigQuery. Sua identidade corporativa.</p>
+      <p>Instale a extensão Azzas no Claude Desktop e faça perguntas aos dados sem sair do chat. As respostas usam sua permissão de acesso — nada mais, nada menos.</p>
+      <a id="download-btn" class="cta" href="/api/download-dxt">Baixar Azzas MCP v<span id="dxt-version">—</span> ↓</a>
+      <p class="sub-cta">macOS e Windows · última atualização: <span id="last-updated">—</span></p>
     </div>
+  </section>
 
-    <section>
-      <h2>Instalação</h2>
-      <ol>
-        <li>Baixe o arquivo <code>.dxt</code> acima.</li>
-        <li>Abra o Claude Desktop.</li>
-        <li>Clique no seu nome (canto inferior esquerdo) &rarr; <strong>Configurações</strong> &rarr; <strong>Extensões</strong> &rarr; <strong>Configurações avançadas</strong> &rarr; <strong>Instalar extensão</strong>.</li>
-        <li>Selecione o <code>.dxt</code> que você acabou de baixar.</li>
-        <li>O Desktop pergunta <em>"Install Azzas MCP?"</em> — clique em Install.</li>
-        <li>Peça alguma análise no chat. Na primeira vez, o Claude vai abrir uma aba no seu navegador pedindo login corporativo. Depois de logar, peça de novo e pronto.</li>
+  <section class="content">
+    <div class="content-inner">
+      <h2 class="section-heading">Instalação</h2>
+      <ol class="steps">
+        <li><div class="step-text">Baixe o arquivo <strong>.dxt</strong> acima.</div></li>
+        <li><div class="step-text">No Claude Desktop, clique no seu nome (canto inferior esquerdo) → <strong>Configurações</strong> → <strong>Extensões</strong> → <strong>Configurações avançadas</strong> → <strong>Instalar extensão</strong>.</div></li>
+        <li><div class="step-text">Selecione o <strong>.dxt</strong> que você baixou e confirme em <strong>Install</strong>.</div></li>
+        <li><div class="step-text">No chat, peça uma análise. Na primeira vez, o Claude abre o browser pra <strong>login corporativo</strong>. Depois disso, é só conversar.</div></li>
       </ol>
-    </section>
+    </div>
+  </section>
 
-    <section>
-      <h2>O que você ganha</h2>
-      <ul id="agents-list" class="agents-list"><li>Carregando agentes…</li></ul>
-    </section>
+  <section class="content alt">
+    <div class="content-inner">
+      <h2 class="section-heading">O que você ganha</h2>
+      <ul id="agents-list" class="agents"><li class="agent"><h3>Carregando agentes…</h3></li></ul>
+    </div>
+  </section>
 
-    <section>
-      <h2>Não tem Claude Desktop?</h2>
-      <p>Baixe em <a href="https://claude.ai/download" target="_blank" rel="noopener">claude.ai/download</a> — aceita qualquer plano Pro.</p>
-    </section>
+  <section class="content">
+    <div class="content-inner">
+      <h2 class="section-heading">Não tem Claude Desktop?</h2>
+      <p style="color: var(--ink-soft); font-weight: 300; line-height: 1.6;">Baixe em <a href="https://claude.ai/download" target="_blank" rel="noopener" style="color: var(--navy);">claude.ai/download</a>. Aceita qualquer plano Pro.</p>
+    </div>
+  </section>
 
-    <section class="troubleshooting">
-      <h2>Problemas comuns</h2>
-      <ul>
-        <li><strong>"O Claude pediu login de novo depois de uns dias"</strong> Normal. A sessão expira em 7 dias. Basta logar.</li>
-        <li><strong>"Instalei mas não vejo as ferramentas do Azzas"</strong> Reinicie o Claude Desktop uma vez.</li>
-        <li><strong>"Tentei usar uma ferramenta e deu 403"</strong> Seu e-mail precisa estar liberado pro agente em questão. Contate <a href="mailto:ai.labs@somagrupo.com.br">ai.labs@somagrupo.com.br</a>.</li>
-        <li><strong>"Sua versão do Azzas MCP está desatualizada"</strong> Volte aqui e baixe a versão mais nova.</li>
-      </ul>
-    </section>
+  <section class="content alt">
+    <div class="content-inner">
+      <h2 class="section-heading">Problemas comuns</h2>
+      <div class="troubleshooting">
+        <p><strong>"Pediu login de novo depois de uns dias"</strong>Normal. A sessão expira em 7 dias, basta logar.</p>
+        <p><strong>"Instalei mas não vejo as ferramentas do Azzas"</strong>Reinicie o Claude Desktop uma vez.</p>
+        <p><strong>"Tentei usar uma ferramenta e deu 403"</strong>Seu e-mail precisa estar liberado pro agente em questão. Contate <a href="mailto:ai.labs@somagrupo.com.br">ai.labs@somagrupo.com.br</a>.</p>
+        <p><strong>"Sua versão do Azzas MCP está desatualizada"</strong>Volte aqui e baixe a versão mais nova.</p>
+      </div>
+    </div>
+  </section>
 
-    <section style="background: transparent; padding: 1rem 0;">
-      <p style="color: #86868b; font-size: 0.9rem;">Para times técnicos, a arquitetura está documentada no <a href="https://github.com/somalabs/bq-analista" target="_blank" rel="noopener">README do repositório</a>.</p>
-    </section>
-  </main>
+  <footer>
+    Para times técnicos, a arquitetura está em <a href="https://github.com/somalabs/bq-analista" target="_blank" rel="noopener">README do repositório</a>.
+  </footer>
 
   <script>
     function getSessionEmail() {
@@ -96,7 +166,7 @@
       if (lastKnown && lastKnown !== v.latest) {
         const ribbon = document.getElementById('ribbon');
         ribbon.textContent = `Nova versão disponível: v${v.latest}. Baixe abaixo pra atualizar.`;
-        ribbon.style.display = 'block';
+        ribbon.classList.add('visible');
       }
       localStorage.setItem('mcp_last_known_version', v.latest);
     }).catch(() => {
@@ -108,11 +178,14 @@
       ul.innerHTML = '';
       for (const a of m.agents) {
         const li = document.createElement('li');
-        li.textContent = `✓ ${a.label}`;
+        li.className = 'agent';
+        const h3 = document.createElement('h3');
+        h3.textContent = a.label;
+        li.appendChild(h3);
         ul.appendChild(li);
       }
     }).catch(() => {
-      document.getElementById('agents-list').innerHTML = '<li>Não consegui carregar a lista. Tente atualizar a página.</li>';
+      document.getElementById('agents-list').innerHTML = '<li class="agent"><h3>Não consegui carregar a lista.</h3></li>';
     });
 
     document.getElementById('last-updated').textContent = new Date().toLocaleDateString('pt-BR');

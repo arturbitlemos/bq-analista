@@ -15,6 +15,7 @@ class LibraryEntry:
     description: str
     tags: list[str]
     filename: str
+    author_email: str
 
 
 def prepend_entry(library_path: Path, entry: LibraryEntry) -> None:

@@ -51,11 +51,17 @@ Filtros são aditivos (AND entre facets, tab define o universo).
 
 ### Ações no card
 
-Menu `⋯` no canto superior direito do thumbnail abre dropdown com:
+Clicar no card (fora do menu) abre a análise no **iframe fullscreen existente** (mantém comportamento atual do `index.html`, preserva contexto de tab/busca/scroll ao fechar).
 
-- **Abrir** (default ao clicar no card)
-- **Copiar link** (URL absoluta da análise, pra mandar por Slack/email)
-- **Arquivar** / **Restaurar**
+Menu `⋯` no canto superior direito do thumbnail abre dropdown com ações que variam por visibilidade:
+
+| Ação | Item público | Item privado (só autor vê) |
+|------|--------------|---------------------------|
+| Copiar link | ✓ | — (link privado dá 403 pros outros) |
+| Tornar pública | — | ✓ (já existe via `/api/share`) |
+| Arquivar / Restaurar | ✓ | ✓ |
+
+**Feedback ao copiar link:** toast curto ("Link copiado" + ícone de check) no canto inferior por 2s. Toast é inline na página (não depende de lib de notificações). Menu fecha ao clicar.
 
 Sem "renomear" ou "editar metadata" nesta fase — isso é Fase B.
 
@@ -188,8 +194,9 @@ Re-render roda em cliente sem chamar backend de novo.
 
 ### Ações no card
 
-- **Abrir:** `window.location = item.link` (ou push de estado p/ iframe, mantém comportamento atual do `index.html`).
-- **Copiar link:** `navigator.clipboard.writeText(window.location.origin + item.link)`.
+- **Abrir:** abre no iframe fullscreen existente (mantém comportamento do `index.html`). Não troca de URL.
+- **Copiar link:** `navigator.clipboard.writeText(window.location.origin + item.link)` → toast "Link copiado" 2s. Só aparece em items com `source === "public"`.
+- **Tornar pública:** chama `/api/share` existente. Só aparece em items com `source === "private"`. Após sucesso, recarrega a library.
 - **Arquivar:** `archive(item.id)` → remove da view atual com animação curta (opcional), incrementa count da tab Arquivadas.
 - **Restaurar:** inverso.
 
@@ -223,7 +230,7 @@ Re-render roda em cliente sem chamar backend de novo.
 
 - **Desktop (≥ 900px):** grid 3 colunas, header horizontal.
 - **Tablet (600-900px):** grid 2 colunas, header horizontal.
-- **Mobile (< 600px):** grid 1 coluna, header empilha (logo em cima, nav embaixo compacta). Facets viram sheet/bottom drawer ou colapsam em "Filtros ▾" único.
+- **Mobile (< 600px):** grid 1 coluna, header empilha (logo em cima, nav embaixo compacta). Facets (Agente/Marca/Período/Ordem) colapsam num botão único "Filtros ▾" que abre um **bottom sheet** (modal slide-up ocupando bottom 70% da tela) com os 4 selects empilhados. Botão "Aplicar" fecha o sheet e atualiza a grid. Sheet fecha ao clicar fora ou na área cinza no topo.
 - **Onboarding:** hero pilha, passos viram 1 coluna, agentes pilham.
 
 ---
@@ -231,6 +238,7 @@ Re-render roda em cliente sem chamar backend de novo.
 ## Não-objetivos explícitos
 
 - **Não** implementar análises parametrizáveis (Fase B).
+- **Não** implementar compartilhamento 1:1 que copia o arquivo pra pasta do email de destino (Fase B — depende de decisões sobre conflito de nome, public-ou-privado, notificação pro destinatário).
 - **Não** criar sistema de favoritos/pins.
 - **Não** criar coleções/pastas nomeadas pelo usuário.
 - **Não** adicionar comentários, reações ou notificações.
@@ -255,6 +263,10 @@ Nota: o schema do `library.json` ganha um campo `author_email` (adição retroco
 - Facet de marca lista só marcas presentes na tab ativa.
 - Cards mostram agente na linha de meta no formato `AGENTE · período · recência`.
 - Análises antigas (sem `author_email`) caem no fallback por filename slug.
+- Clicar num card abre o iframe fullscreen; fechar volta pra library com tab/busca/scroll preservados.
+- Menu do item público mostra "Copiar link" e o toast aparece ao copiar.
+- Menu do item privado mostra "Tornar pública" (não mostra "Copiar link"). Clicar recarrega a library com o item agora público.
+- Em mobile, botão "Filtros ▾" abre bottom sheet com os 4 selects; "Aplicar" fecha e filtra.
 - Arquivar remove da tab atual, aparece em "Arquivadas", restaurar reverte.
 - Link "Instalar no Claude ↗" leva pra `/onboarding`, fica marcado como `active` lá.
 - `/onboarding` renderiza com hero navy, todos os elementos com a marca.

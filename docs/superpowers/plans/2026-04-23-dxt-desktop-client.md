@@ -2300,13 +2300,13 @@ git commit -m "feat(dxt): entry point stdio MCP server com auth, router, forward
 - Create: `packages/mcp-client-dxt/icon.png` (placeholder 128×128, pode ser o logo Azzas)
 - Create: `packages/mcp-client-dxt/scripts/build-dxt.mjs`
 
-**Atenção:** o formato exato do `manifest.json` do DXT deve ser verificado contra a documentação atual (`https://docs.anthropic.com/en/docs/claude-code/desktop-extensions` ou `claude.ai/desktop-extensions`). Os campos abaixo são baseados na spec pública conhecida; ajuste se a documentação atual exigir chaves diferentes.
+**Formato confirmado** contra https://github.com/anthropics/dxt/blob/main/MANIFEST.md (spec MCPB 0.3, verificado 2026-04-23). Campo correto é `manifest_version`, não `dxt_version`.
 
 - [ ] **Step 1: Criar `manifest.json`**
 
 ```json
 {
-  "dxt_version": "0.1",
+  "manifest_version": "0.3",
   "name": "azzas-mcp",
   "display_name": "Azzas MCP",
   "version": "1.0.0",
@@ -2321,19 +2321,16 @@ git commit -m "feat(dxt): entry point stdio MCP server com auth, router, forward
     "entry_point": "dist/index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/dist/index.js"]
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {}
     }
   }
 }
 ```
 
-- [ ] **Step 2: Verificar formato exato via context7**
+- [ ] **Step 3: Adicionar ícone**
 
-Use `context7` com query `anthropic desktop extensions manifest` pra confirmar se `dxt_version`, chaves de `server`, e `entry_point` estão corretos. Ajuste se necessário.
-
-- [ ] **Step 3: Adicionar ícone placeholder**
-
-Copiar o logo existente em `portal/public/assets/` (ou qualquer PNG 128×128) pra `packages/mcp-client-dxt/icon.png`. Se não houver logo, gerar um placeholder simples com um quadrado preto + "Azzas" em branco — pode ser criado com `sips` ou similar, ou só baixar um placeholder genérico. Issue pra substituir por logo oficial vai separada.
+Copiar `portal/public/assets/icon-192x192.png` pra `packages/mcp-client-dxt/icon.png`. É 192×192, serve.
 
 - [ ] **Step 4: `scripts/build-dxt.mjs`**
 

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { credentialsPath, mcpDir } from './paths.js';
+import { renderCallbackPage } from './callback-page.js';
 
 export interface Credentials {
   access_token: string;
@@ -84,8 +85,8 @@ export async function runLoopbackCallback(opts: LoopbackOptions): Promise<Loopba
       for (const [k, v] of url.searchParams) {
         (params as Record<string, string>)[k] = v;
       }
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end('<h1>Pronto!</h1><p>Você pode fechar esta aba.</p>');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderCallbackPage(params));
       clearTimeout(timer);
       server!.close();
       resolve({ ...params, port: activePort });

@@ -12,6 +12,39 @@
 
 ---
 
+## Prerequisites
+
+Antes de iniciar:
+
+- **Python 3.13 + uv** instalado (`python --version`, `uv --version`).
+- **Node.js ≥ 20** (`node --version`). Vitest v4 exige isso.
+- **Vercel CLI ≥ 52** logada no escopo certo (`vercel whoami`). Só pra `vercel dev` local — o deploy é via GitHub Actions.
+- **Railway CLI ≥ 4** logada (`railway whoami`). Usado em rollback e debug.
+- **`gh` CLI** logada em `somalabs/bq-analista` (`gh auth status`).
+- **Sessão válida no portal prod** (cookie `session`) pra conseguir testar `/onboarding` local via `vercel dev` — ou use o cookie da sessão atual copiado do DevTools.
+- Verificar que a branch `main` está sincronizada: `git pull --ff-only`.
+
+Se algo falhar aqui, pare e resolva antes de executar as tasks.
+
+## Branch Strategy
+
+As tasks geram 11+ commits pequenos. Todos ficam na `main` local até a Task 11, quando o push único dispara CI. Isso garante que estados intermediários (ex: Task 6 reescreveu o HTML mas Task 7 ainda não religou o data layer) nunca chegam em produção.
+
+**Se preferir branch:** crie `feat/portal-redesign-fase-a` antes da Task 1 e abra PR na Task 11. Os comandos de `git commit`/`git push` nas tasks mudam só pro nome da branch.
+
+## Rollback Strategy
+
+Se algo quebrar em produção após a Task 11:
+
+1. **Portal quebrado mas agentes OK** — `git revert <sha-do-commit-do-portal>..HEAD` → push. Vercel redeploya em ~60s. Agentes ficam com `author_email` novo (inofensivo — campo extra no JSON não quebra cliente antigo).
+2. **Agentes quebrados mas portal OK** — muito improvável (mudança só adiciona campo). Se acontecer, `git revert` dos commits de backend, push, Railway redeploya em ~2min.
+3. **DXT v1.0.1 quebrada** — usuários mantêm v1.0.0 instalada; só não veem a tela nova. Baixar o binário antigo no portal: reverter `manifest.js` pra `latest: '1.0.0'` e apagar `azzas-mcp-1.0.1.dxt` de `portal/public/downloads/`.
+4. **Rollback total** — `git reset --hard <sha-antes-da-fase-a>` em main só se o usuário autorizar explicitamente (destrutivo, reescreve histórico remoto).
+
+Para qualquer rollback, logar no Slack `#ai-labs` (se existir) explicando o motivo.
+
+---
+
 ## File Structure
 
 **Backend (Python, editar):**
@@ -42,6 +75,15 @@
 - [ ] **Step 1.1: Ler o estado atual**
 
 Abra `packages/mcp-core/src/mcp_core/library.py` e confirme que `LibraryEntry` é um `@dataclass` com os campos: `id, title, brand, date, link, description, tags, filename`. `prepend_entry` converte via `asdict(entry)` e adiciona `record["file"] = entry.link.lstrip("/")` pra compat.
+
+- [ ] **Step 1.1b: Enumerar todos os callers de `LibraryEntry(...)` pra garantir que nada vai quebrar**
+
+```bash
+cd /Users/arturlemos/Documents/bq-analista
+grep -rn "LibraryEntry(" --include="*.py" packages/ agents/ tests/
+```
+
+Expected: 3-4 ocorrências — `server_factory.py` (produção) e `tests/test_library.py` (testes). Se aparecer algum caller não esperado (em outro agente, num script, etc.), anote — cada um vai precisar do `author_email` adicionado também. Se essa lista mudar entre a execução deste plano e a realidade, atualize o plano antes de seguir.
 
 - [ ] **Step 1.2: Escrever teste que falha — campo `author_email` persiste no JSON**
 
@@ -260,6 +302,23 @@ describe('renderCallbackPage', () => {
     expect(html).not.toContain('<script>alert(1)</script>@x.com');
     expect(html).toContain('&lt;script&gt;');
   });
+
+  it('success sem email: renderiza sem quebrar', () => {
+    const html = renderCallbackPage({ access: 'tok' });
+    expect(html).toContain('Login concluído');
+    // Sem email, mostra só o placeholder vazio — sem lançar
+    expect(html).not.toContain('undefined');
+    expect(html).not.toContain('null');
+  });
+
+  it('escapa HTML em error_description', () => {
+    const html = renderCallbackPage({
+      error: 'x',
+      error_description: '<img src=x onerror=alert(1)>',
+    });
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('&lt;img');
+  });
 });
 ```
 
@@ -421,6 +480,7 @@ git commit -m "feat(dxt): renderCallbackPage com marca Azzas"
 **Files:**
 - Modify: `packages/mcp-client-dxt/src/auth.ts:86-92`
 - Modify: `packages/mcp-client-dxt/manifest.json:5`
+- Modify: `packages/mcp-client-dxt/package.json:3`
 
 - [ ] **Step 4.1: Substituir a string inline em `auth.ts`**
 
@@ -450,14 +510,25 @@ server!.close();
 resolve({ ...params, port: activePort });
 ```
 
-- [ ] **Step 4.2: Rodar testes de auth pra garantir que nada quebrou**
+- [ ] **Step 4.2: Enumerar asserts do HTML antigo nos testes**
+
+```bash
+cd /Users/arturlemos/Documents/bq-analista
+grep -rn "Pronto!\|Você pode fechar" packages/mcp-client-dxt/tests/
+```
+
+Se aparecer qualquer resultado, esse teste assertava o HTML antigo — precisa ajustar pra asserção mais genérica (ex: `expect(html).toContain('Login concluído')` ou remover a asserção de conteúdo, já que `callback-page.test.ts` cobre). Se não aparecer nada, pule pra 4.3.
+
+- [ ] **Step 4.3: Rodar testes de auth pra garantir que nada quebrou**
 
 ```bash
 cd packages/mcp-client-dxt && npm test -- auth
 ```
-Expected: todos passam. Os testes de loopback existentes só checam que o servidor resolve os params — não checam o HTML retornado. Se algum teste assertou a string antiga "Pronto!", ajuste-o pra asserção mais genérica (ex: `expect(html).toContain('Login concluído')`).
+Expected: todos passam.
 
-- [ ] **Step 4.3: Bump de versão em `manifest.json`**
+- [ ] **Step 4.4: Bump de versão em `manifest.json` E `package.json`**
+
+`scripts/build-dxt.mjs` lê a versão do `package.json` pra nomear o output (`azzas-mcp-<version>.dxt`). Precisa bumpar ambos senão o arquivo sai com nome errado.
 
 Em `packages/mcp-client-dxt/manifest.json`, troque:
 
@@ -471,18 +542,48 @@ por:
 "version": "1.0.1",
 ```
 
-- [ ] **Step 4.4: Rodar build completo**
+Em `packages/mcp-client-dxt/package.json`, troque:
+
+```json
+"version": "1.0.0",
+```
+
+por:
+
+```json
+"version": "1.0.1",
+```
+
+Confirmar que os dois arquivos agora têm `1.0.1`:
+
+```bash
+grep -H '"version"' packages/mcp-client-dxt/manifest.json packages/mcp-client-dxt/package.json
+```
+
+Rodar `npm install` pra atualizar o `package-lock.json` (a primeira entrada dele também carrega a versão do pacote):
+
+```bash
+cd packages/mcp-client-dxt && npm install --package-lock-only
+```
+
+Verificar que o lock agora tem `1.0.1` no topo:
+
+```bash
+head -5 packages/mcp-client-dxt/package-lock.json
+```
+
+- [ ] **Step 4.5: Rodar build completo**
 
 ```bash
 cd packages/mcp-client-dxt && npm run build && npm run typecheck && npm test
 ```
 Expected: build gera `dist/index.js` sem erro, typecheck limpo, todos os testes passam.
 
-- [ ] **Step 4.5: Commit**
+- [ ] **Step 4.6: Commit**
 
 ```bash
 cd /Users/arturlemos/Documents/bq-analista
-git add packages/mcp-client-dxt/src/auth.ts packages/mcp-client-dxt/manifest.json
+git add packages/mcp-client-dxt/src/auth.ts packages/mcp-client-dxt/manifest.json packages/mcp-client-dxt/package.json packages/mcp-client-dxt/package-lock.json
 git commit -m "feat(dxt): callback loopback usa página rebrandada + bump 1.0.1"
 ```
 
@@ -498,7 +599,9 @@ git commit -m "feat(dxt): callback loopback usa página rebrandada + bump 1.0.1"
 ```bash
 wc -l portal/onboarding.html
 ```
-Expected: ~120 linhas. O script JS no final faz 3 coisas: (1) popula `user-info` com email da sessão via cookie; (2) `fetch('/api/mcp/version')` → popula `dxt-version` e ribbon de update; (3) `fetch('/api/mcp/agents')` → popula lista de agentes. Precisa preservar esses comportamentos no novo HTML.
+Expected: ~120 linhas. O script JS no final faz 3 coisas: (1) tenta popular `user-info` com email da sessão via `document.cookie` — **isso nunca funcionou**, o cookie `session` é `HttpOnly` (ver `portal/api/auth.js:82`), então sempre mostra "—"; (2) `fetch('/api/mcp/version')` → popula `dxt-version` e ribbon de update; (3) `fetch('/api/mcp/agents')` → popula lista de agentes.
+
+**Decisão:** preservar o chip "—" no mesmo estado (parity com comportamento atual, não é regressão). Mostrar email real na onboarding exige `/api/whoami` novo ou init MSAL nessa página — deixamos pra Fase B se alguém pedir.
 
 - [ ] **Step 5.2: Reescrever `portal/onboarding.html` com marca aplicada**
 
@@ -916,6 +1019,9 @@ Em `portal/index.html`, substitua TUDO dentro de `<style>...</style>` por:
     .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(200%); background: var(--ink); color: var(--surface); padding: 0.75rem 1.25rem; border-radius: 6px; font-size: 0.85rem; font-weight: 500; z-index: 100; transition: transform 0.25s ease-out; pointer-events: none; }
     .toast.visible { transform: translateX(-50%) translateY(0); }
 
+    /* Error banner */
+    .error-banner { background: var(--surface-warm); border-bottom: 1px solid var(--status-pending); color: var(--ink); padding: 0.75rem 2rem; text-align: center; font-size: 0.85rem; }
+
     /* Responsive */
     @media (max-width: 900px) {
       #grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); padding: 1.25rem; }
@@ -1088,28 +1194,48 @@ async function init() {
 }
 
 async function loadAllLibraries() {
-  const agentsRes = await fetch('/api/mcp/agents')
-  if (!agentsRes.ok) throw new Error('Não consegui buscar a lista de agentes')
-  const { agents } = await agentsRes.json()
+  try {
+    const agentsRes = await fetch('/api/mcp/agents')
+    if (!agentsRes.ok) throw new Error('Não consegui buscar a lista de agentes')
+    const { agents } = await agentsRes.json()
 
-  const tasks = []
-  for (const agent of agents) {
-    tasks.push(fetchLibraryFile(agent, 'private'))
-    tasks.push(fetchLibraryFile(agent, 'public'))
-  }
-  const results = await Promise.all(tasks)
-  const merged = new Map() // dedupe by id, private wins
-  for (const list of results) {
-    for (const item of list) {
-      if (item.source === 'private' || !merged.has(item.id)) {
-        merged.set(item.id, item)
+    const tasks = []
+    for (const agent of agents) {
+      tasks.push(fetchLibraryFile(agent, 'private'))
+      tasks.push(fetchLibraryFile(agent, 'public'))
+    }
+    const results = await Promise.all(tasks)
+    const merged = new Map() // dedupe by id, private wins
+    for (const list of results) {
+      for (const item of list) {
+        if (item.source === 'private' || !merged.has(item.id)) {
+          merged.set(item.id, item)
+        }
       }
     }
+    allItems = [...merged.values()]
+    render()
+    document.getElementById('loading').style.display = 'none'
+    document.getElementById('library-view').style.display = 'block'
+  } catch (err) {
+    showErrorBanner(`Não consegui carregar a library: ${err.message}. Tente atualizar a página.`)
+    document.getElementById('loading').style.display = 'none'
+    document.getElementById('library-view').style.display = 'block'
+    // Renderiza grid vazio (sem skeletons pendurados)
+    const grid = document.getElementById('grid')
+    if (grid) grid.innerHTML = ''
   }
-  allItems = [...merged.values()]
-  render()
-  document.getElementById('loading').style.display = 'none'
-  document.getElementById('library-view').style.display = 'block'
+}
+
+function showErrorBanner(msg) {
+  let banner = document.getElementById('error-banner')
+  if (!banner) {
+    banner = document.createElement('div')
+    banner.id = 'error-banner'
+    banner.className = 'error-banner'
+    document.body.insertBefore(banner, document.body.firstChild)
+  }
+  banner.textContent = msg
 }
 
 async function fetchLibraryFile(agent, source) {
@@ -1185,8 +1311,16 @@ function renderFacets(items) {
 function fillSelect(id, label, options) {
   const el = document.getElementById(id)
   const current = el.value
-  el.innerHTML = `<option value="">${label}</option>` + options.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')
-  if (options.some(([v]) => v === current)) el.value = current
+  el.innerHTML = `<option value="">${label}</option>` + options.map(([v, l]) => `<option value="${escapeHtml(v)}">${escapeHtml(l)}</option>`).join('')
+  // Preserva seleção só se ainda existe nas opções — evita value "fantasma"
+  if (options.some(([v]) => v === current)) {
+    el.value = current
+  } else {
+    el.value = ''
+    // Propaga o reset pro filtro global
+    if (id === 'facet-agent') filterAgent = ''
+    if (id === 'facet-brand') filterBrand = ''
+  }
 }
 
 function renderGrid(items) {
@@ -1212,17 +1346,16 @@ function renderEmpty() {
   return `<div class="empty">Nenhuma análise encontrada${searchQuery ? ` pra "${searchQuery}"` : ''}.</div>`
 }
 
-function brandGradient(brand) {
-  // Rotação determinística por hash simples
-  const palette = [
-    'linear-gradient(135deg, #C5D9ED, #A1C6ED)',       // light → powder
-    'linear-gradient(135deg, #F9F6EA, #E8D9A6)',       // cream → tan
-    'linear-gradient(135deg, #3D5A73, #274566)',       // steel → navy
-    'linear-gradient(135deg, #E8E8E4, #B5AFA8)',       // bege → warm gray
-  ]
+const THUMB_PALETTE = [
+  { css: 'linear-gradient(135deg, #C5D9ED, #A1C6ED)', dark: false }, // light → powder
+  { css: 'linear-gradient(135deg, #F9F6EA, #E8D9A6)', dark: false }, // cream → tan
+  { css: 'linear-gradient(135deg, #3D5A73, #274566)', dark: true  }, // steel → navy
+  { css: 'linear-gradient(135deg, #E8E8E4, #B5AFA8)', dark: false }, // bege → warm gray
+]
+function pickThumb(brand) {
   let h = 0
   for (const ch of (brand ?? 'default')) { h = (h * 31 + ch.charCodeAt(0)) >>> 0 }
-  return palette[h % palette.length]
+  return THUMB_PALETTE[h % THUMB_PALETTE.length]
 }
 
 function timeAgo(dateStr) {
@@ -1239,10 +1372,10 @@ function timeAgo(dateStr) {
 function buildCard(item) {
   const card = document.createElement('div')
   card.className = 'card'
-  const darkThumb = /steel|navy/.test(brandGradient(item.brand))
+  const thumb = pickThumb(item.brand)
   card.innerHTML = `
-    <div class="card-thumb" style="background: ${brandGradient(item.brand)};">
-      ${item.brand ? `<div class="card-brand-chip"${darkThumb ? ' style="background:#fff;"' : ''}>${escapeHtml(item.brand)}</div>` : ''}
+    <div class="card-thumb" style="background: ${thumb.css};">
+      ${item.brand ? `<div class="card-brand-chip"${thumb.dark ? ' style="background:#fff;"' : ''}>${escapeHtml(item.brand)}</div>` : ''}
       <button class="card-menu" aria-label="Mais ações">⋯</button>
       <div class="card-menu-dropdown"></div>
     </div>
@@ -1546,6 +1679,11 @@ function closeBottomSheet() {
 }
 
 document.querySelector('#sheet .sheet-backdrop').addEventListener('click', closeBottomSheet)
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape' && document.getElementById('sheet').classList.contains('open')) {
+    closeBottomSheet()
+  }
+})
 document.getElementById('sheet-apply').addEventListener('click', () => {
   filterAgent = document.getElementById('sheet-agent').value
   filterBrand = document.getElementById('sheet-brand').value
@@ -1640,9 +1778,14 @@ Se nada precisar mudar, pule este step.
 
 ---
 
-## Task 11: Push pra produção
+## Task 11: Build DXT v1.0.1 + push único pra produção
 
-**Files:** nenhum.
+Ordem crítica: **rebuild do `.dxt` e bump da versão exposta vêm ANTES do push.** Assim o Vercel deploy já sobe com o binário 1.0.1 e o manifest apontando pra ele — quem abrir `/onboarding` imediatamente após o deploy baixa a versão nova.
+
+**Files:**
+- Create: `portal/public/downloads/azzas-mcp-1.0.1.dxt`
+- Modify: `portal/api/mcp/_helpers/manifest.js`
+- Delete: `portal/public/downloads/azzas-mcp-1.0.0.dxt` (opcional — evita ambiguidade)
 
 - [ ] **Step 11.1: Verificar estado do working tree**
 
@@ -1652,57 +1795,54 @@ git status
 git log --oneline origin/main..HEAD
 ```
 
-Expected: working tree limpo, histórico com os 10 commits (Tasks 1-10) ainda não empurrados.
+Expected: working tree limpo, histórico com os ~10 commits (Tasks 1-10) ainda não empurrados. Se há uncommitted changes, pare — algo ficou pendente.
 
 - [ ] **Step 11.2: Rodar testes finais locais**
 
 ```bash
-cd packages/mcp-core && uv run pytest -v
-cd ../mcp-client-dxt && npm test && npm run typecheck
-cd ../../portal && npm test
+cd packages/mcp-core && uv run pytest -v && cd -
+cd packages/mcp-client-dxt && npm test && npm run typecheck && cd -
+cd portal && npm test && cd -
 ```
 
-Expected: todos passam.
+Expected: todos passam. Se algo falhar, corrija e commita o fix antes de seguir.
 
-- [ ] **Step 11.3: Push**
-
-```bash
-cd /Users/arturlemos/Documents/bq-analista
-git push origin main
-```
-
-CI vai disparar:
-- **Deploy Agents to Railway** — rebuild dos dois agentes (vendas-linx, devolucoes) com o campo `author_email` novo.
-- **Deploy Portal to Vercel** — redeploy com `index.html` + `onboarding.html` novos.
-
-- [ ] **Step 11.4: Aguardar CI terminar e validar em produção**
-
-```bash
-gh run list --limit 3
-```
-
-Quando ambos "completed success":
-
-- Abrir https://bq-analista.vercel.app/ — verifica portal novo.
-- Abrir https://bq-analista.vercel.app/onboarding — verifica onboarding novo.
-- Usar um agente MCP no Claude Desktop pra publicar uma nova análise — verifica que o entry no `library/<agent>/public.json` resultante tem `author_email`.
-
-- [ ] **Step 11.5: Rebuildar e disponibilizar DXT v1.0.1**
+- [ ] **Step 11.3: Rebuild do DXT v1.0.1**
 
 ```bash
 cd packages/mcp-client-dxt
 npm run build:dxt
+ls -la azzas-mcp-1.0.1.dxt 2>/dev/null || ls -la *.dxt
 ```
 
-Output esperado: `packages/mcp-client-dxt/azzas-mcp-1.0.1.dxt` (ou similar, conforme `scripts/build-dxt.mjs`).
+Expected: arquivo `azzas-mcp-1.0.1.dxt` (ou nome definido por `scripts/build-dxt.mjs`) é gerado. Se o nome diverge do esperado, ajuste o nome no copy abaixo.
 
-Copiar o `.dxt` pra `portal/public/downloads/azzas-mcp-1.0.1.dxt`:
+- [ ] **Step 11.4: Copiar `.dxt` pra `portal/public/downloads/`**
 
 ```bash
+cd /Users/arturlemos/Documents/bq-analista
 cp packages/mcp-client-dxt/azzas-mcp-1.0.1.dxt portal/public/downloads/azzas-mcp-1.0.1.dxt
+ls -la portal/public/downloads/
 ```
 
-Bump a versão no manifest do portal em `portal/api/mcp/_helpers/manifest.js`:
+Expected: os dois binários convivem (1.0.0 e 1.0.1) — nenhum usuário quebra de imediato. Se quiser apagar o antigo pra evitar confusão:
+
+```bash
+rm portal/public/downloads/azzas-mcp-1.0.0.dxt
+```
+
+- [ ] **Step 11.5: Bump da versão em `manifest.js`**
+
+Em `portal/api/mcp/_helpers/manifest.js`, troque:
+
+```javascript
+const VERSION = {
+  latest: '1.0.0',
+  min: '1.0.0',
+};
+```
+
+por:
 
 ```javascript
 const VERSION = {
@@ -1711,23 +1851,81 @@ const VERSION = {
 };
 ```
 
-Commit e push:
+(Deixamos `min: '1.0.0'` pra não quebrar quem tem o 1.0.0 instalado — a mudança é cosmética, não exige re-instalação forçada.)
+
+Verifique também `portal/api/download-dxt.js` — ele faz redirect pra `/public/downloads/azzas-mcp-${VERSION.latest}.dxt`, que agora aponta pro novo binário automaticamente.
+
+- [ ] **Step 11.6: Commit e verificar fila de commits**
 
 ```bash
+cd /Users/arturlemos/Documents/bq-analista
 git add portal/public/downloads/azzas-mcp-1.0.1.dxt portal/api/mcp/_helpers/manifest.js
+# Se removeu a 1.0.0:
+git add -u portal/public/downloads/
 git commit -m "release(dxt): v1.0.1 com callback page rebrandada"
-git push
+git log --oneline origin/main..HEAD
 ```
 
-- [ ] **Step 11.6: Smoke test DXT v1.0.1**
+Expected: listagem completa dos commits das Tasks 1-11. Confirme que cada feature tem um commit claro.
 
-Após o novo deploy do portal:
+- [ ] **Step 11.7: Push único**
 
-- Baixar `azzas-mcp-1.0.1.dxt` em https://bq-analista.vercel.app/onboarding
-- Desinstalar o DXT v1.0.0 existente no Claude Desktop (Configurações → Extensões → Azzas MCP → remover)
-- Instalar o 1.0.1 seguindo o fluxo do onboarding
-- Fazer uma pergunta no chat pra disparar o fluxo de auth
-- Ao completar o login no browser, verificar que a tela nova aparece (check navy + "Login concluído" + email)
+```bash
+git push origin main
+```
+
+CI vai disparar em paralelo:
+- **Deploy Agents to Railway** — rebuild dos dois agentes (vendas-linx, devolucoes) com o campo `author_email` novo no `LibraryEntry`.
+- **Deploy Portal to Vercel** — redeploy com `index.html`, `onboarding.html`, `manifest.js` novos e o `.dxt` 1.0.1 em `/public/downloads/`.
+
+- [ ] **Step 11.8: Monitorar CI**
+
+```bash
+gh run list --limit 5
+```
+
+Aguarde ambos "completed success". Se algum falhar:
+- **Railway fail** — checar `railway logs --service vendas-linx` e `--service devolucoes`. Provável causa: teste Python falhou na CI. Revertera o commit específico que quebrou.
+- **Vercel fail** — checar `gh run view <run-id>`. Provável causa: sintaxe JS em `index.html` ou `manifest.js`. Revertera.
+
+- [ ] **Step 11.9: Smoke test produção**
+
+Após ambos deploys verdes:
+
+```bash
+curl -s -o /dev/null -w "portal: %{http_code}\n" https://bq-analista.vercel.app/onboarding.html
+curl -s -o /dev/null -w "onboarding-rewrite: %{http_code}\n" -I -b "session=fake" https://bq-analista.vercel.app/onboarding
+curl -s https://bq-analista.vercel.app/api/mcp/version
+curl -s -o /dev/null -w "dxt download: %{http_code}\n" -I https://bq-analista.vercel.app/api/download-dxt
+curl -s -o /dev/null -w "dxt binário: %{http_code}\n" -I https://bq-analista.vercel.app/public/downloads/azzas-mcp-1.0.1.dxt
+curl -s -o /dev/null -w "vendas-linx /health: %{http_code}\n" https://bq-analista-production.up.railway.app/health
+curl -s -o /dev/null -w "devolucoes /health: %{http_code}\n" https://analista-devolucoes-production.up.railway.app/health
+```
+
+Expected:
+- `portal: 200` (onboarding.html direto funciona sem cookie)
+- `onboarding-rewrite: 401` (middleware barrando sem sessão — confirmação de que o rewrite `/onboarding → /onboarding.html` tá ativo)
+- `/api/mcp/version` retorna `{"latest":"1.0.1","min":"1.0.0"}`
+- `dxt download: 302` (redirect) ou `200`
+- `dxt binário: 200`
+- Ambos agents retornam `health: 200`
+
+- [ ] **Step 11.10: Validar com um usuário real**
+
+- Abrir https://bq-analista.vercel.app/ logado: verificar portal novo (tabs, cards, filtros).
+- Abrir https://bq-analista.vercel.app/onboarding: verificar hero navy + instruções.
+- Publicar uma nova análise via agente MCP no Claude Desktop (pedir qualquer consulta pro `vendas-linx` ou `devolucoes` e chamar `publicar_dashboard`).
+- Inspecionar o arquivo resultante em `portal/library/<agent>/public.json` via browser ou `git pull`: confirmar presença do campo `author_email` no primeiro entry.
+
+- [ ] **Step 11.11: Smoke test DXT v1.0.1**
+
+- Baixar `/api/download-dxt` em https://bq-analista.vercel.app/onboarding (logado).
+- Claude Desktop → Configurações → Extensões → Azzas MCP → **remover** a v1.0.0.
+- Instalar a v1.0.1 via **Instalar extensão → selecionar o `.dxt` baixado**.
+- Deletar `~/.mcp/credentials.json` pra forçar re-auth.
+- Fazer uma pergunta no chat pra disparar o fluxo de auth.
+- Ao completar o login Azure no browser, **verificar** que a aba aberta mostra a tela rebrandada (check navy + "Login concluído" + email + countdown), não mais `<h1>Pronto!</h1>`.
+- Forçar um erro: alterar o tenant no `MCP_AZURE_TENANT_ID` do DXT ou usar email fora do tenant → verificar que a tela de erro aparece com a mensagem "Você não está no tenant corporativo Azzas." + link mailto.
 
 ---
 
@@ -1756,7 +1954,19 @@ Ran the self-review checklist against the spec. Findings:
 
 **Placeholder scan:** Task 7 original referenciava `openBottomSheet` como stub com alert. Isso é substituído em Task 9 — ok. Nenhum TBD/TODO remanescente.
 
-**Type consistency:** funções `renderCallbackPage`, `escapeHtml`, `archiveItem`, `getArchivedIds`, `isMine`, `matchesSearch`, `buildCard` todas definidas uma vez, usadas consistentemente. Campo `author_email` definido em Task 1, usado em Tasks 2 e 7 com mesma grafia.
+**Type consistency:** funções `renderCallbackPage`, `escapeHtml`, `archiveItem`, `getArchivedIds`, `isMine`, `matchesSearch`, `buildCard`, `pickThumb`, `showErrorBanner`, `showToast` todas definidas uma vez, usadas consistentemente. Campo `author_email` definido em Task 1, usado em Tasks 2 e 7 com mesma grafia. `LoopbackParams` type (em `auth.ts`) reutilizado pelo `callback-page.ts` via import.
+
+**Robustez adicionada nesta revisão:**
+- Prerequisites + Rollback no topo do plano.
+- Step 1.1b: grep de todos os callers de `LibraryEntry(` antes de mexer no dataclass.
+- Step 4.2: grep por asserts do HTML antigo em `auth.test.ts`.
+- Tests de `renderCallbackPage`: caso sem email + XSS via `error_description`.
+- `pickThumb` substitui `brandGradient` com struct `{css, dark}` — elimina regex frágil que nunca funcionou.
+- `loadAllLibraries` envolve tudo em try/catch; falha mostra `error-banner` visível, não fica preso em skeleton.
+- `fillSelect` reseta filtro global quando valor anterior sumiu (evita filtros fantasmas após fetch).
+- Escape key fecha bottom sheet.
+- Task 11 reordenado: `.dxt` v1.0.1 + `manifest.js` bump entram no MESMO push, evitando janela em que `/api/mcp/version` diz "1.0.1" mas o binário ainda é 1.0.0.
+- Task 11 ganhou smoke tests com curl verificando endpoints reais pós-deploy.
 
 ---
 

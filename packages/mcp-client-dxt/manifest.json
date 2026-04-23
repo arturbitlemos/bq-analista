@@ -1,0 +1,21 @@
+{
+  "manifest_version": "0.3",
+  "name": "azzas-mcp",
+  "display_name": "Azzas MCP",
+  "version": "1.0.0",
+  "description": "Análises Azzas via BigQuery direto no Claude Desktop",
+  "author": {
+    "name": "Azzas 2154",
+    "email": "ops@azzas.com.br"
+  },
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {}
+    }
+  }
+}

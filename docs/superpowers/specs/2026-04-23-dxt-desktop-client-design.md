@@ -114,10 +114,12 @@ portal/api/mcp/
 
 **Tratamento de erro no callback:** se qualquer validação falhar (tenant errado, state inválido, code rejeitado), Vercel redireciona pro loopback com `?error=<code>&error_description=<msg>` em vez de tokens. Lista de códigos: `wrong_tenant`, `invalid_state`, `invalid_code`, `azure_error`. DXT captura no loopback e traduz pra mensagem específica no chat.
 
-**JWT claims emitidos:**
+**JWT claims emitidos** (formato compatível com `mcp_core/jwt_tokens.py` existente):
 
-- Access (HS256, TTL 30min): `{ sub: email, email, tid, iat, exp, typ: "access" }`
-- Refresh (HS256, TTL 7d): `{ sub: email, email, tid, iat, exp, typ: "refresh", jti: <uuid> }`
+- Access (HS256, TTL 30min): `{ iss: "azzas-mcp", sub: email, email, kind: "access", iat, exp }`
+- Refresh (HS256, TTL 7d): `{ iss: "azzas-mcp", sub: email, email, kind: "refresh", iat, exp }`
+
+O `tid` do Azure é validado durante o code exchange (garantia de "usuário é do tenant Azzas") mas não é armazenado no JWT emitido — a identidade é só o email. Isso mantém o formato existente do Python intocado.
 
 Refresh **não rotaciona** — a política é simplicidade. Pode ser revisada se aparecer requisito de segurança.
 

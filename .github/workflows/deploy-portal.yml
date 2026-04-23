@@ -1,0 +1,64 @@
+name: Deploy Portal to Vercel
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'portal/**'
+      - '.github/workflows/deploy-portal.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "name=production" >> $GITHUB_OUTPUT
+            echo "flag=--prod" >> $GITHUB_OUTPUT
+          else
+            echo "name=preview" >> $GITHUB_OUTPUT
+            echo "flag=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Strip Git metadata for Vercel
+        run: rm -rf .git
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel environment
+        working-directory: portal
+        run: vercel pull --yes --environment=${{ steps.env.outputs.name }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        working-directory: portal
+        run: vercel build ${{ steps.env.outputs.flag }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy (prebuilt)
+        id: deploy
+        working-directory: portal
+        run: |
+          DEPLOY_URL=$(vercel deploy --prebuilt ${{ steps.env.outputs.flag }} --token=${{ secrets.VERCEL_TOKEN }})
+          echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          {
+            echo "### 🚀 Deploy ${{ steps.env.outputs.name }}"
+            echo ""
+            echo "**URL:** $DEPLOY_URL"
+            echo ""
+            echo "**Branch:** \`${{ github.ref_name }}\`"
+            echo "**Commit:** \`${{ github.sha }}\`"
+          } >> $GITHUB_STEP_SUMMARY

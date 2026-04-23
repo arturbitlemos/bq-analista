@@ -11,7 +11,8 @@ process.env.MCP_JWT_ISSUER = 'mcp-exec-azzas';
 const { signState } = require('../_helpers/state');
 
 const REDIRECT = 'http://localhost:8765/cb';
-const STATE = signState(REDIRECT, process.env.SESSION_SECRET);
+const NONCE = 'abcd1234';
+const STATE = signState(REDIRECT, NONCE, process.env.SESSION_SECRET);
 
 function mockIdToken({ tid = 'tenant-azzas', email = 'foo@azzas.com.br' } = {}) {
   const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
@@ -36,12 +37,12 @@ beforeEach(() => {
   delete global.fetch;
 });
 
-test('callback com tid correto redireciona loopback com tokens', async () => {
+test('callback com tid correto redireciona loopback com tokens e nonce', async () => {
   stubFetch(mockIdToken({}));
   const handler = require('../auth/callback');
   const req = {
     method: 'GET',
-    query: { code: 'az-code', state: 'placeholder' },
+    query: { code: 'az-code', state: STATE },
     headers: { cookie: `mcp_oauth_state=${STATE}`, host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();
@@ -53,6 +54,7 @@ test('callback com tid correto redireciona loopback com tokens', async () => {
   assert.ok(loc.searchParams.get('access'));
   assert.ok(loc.searchParams.get('refresh'));
   assert.equal(loc.searchParams.get('email'), 'foo@azzas.com.br');
+  assert.equal(loc.searchParams.get('nonce'), NONCE);
 });
 
 test('callback com tid errado redireciona loopback com error=wrong_tenant', async () => {
@@ -60,7 +62,7 @@ test('callback com tid errado redireciona loopback com error=wrong_tenant', asyn
   const handler = require('../auth/callback');
   const req = {
     method: 'GET',
-    query: { code: 'az-code', state: 'placeholder' },
+    query: { code: 'az-code', state: STATE },
     headers: { cookie: `mcp_oauth_state=${STATE}`, host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();
@@ -75,7 +77,7 @@ test('callback sem cookie rejeita 400', async () => {
   const handler = require('../auth/callback');
   const req = {
     method: 'GET',
-    query: { code: 'az-code', state: 'placeholder' },
+    query: { code: 'az-code', state: STATE },
     headers: { host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();
@@ -87,8 +89,45 @@ test('callback com cookie adulterado rejeita 400', async () => {
   const handler = require('../auth/callback');
   const req = {
     method: 'GET',
-    query: { code: 'az-code', state: 'placeholder' },
+    query: { code: 'az-code', state: STATE },
     headers: { cookie: `mcp_oauth_state=${STATE.replace(/.$/, 'x')}`, host: 'bq-analista.vercel.app' },
+  };
+  const res = mockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+});
+
+test('callback com query.state ausente rejeita 400', async () => {
+  const handler = require('../auth/callback');
+  const req = {
+    method: 'GET',
+    query: { code: 'az-code' },
+    headers: { cookie: `mcp_oauth_state=${STATE}`, host: 'bq-analista.vercel.app' },
+  };
+  const res = mockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+});
+
+test('callback com query.state diferente do cookie rejeita 400', async () => {
+  const handler = require('../auth/callback');
+  const DIFFERENT_STATE = signState(REDIRECT, NONCE, process.env.SESSION_SECRET);
+  const req = {
+    method: 'GET',
+    query: { code: 'az-code', state: DIFFERENT_STATE },
+    headers: { cookie: `mcp_oauth_state=${STATE}`, host: 'bq-analista.vercel.app' },
+  };
+  const res = mockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+});
+
+test('callback com query.state literal placeholder rejeita 400', async () => {
+  const handler = require('../auth/callback');
+  const req = {
+    method: 'GET',
+    query: { code: 'az-code', state: 'placeholder' },
+    headers: { cookie: `mcp_oauth_state=${STATE}`, host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();
   await handler(req, res);
@@ -100,7 +139,7 @@ test('callback com code exchange falhando redireciona com error=invalid_code', a
   const handler = require('../auth/callback');
   const req = {
     method: 'GET',
-    query: { code: 'bad-code', state: 'placeholder' },
+    query: { code: 'bad-code', state: STATE },
     headers: { cookie: `mcp_oauth_state=${STATE}`, host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();

@@ -16,10 +16,10 @@ function mockRes() {
   return r;
 }
 
-test('start 302 pro Azure quando redirect_uri é loopback válido', async () => {
+test('start 302 pro Azure quando redirect_uri é loopback válido e nonce presente', async () => {
   const req = {
     method: 'GET',
-    query: { redirect_uri: 'http://localhost:8765/cb' },
+    query: { redirect_uri: 'http://localhost:8765/cb', nonce: 'abcd1234' },
     headers: { host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();
@@ -29,10 +29,33 @@ test('start 302 pro Azure quando redirect_uri é loopback válido', async () => 
   assert.match(res.headers['set-cookie'] ?? '', /mcp_oauth_state=/);
 });
 
+test('state no Location bate com mcp_oauth_state no cookie', async () => {
+  const req = {
+    method: 'GET',
+    query: { redirect_uri: 'http://localhost:8765/cb', nonce: 'abcd1234' },
+    headers: { host: 'bq-analista.vercel.app' },
+  };
+  const res = mockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 302);
+
+  // Extract state from Location URL
+  const loc = new URL(res.headers['location']);
+  const stateInUrl = loc.searchParams.get('state');
+
+  // Extract state from Set-Cookie header
+  const cookieHeader = res.headers['set-cookie'] ?? '';
+  const cookieMatch = cookieHeader.match(/mcp_oauth_state=([^;]+)/);
+  assert.ok(cookieMatch, 'Set-Cookie deve conter mcp_oauth_state');
+  const stateInCookie = cookieMatch[1];
+
+  assert.equal(stateInUrl, stateInCookie);
+});
+
 test('start rejeita redirect_uri fora de loopback', async () => {
   const req = {
     method: 'GET',
-    query: { redirect_uri: 'https://evil.com/cb' },
+    query: { redirect_uri: 'https://evil.com/cb', nonce: 'abcd1234' },
     headers: { host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();
@@ -43,7 +66,40 @@ test('start rejeita redirect_uri fora de loopback', async () => {
 test('start rejeita porta fora do range 8765-8799', async () => {
   const req = {
     method: 'GET',
-    query: { redirect_uri: 'http://localhost:3000/cb' },
+    query: { redirect_uri: 'http://localhost:3000/cb', nonce: 'abcd1234' },
+    headers: { host: 'bq-analista.vercel.app' },
+  };
+  const res = mockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+});
+
+test('start rejeita nonce ausente', async () => {
+  const req = {
+    method: 'GET',
+    query: { redirect_uri: 'http://localhost:8765/cb' },
+    headers: { host: 'bq-analista.vercel.app' },
+  };
+  const res = mockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+});
+
+test('start rejeita nonce muito curto (< 8 chars)', async () => {
+  const req = {
+    method: 'GET',
+    query: { redirect_uri: 'http://localhost:8765/cb', nonce: 'abc' },
+    headers: { host: 'bq-analista.vercel.app' },
+  };
+  const res = mockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+});
+
+test('start rejeita nonce com caracteres inválidos', async () => {
+  const req = {
+    method: 'GET',
+    query: { redirect_uri: 'http://localhost:8765/cb', nonce: 'abc!@#$%^&*' },
     headers: { host: 'bq-analista.vercel.app' },
   };
   const res = mockRes();

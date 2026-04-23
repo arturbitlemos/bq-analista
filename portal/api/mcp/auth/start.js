@@ -2,6 +2,7 @@ const { signState } = require('../_helpers/state');
 
 const PORT_MIN = 8765;
 const PORT_MAX = 8799;
+const NONCE_RE = /^[A-Za-z0-9_-]{8,64}$/;
 
 function isValidLoopback(uri) {
   try {
@@ -25,12 +26,17 @@ module.exports = async function handler(req, res) {
     return res.status(400).send('redirect_uri inválido (deve ser http://localhost:PORT/cb com PORT ∈ [8765, 8799])');
   }
 
+  const nonce = (req.query && req.query.nonce) || '';
+  if (!NONCE_RE.test(nonce)) {
+    return res.status(400).send('nonce inválido (deve ser base64url, 8-64 chars)');
+  }
+
   const { AZURE_CLIENT_ID, AZURE_TENANT_ID, SESSION_SECRET } = process.env;
   if (!AZURE_CLIENT_ID || !AZURE_TENANT_ID || !SESSION_SECRET) {
     return res.status(500).send('Variáveis de ambiente não configuradas');
   }
 
-  const state = signState(redirectUri, SESSION_SECRET);
+  const state = signState(redirectUri, nonce, SESSION_SECRET);
 
   const cookie = [
     `mcp_oauth_state=${state}`,
@@ -49,7 +55,7 @@ module.exports = async function handler(req, res) {
   authorize.searchParams.set('redirect_uri', callbackUri);
   authorize.searchParams.set('response_mode', 'query');
   authorize.searchParams.set('scope', 'openid profile email');
-  authorize.searchParams.set('state', 'placeholder');
+  authorize.searchParams.set('state', state);
 
   res.setHeader('Location', authorize.toString());
   return res.status(302).end();

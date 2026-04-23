@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { verifyState } = require('../_helpers/state');
 const { issueTokens } = require('../_helpers/jwt');
 
@@ -48,7 +49,18 @@ module.exports = async function handler(req, res) {
   const stateResult = verifyState(stateCookie, SESSION_SECRET);
   if (!stateResult) return res.status(400).send('state inválido ou expirado');
 
-  const { redirectUri } = stateResult;
+  // Bind Azure roundtrip: query state must match the signed cookie value exactly.
+  const queryState = (req.query && req.query.state) || '';
+  if (queryState.length !== stateCookie.length) {
+    return res.status(400).send('state query não bate com cookie');
+  }
+  const qs = Buffer.from(queryState);
+  const cs = Buffer.from(stateCookie);
+  if (!crypto.timingSafeEqual(qs, cs)) {
+    return res.status(400).send('state query não bate com cookie');
+  }
+
+  const { redirectUri, clientNonce } = stateResult;
   const { code } = req.query ?? {};
   if (!code) return redirectLoopback(res, redirectUri, { error: 'invalid_code', error_description: 'code ausente' });
 
@@ -102,5 +114,6 @@ module.exports = async function handler(req, res) {
     access_exp: pair.accessExp,
     refresh_exp: pair.refreshExp,
     email,
+    nonce: clientNonce,
   });
 };

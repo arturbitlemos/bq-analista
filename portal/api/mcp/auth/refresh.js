@@ -10,7 +10,7 @@ module.exports = async function handler(req, res) {
   if (!match) return res.status(401).json({ error: 'bearer token ausente' });
 
   const { MCP_JWT_SECRET } = process.env;
-  const MCP_JWT_ISSUER = process.env.MCP_JWT_ISSUER || 'azzas-mcp';
+  const MCP_JWT_ISSUER = process.env.MCP_JWT_ISSUER || 'mcp-exec-azzas';
   if (!MCP_JWT_SECRET) return res.status(500).json({ error: 'env não configurada' });
 
   try {

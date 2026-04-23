@@ -9,7 +9,7 @@ from mcp_core.jwt_tokens import TokenIssuer
 PORTAL_DIR = Path(__file__).resolve().parents[2] / "portal"
 
 SECRET = "x" * 32
-ISSUER = "azzas-mcp"
+ISSUER = "mcp-exec-azzas"
 EMAIL = "interop@azzas.com.br"
 DXT_DIR = Path(__file__).resolve().parents[2] / "packages" / "mcp-client-dxt"
 

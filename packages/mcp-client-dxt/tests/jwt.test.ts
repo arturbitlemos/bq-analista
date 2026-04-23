@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { issueTokens, decodeToken, refreshAccess } from '../src/jwt';
 
 const SECRET = 'x'.repeat(32);
-const ISSUER = 'azzas-mcp';
+const ISSUER = 'mcp-exec-azzas';
 
 describe('jwt', () => {
   it('issueTokens produz access e refresh com kind correto', () => {

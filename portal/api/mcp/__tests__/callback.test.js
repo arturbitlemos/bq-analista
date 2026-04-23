@@ -6,7 +6,7 @@ process.env.AZURE_TENANT_ID = 'tenant-azzas';
 process.env.AZURE_CLIENT_SECRET = 'test-secret';
 process.env.SESSION_SECRET = 'z'.repeat(32);
 process.env.MCP_JWT_SECRET = 'x'.repeat(32);
-process.env.MCP_JWT_ISSUER = 'azzas-mcp';
+process.env.MCP_JWT_ISSUER = 'mcp-exec-azzas';
 
 const { signState } = require('../_helpers/state');
 

@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).send('Method not allowed');
 
   const { AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_CLIENT_SECRET, SESSION_SECRET, MCP_JWT_SECRET } = process.env;
-  const MCP_JWT_ISSUER = process.env.MCP_JWT_ISSUER || 'azzas-mcp';
+  const MCP_JWT_ISSUER = process.env.MCP_JWT_ISSUER || 'mcp-exec-azzas';
   if (!AZURE_CLIENT_ID || !AZURE_TENANT_ID || !AZURE_CLIENT_SECRET || !SESSION_SECRET || !MCP_JWT_SECRET) {
     return res.status(500).send('Variáveis de ambiente não configuradas');
   }

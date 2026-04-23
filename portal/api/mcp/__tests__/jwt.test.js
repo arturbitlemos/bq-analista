@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { issueTokens, decodeToken, refreshAccess } = require('../_helpers/jwt');
 
 const SECRET = 'x'.repeat(32);
-const ISSUER = 'azzas-mcp';
+const ISSUER = 'mcp-exec-azzas';
 
 test('issueTokens retorna access+refresh com campos corretos', () => {
   const pair = issueTokens({ email: 'a@azzas.com.br', secret: SECRET, issuer: ISSUER, accessTtlS: 1800, refreshTtlS: 604800 });

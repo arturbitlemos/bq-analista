@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import crypto from 'node:crypto';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -14,6 +15,9 @@ const PORTAL_URL = process.env.AZZAS_MCP_PORTAL_URL || 'https://bq-analista.verc
 const DXT_VERSION = '1.0.0'; // sync com package.json e manifest.json
 
 let cachedManifest: Manifest | null = null;
+
+// Guard: only one auth flow at a time
+let authInProgress: Promise<void> | null = null;
 
 async function getManifest(): Promise<Manifest> {
   if (cachedManifest) return cachedManifest;
@@ -61,67 +65,87 @@ async function ensureAuth(): Promise<Credentials | 'auth_needed'> {
   return creds;
 }
 
-async function authInteractive(): Promise<'auth_needed'> {
-  // Dispara o flow mas não bloqueia (retorna 'auth_needed' pra caller). Save acontece async.
-  (async () => {
-    try {
-      const http = await import('node:http');
-      let port = -1;
-      let server: import('node:http').Server | null = null;
-      for (let p = 8765; p <= 8799; p++) {
-        try {
-          server = await new Promise<import('node:http').Server>((resolve, reject) => {
-            const s = http.createServer();
-            s.once('error', reject);
-            s.listen(p, '127.0.0.1', () => resolve(s));
-          });
-          port = p;
-          break;
-        } catch { /* próxima */ }
-      }
-      if (!server || port < 0) {
-        console.error('[azzas-mcp]', MSG.authLoopbackPortsBusy);
-        return;
-      }
+function timingEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
-      const startUrl = new URL(`${PORTAL_URL}/api/mcp/auth/start`);
-      startUrl.searchParams.set('redirect_uri', `http://localhost:${port}/cb`);
-      await open(startUrl.toString());
-
-      const params = await new Promise<Record<string, string>>((resolve, reject) => {
-        const timer = setTimeout(() => { server!.close(); reject(new Error('timeout')); }, 120_000);
-        server!.on('request', (req, res) => {
-          const url = new URL(req.url ?? '/', `http://localhost:${port}`);
-          if (url.pathname !== '/cb') { res.statusCode = 404; res.end(); return; }
-          const p: Record<string, string> = {};
-          for (const [k, v] of url.searchParams) p[k] = v;
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end('<h1>Pronto!</h1><p>Você pode fechar esta aba.</p>');
-          clearTimeout(timer);
-          server!.close();
-          resolve(p);
+async function runAuthFlow(expectedNonce: string): Promise<void> {
+  try {
+    const http = await import('node:http');
+    let port = -1;
+    let server: import('node:http').Server | null = null;
+    for (let p = 8765; p <= 8799; p++) {
+      try {
+        server = await new Promise<import('node:http').Server>((resolve, reject) => {
+          const s = http.createServer();
+          s.once('error', reject);
+          s.listen(p, '127.0.0.1', () => resolve(s));
         });
-      });
+        port = p;
+        break;
+      } catch { /* próxima */ }
+    }
+    if (!server || port < 0) {
+      console.error('[azzas-mcp]', MSG.authLoopbackPortsBusy);
+      return;
+    }
 
-      if (params.error) {
-        console.error('[azzas-mcp] auth error:', params.error, params.error_description);
+    const startUrl = new URL(`${PORTAL_URL}/api/mcp/auth/start`);
+    startUrl.searchParams.set('redirect_uri', `http://localhost:${port}/cb`);
+    startUrl.searchParams.set('nonce', expectedNonce);
+    await open(startUrl.toString());
+
+    const params = await new Promise<Record<string, string>>((resolve, reject) => {
+      const timer = setTimeout(() => { server!.close(); reject(new Error('timeout')); }, 120_000);
+      server!.on('request', (req, res) => {
+        const url = new URL(req.url ?? '/', `http://localhost:${port}`);
+        if (url.pathname !== '/cb') { res.statusCode = 404; res.end(); return; }
+        const p: Record<string, string> = {};
+        for (const [k, v] of url.searchParams) p[k] = v;
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end('<h1>Pronto!</h1><p>Você pode fechar esta aba.</p>');
+        clearTimeout(timer);
+        server!.close();
+        resolve(p);
+      });
+    });
+
+    if (params.error) {
+      console.error('[azzas-mcp] auth error:', params.error, params.error_description);
+      return;
+    }
+
+    // Validate nonce before trusting any credential data
+    if (!params.error) {
+      const got = params.nonce ?? '';
+      if (!timingEqual(got, expectedNonce)) {
+        console.error('[azzas-mcp] nonce mismatch — abortando');
         return;
       }
-      if (!params.access || !params.refresh) return;
-
-      const creds: Credentials = {
-        access_token: params.access,
-        refresh_token: params.refresh,
-        access_expires_at: new Date(parseInt(params.access_exp, 10) * 1000).toISOString(),
-        refresh_expires_at: new Date(parseInt(params.refresh_exp, 10) * 1000).toISOString(),
-        email: params.email ?? '',
-        server: PORTAL_URL,
-      };
-      saveCredentials(creds);
-    } catch (err) {
-      console.error('[azzas-mcp] auth flow error:', err);
     }
-  })();
+
+    if (!params.access || !params.refresh) return;
+
+    const creds: Credentials = {
+      access_token: params.access,
+      refresh_token: params.refresh,
+      access_expires_at: new Date(parseInt(params.access_exp, 10) * 1000).toISOString(),
+      refresh_expires_at: new Date(parseInt(params.refresh_exp, 10) * 1000).toISOString(),
+      email: params.email ?? '',
+      server: PORTAL_URL,
+    };
+    saveCredentials(creds);
+  } catch (err) {
+    console.error('[azzas-mcp] auth flow error:', err);
+  }
+}
+
+async function authInteractive(): Promise<'auth_needed'> {
+  // If a flow is already in progress, don't start another one.
+  if (authInProgress) return 'auth_needed';
+  const nonce = crypto.randomBytes(16).toString('base64url');
+  authInProgress = runAuthFlow(nonce).finally(() => { authInProgress = null; });
   return 'auth_needed';
 }
 

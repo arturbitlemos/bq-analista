@@ -1,6 +1,6 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "agents/vendas-linx/Dockerfile"
+dockerfilePath = "agents/devolucoes/Dockerfile"
 
 [deploy]
 healthcheckPath = "/health"

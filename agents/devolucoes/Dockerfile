@@ -1,5 +1,5 @@
 # Build context MUST be the repo root.
-# Railway: Dockerfile path = agents/vendas-linx/Dockerfile, Build context = .
+# Railway: Dockerfile path = agents/devolucoes/Dockerfile, Build context = .
 FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
@@ -14,16 +14,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy workspace root + mcp-core + this agent (explicit paths avoid copying unnecessary dirs)
 COPY pyproject.toml uv.lock ./
 COPY packages/mcp-core/ packages/mcp-core/
-COPY agents/vendas-linx/ agents/vendas-linx/
+COPY agents/devolucoes/ agents/devolucoes/
 
 # Install agent and its mcp-core dependency via uv workspace
-WORKDIR /app/agents/vendas-linx
+WORKDIR /app/agents/devolucoes
 RUN uv sync --frozen
 
 # Stage config to /app/config (default MCP_SETTINGS path)
-RUN mkdir -p /app/config && cp -r /app/agents/vendas-linx/config/. /app/config/
+RUN mkdir -p /app/config && cp -r /app/agents/devolucoes/config/. /app/config/
 
-COPY agents/vendas-linx/scripts/entrypoint.sh /app/scripts/entrypoint.sh
+COPY agents/devolucoes/scripts/entrypoint.sh /app/scripts/entrypoint.sh
 
 RUN useradd -m -u 1000 mcp \
     && mkdir -p /var/mcp /app/repo \

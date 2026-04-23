@@ -19,16 +19,36 @@ WHERE DATA_VENDA BETWEEN :start AND :end
 
 **Por quê:** tabela é EXTERNAL e **não tem partição nativa**. Sem filtro de data, varre histórico inteiro a cada query — custo alto.
 
-### Filtros adicionais a decidir caso a caso
+### 1.1 Devoluções — incluir por padrão (venda líquida real)
+
+> 🚫 **NUNCA aplicar `VALOR_PAGO_PROD > 0` ou `QTDE_PROD > 0` por conta própria.**
+>
+> O **default é sempre venda líquida incluindo devoluções** — é essa a métrica que representa o resultado comercial real da loja/marca/período. Uma devolução entra na tabela com `VALOR_PAGO_PROD` e `QTDE_PROD` negativos, e precisa ser somada (não filtrada) para o líquido bater com o que o negócio enxerga.
+
+**Quando filtrar devoluções:**
+- **Só** quando o usuário **explicitamente** pedir ("venda bruta", "só venda positiva", "excluir devoluções", "só entradas").
+- Se ele pedir algo ambíguo ("venda do dia", "quanto vendemos"), **não filtrar** — é líquido.
+- Se houver dúvida real, **perguntar** antes de rodar. Não assumir.
+
+**Quando precisar filtrar (sob pedido explícito):**
+
+| Situação pedida | Filtro |
+|---|---|
+| "Só venda positiva" / "Excluir devoluções" | `AND SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC) > 0` |
+| "Só devoluções" | `AND SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC) < 0` |
+| "Venda bruta (antes de devolução)" | `AND SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC) > 0` + rotular como "bruta" na resposta |
+
+**Gate antes de rodar a query:** tem `VALOR_PAGO_PROD > 0` no `WHERE`? O usuário pediu explicitamente? Se não — tirar.
+
+### 1.2 Outros filtros a decidir caso a caso
 
 | Situação | Regra | Status |
 |---|---|---|
-| Excluir devoluções | filtrar `VALOR_PAGO_PROD > 0` **ou** `QTDE_PROD > 0` | ✅ ok |
 | Excluir marketplace externo | não aplicável — marketplace externo não aparece nesta tabela | ✅ não se aplica |
 | Excluir franquia | não aplicável — franquia não aparece nesta tabela | ✅ não se aplica |
 | Excluir cancelados | não necessário — cancelados não contaminam esta tabela | ✅ não se aplica |
 
-Quando filtro adicional for necessário e estiver marcado pendente acima, **peça confirmação ao usuário** antes de rodar.
+Quando um filtro adicional for necessário e não estiver coberto acima, **peça confirmação ao usuário** antes de rodar.
 
 ---
 
@@ -126,14 +146,14 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 
 | Conceito | Coluna | Quando usar |
 |---|---|---|
-| Venda Líquida | `VALOR_PAGO_PROD` | ✅ **Default em toda análise** |
+| Venda Líquida | `VALOR_PAGO_PROD` | ✅ **Default em toda análise** — soma tudo (inclui devoluções como negativo) |
 | Preço unitário líquido | `PRECO_LIQUIDO_PROD` | Análise de ticket de produto |
 | Desconto | `DESCONTO_PROD` | Gravado como **NEGATIVO** (validado 2026-04-18) |
 | Peças | `QTDE_PROD` | Pode ser negativo em devolução/troca |
 | Troca | `QTDE_TROCA_PROD` | Unidades de troca |
 | CMV | `PRODUTOS_PRECOS.PRECO_CUSTO` via join | Ver §4 |
 
-**Regra de ouro:** se o usuário não especifica, **venda líquida (`VALOR_PAGO_PROD`)**.
+**Regra de ouro:** se o usuário não especifica, **venda líquida (`VALOR_PAGO_PROD`)** — `SUM` direto, sem filtrar por sinal. Devoluções entram com valor negativo e **devem** ser somadas para o líquido refletir a realidade. Só filtrar `> 0` sob pedido explícito (ver §1.1).
 
 ---
 
@@ -350,7 +370,9 @@ venda AS (
   LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON v.CODIGO_FILIAL_DESTINO = f.COD_FILIAL
   WHERE v.DATA_VENDA BETWEEN :data_inicio AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
     AND v.TIPO_VENDA = 'VENDA_LOJA'
-    AND SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC) > 0
+    -- Devoluções INCLUÍDAS por padrão (venda líquida real). Só adicionar
+    -- `AND SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC) > 0` se o usuário pedir
+    -- explicitamente venda bruta / excluir devoluções (ver §1.1).
   GROUP BY 1
 )
 SELECT c.FILIAL, v.venda, c.meta, SAFE_DIVIDE(v.venda, c.meta) AS atingimento

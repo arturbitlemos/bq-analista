@@ -630,7 +630,9 @@ venda AS (
   WHERE v.DATA_VENDA BETWEEN DATE_TRUNC(CURRENT_DATE(), MONTH)
                          AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
     AND v.TIPO_VENDA = 'VENDA_LOJA'
-    AND SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC) > 0
+    -- Devoluções INCLUÍDAS por padrão (venda líquida real).
+    -- Só filtrar `VALOR_PAGO_PROD > 0` se o usuário pedir venda bruta / excluir
+    -- devoluções explicitamente — ver business-rules.md §1.1.
   GROUP BY 1
 )
 SELECT
@@ -758,7 +760,8 @@ venda_digital AS (
   LEFT JOIN `soma-pipeline-prd.silver_linx.LOJAS_REDE` lr ON CAST(v.RL_DESTINO AS STRING) = lr.REDE_LOJAS
   WHERE v.DATA_VENDA BETWEEN :data_inicio AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
     AND v.TIPO_VENDA IN ('VENDA_ECOM', 'VENDA_OMNI', 'VENDA_VITRINE')
-    AND SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC) > 0
+    -- Devoluções INCLUÍDAS por padrão (venda líquida real). Só filtrar
+    -- `VALOR_PAGO_PROD > 0` sob pedido explícito — ver business-rules.md §1.1.
   GROUP BY 1, 2
 )
 SELECT

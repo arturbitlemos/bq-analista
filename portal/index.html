@@ -265,23 +265,26 @@ let sortMode = 'recent'
 // ─── LocalStorage: arquivamento ────────────────────────────────────────────
 const ARCHIVE_KEY = 'azzas_archived'
 
-function getArchivedIds() {
+function getArchivedMap() {
   try {
     const raw = localStorage.getItem(ARCHIVE_KEY)
-    if (!raw) return new Set()
+    if (!raw) return new Map()
     const arr = JSON.parse(raw)
-    return new Set(arr.map(a => a.id))
-  } catch { return new Set() }
+    return new Map(arr.map(a => [a.id, a.archivedAt]))
+  } catch { return new Map() }
 }
-function setArchived(ids) {
-  const arr = [...ids].map(id => ({ id, archivedAt: new Date().toISOString() }))
+function getArchivedIds() {
+  return new Set(getArchivedMap().keys())
+}
+function saveArchivedMap(map) {
+  const arr = [...map.entries()].map(([id, archivedAt]) => ({ id, archivedAt }))
   localStorage.setItem(ARCHIVE_KEY, JSON.stringify(arr))
 }
 function archiveItem(id) {
-  const s = getArchivedIds(); s.add(id); setArchived(s)
+  const m = getArchivedMap(); m.set(id, new Date().toISOString()); saveArchivedMap(m)
 }
 function unarchiveItem(id) {
-  const s = getArchivedIds(); s.delete(id); setArchived(s)
+  const m = getArchivedMap(); m.delete(id); saveArchivedMap(m)
 }
 
 // ─── Slug de email (igual ao Python) ───────────────────────────────────────
@@ -353,6 +356,8 @@ async function init() {
     const authResult = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }), credentials: 'include' })
     if (!authResult.ok) throw new Error('Falha na autenticação com o servidor')
     const { identity } = await authResult.json()
+    // identity é o e-mail completo (ex: artur.lemos@somagrupo.com.br).
+    // Usado como nome do arquivo JSON privado (library/<agent>/<email>.json) via encodeURIComponent.
     userIdentity = identity
     userEmail = identity.toLowerCase()
 
@@ -365,8 +370,7 @@ async function init() {
 
     await loadAllLibraries()
   } catch (err) {
-    document.getElementById('loading').innerHTML =
-      `<p style="color:var(--ink); font-family:var(--font-editorial); font-style:italic;">Erro: ${err.message}</p>`
+    document.getElementById('loading').textContent = `Erro: ${err.message}`
   }
 }
 
@@ -507,16 +511,22 @@ function renderGrid(items) {
 }
 
 function renderEmpty() {
-  if (activeTab === 'mine' && !searchQuery && !filterAgent && !filterBrand && !filterPeriod) {
+  const hasFilters = searchQuery || filterAgent || filterBrand || filterPeriod
+  if (activeTab === 'mine' && !hasFilters) {
+    const totalMine = allItems.filter(i => isMine(i)).length
+    if (totalMine > 0) {
+      return `<div class="empty">Todas as suas análises estão arquivadas.<span class="empty-hint">Veja a aba "Arquivadas" para restaurá-las.</span></div>`
+    }
     return `<div class="empty">Você ainda não publicou nenhuma análise.<span class="empty-hint">Peça uma análise no Claude Desktop com a extensão Azzas MCP instalada.</span></div>`
   }
-  if (activeTab === 'team' && !searchQuery && !filterAgent && !filterBrand && !filterPeriod) {
+  if (activeTab === 'team' && !hasFilters) {
     return `<div class="empty">O time ainda não publicou nada público.</div>`
   }
   if (activeTab === 'archived') {
     return `<div class="empty">Nada arquivado.</div>`
   }
-  return `<div class="empty">Nenhuma análise encontrada${searchQuery ? ` pra "${searchQuery}"` : ''}.</div>`
+  const filterHint = !searchQuery && hasFilters ? ' com os filtros selecionados' : searchQuery ? ` pra "${searchQuery}"` : ''
+  return `<div class="empty">Nenhuma análise encontrada${filterHint}.</div>`
 }
 
 const THUMB_PALETTE = [

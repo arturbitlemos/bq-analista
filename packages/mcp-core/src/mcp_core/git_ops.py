@@ -18,17 +18,27 @@ def mint_installation_token(app_id: str, private_key: str) -> str:
     # Normalize PEM: some hosts store newlines as literal '\n'.
     if "\\n" in private_key and "\n" not in private_key:
         private_key = private_key.replace("\\n", "\n")
+    private_key = private_key.strip()
     now = int(time.time())
+    iss: int | str
+    try:
+        iss = int(app_id)
+    except ValueError:
+        iss = app_id
     app_jwt = jwt.encode(
-        {"iat": now, "exp": now + 600, "iss": app_id},
+        {"iat": now - 30, "exp": now + 540, "iss": iss},
         private_key,
         algorithm="RS256",
     )
-    resp = requests.post(
+    resp = requests.get(
         "https://api.github.com/app/installations",
-        headers={"Authorization": f"Bearer {app_jwt}"},
+        headers={
+            "Authorization": f"Bearer {app_jwt}",
+            "Accept": "application/vnd.github+json",
+        },
     )
-    resp.raise_for_status()
+    if not resp.ok:
+        raise RuntimeError(f"github {resp.status_code} on /app/installations: {resp.text[:300]}")
     org = next(
         (i for i in resp.json() if i["account"]["type"] == "Organization"),
         None,

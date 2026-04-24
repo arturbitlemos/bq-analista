@@ -9,12 +9,14 @@ const MANIFEST = {
     {
       name: 'vendas-linx',
       label: 'Vendas Linx',
+      description: 'Vendas, produtos, lojas e canais — dados do sistema Linx (físico + e-commerce).',
       url: 'https://bq-analista-production.up.railway.app',
       tools: ['get_context', 'consultar_bq', 'publicar_dashboard', 'listar_analises'],
     },
     {
       name: 'devolucoes',
       label: 'Devoluções',
+      description: 'Análise de devoluções, motivos e impacto na venda líquida por loja e marca.',
       url: 'https://analista-devolucoes-production.up.railway.app',
       tools: ['get_context', 'consultar_bq', 'publicar_dashboard', 'listar_analises'],
     },

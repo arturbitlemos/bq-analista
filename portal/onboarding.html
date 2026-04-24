@@ -60,10 +60,10 @@
     .steps .step-text strong { color: var(--ink); font-weight: 600; }
 
     /* Agents grid */
-    .agents { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 760px; margin: 0 auto; }
-    .agent { background: var(--surface-cream); padding: 1.25rem 1.5rem; border-left: 3px solid var(--navy); }
-    .agent h3 { font-size: 1rem; margin-bottom: 0.3rem; font-weight: 600; }
-    .agent p { font-size: 0.85rem; color: var(--ink-soft); font-weight: 300; line-height: 1.5; }
+    .agents { list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; max-width: 760px; margin: 0 auto; }
+    .agent { border: 1px solid var(--surface-warm); border-top: 3px solid var(--navy); padding: 1.5rem 1.5rem 1.25rem; background: var(--surface); }
+    .agent h3 { font-size: 0.95rem; font-weight: 600; color: var(--ink); margin-bottom: 0.5rem; letter-spacing: 0.01em; }
+    .agent p { font-size: 0.85rem; color: var(--ink-soft); font-weight: 300; line-height: 1.55; }
 
     /* Troubleshooting */
     .troubleshooting { font-size: 0.95rem; color: var(--ink-soft); line-height: 1.6; max-width: 760px; margin: 0 auto; font-weight: 300; }
@@ -80,7 +80,7 @@
       nav { flex-wrap: wrap; gap: 0.75rem; }
       .hero { padding: 2.5rem 1.25rem; }
       section.content { padding: 2rem 1.25rem; }
-      .steps, .agents { grid-template-columns: 1fr; gap: 1.25rem; }
+      .steps, .agents { grid-template-columns: 1fr; gap: 1rem; }
     }
   </style>
 </head>
@@ -201,6 +201,11 @@
         const h3 = document.createElement('h3');
         h3.textContent = a.label;
         li.appendChild(h3);
+        if (a.description) {
+          const p = document.createElement('p');
+          p.textContent = a.description;
+          li.appendChild(p);
+        }
         ul.appendChild(li);
       }
     }).catch(() => {

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Farm · Devoluções por Produto — MTD abr/2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #274566; --steel: #3D5A73; --blue-soft: #A1C6ED;
+    --ink: #000000; --ink-soft: #595959; --ink-faint: #999999;
+    --surface: #FFFFFF; --surface-warm: #E8E8E4; --surface-cream: #F9F6EA;
+    --font-primary: 'Red Hat Display', Arial, sans-serif;
+    --font-editorial: 'Playfair Display', Georgia, serif;
+    --alert-red: #B83232; --alert-amber: #C07020; --ok-green: #2A6040;
+  }
+  body { font-family: var(--font-primary); background: var(--surface-cream); color: var(--ink); }
+  .page-header { background: var(--navy); color: var(--surface); padding: 2.5rem 2.5rem 2rem; }
+  .header-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.65; margin-bottom: 0.5rem; }
+  .header-title { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 300; line-height: 1.15; margin-bottom: 0.3rem; }
+  .header-sub { font-family: var(--font-editorial); font-style: italic; font-size: 1rem; opacity: 0.65; }
+  .kpi-section { background: var(--navy); padding: 0 2.5rem 2rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 700px) { .kpi-section { grid-template-columns: 1fr 1fr; } }
+  .kpi-card { background: rgba(255,255,255,0.08); border-radius: 10px; padding: 1rem 1.2rem; }
+  .kpi-label { font-size: 10px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: rgba(255,255,255,0.55); margin-bottom: 4px; }
+  .kpi-val { font-size: 1.55rem; font-weight: 300; color: #fff; line-height: 1.1; }
+  .kpi-delta { font-size: 11px; margin-top: 3px; color: rgba(255,255,255,0.55); }
+  .content { padding: 2rem 2.5rem 3rem; max-width: 1100px; margin: 0 auto; }
+  .section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+  .section-label::after { content: ''; flex: 1; height: 0.5px; background: #D0CEC8; }
+  .prod-table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); border-radius: 10px; overflow: hidden; }
+  thead { background: var(--surface-warm); }
+  th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-soft); padding: 10px 14px; text-align: left; white-space: nowrap; border-bottom: 0.5px solid #D0CEC8; }
+  th.right, td.right { text-align: right; }
+  td { padding: 10px 14px; vertical-align: middle; border-bottom: 0.5px solid #EBEBEB; color: var(--ink); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover { background: #FAFAF8; }
+  .prod-img { width: 38px; height: 51px; object-fit: cover; border-radius: 4px; display: block; background: var(--surface-warm); }
+  .prod-code { font-weight: 600; font-size: 12px; }
+  .prod-cor { font-size: 11px; color: var(--ink-faint); }
+  .taxa-pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .taxa-alto { background: #FDECEC; color: var(--alert-red); }
+  .taxa-medio { background: #FEF3E6; color: var(--alert-amber); }
+  .taxa-ok { background: #E8F4ED; color: var(--ok-green); }
+  .motivo-tag { display: inline-block; background: #27456612; color: var(--navy); font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; }
+  .motivo-tag.alerta { background: #B8323215; color: var(--alert-red); }
+  .legenda { display: flex; gap: 16px; margin-top: 10px; font-size: 11px; color: var(--ink-faint); flex-wrap: wrap; }
+  .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+  @media (max-width: 640px) { .insights-grid { grid-template-columns: 1fr; } }
+  .insight-card { background: var(--surface); border-radius: 10px; padding: 1.2rem 1.4rem; border-left: 3px solid var(--navy); }
+  .insight-card.alert { border-left-color: var(--alert-red); }
+  .insight-card.amber { border-left-color: var(--alert-amber); }
+  .insight-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-faint); margin-bottom: 6px; }
+  .insight-body { font-size: 13px; color: var(--ink-soft); line-height: 1.6; }
+  .insight-body strong { color: var(--ink); font-weight: 600; }
+  footer { background: var(--navy); color: rgba(255,255,255,0.4); text-align: center; font-size: 11px; padding: 1.2rem; margin-top: 3rem; }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <div class="header-eyebrow">Farm · Reversas MTD · Análise de Produto</div>
+  <h1 class="header-title">Produtos com maior<br>taxa de devolução</h1>
+  <div class="header-sub">01–23 de abril de 2026 · Reversa total (trocas + devoluções)</div>
+</header>
+
+<div class="kpi-section">
+  <div class="kpi-card"><div class="kpi-label">Reversas totais</div><div class="kpi-val">13.874</div><div class="kpi-delta">▲ +2,4% vs LY</div></div>
+  <div class="kpi-card"><div class="kpi-label">Valor devolvido</div><div class="kpi-val">R$ 6,5M</div><div class="kpi-delta">▼ −14,2% vs LY</div></div>
+  <div class="kpi-card"><div class="kpi-label">Ticket médio reversa</div><div class="kpi-val">R$ 468</div><div class="kpi-delta">▼ −16,2% vs LY</div></div>
+  <div class="kpi-card"><div class="kpi-label">SLA médio</div><div class="kpi-val">5,4 dias</div><div class="kpi-delta">▼ −2,3d vs LY (melhora)</div></div>
+</div>
+
+<div class="content">
+  <div class="section-label">Ranking por taxa de devolução · peças devolvidas ÷ peças vendidas</div>
+  <div class="prod-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Foto</th>
+          <th>Produto · Cor</th>
+          <th class="right">Taxa dev.</th>
+          <th class="right">Itens dev.</th>
+          <th class="right">Peças vendidas</th>
+          <th class="right">Valor dev.</th>
+          <th>Motivo principal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/351056_53965/image" loading="lazy" onerror="this.style.display='none'" alt="351056"></td>
+          <td><div class="prod-code">351056</div><div class="prod-cor">cor 53965</div></td>
+          <td class="right"><span class="taxa-pill taxa-alto">43,7%</span></td>
+          <td class="right">31</td><td class="right">71</td><td class="right">R$ 7.629</td>
+          <td><span class="motivo-tag">peça muito curta</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/356251_07635/image" loading="lazy" onerror="this.style.display='none'" alt="356251"></td>
+          <td><div class="prod-code">356251</div><div class="prod-cor">cor 07635</div></td>
+          <td class="right"><span class="taxa-pill taxa-alto">19,0%</span></td>
+          <td class="right">47</td><td class="right">248</td><td class="right">R$ 14.181</td>
+          <td><span class="motivo-tag">tamanho pequeno</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/357895_55384/image" loading="lazy" onerror="this.style.display='none'" alt="357895"></td>
+          <td><div class="prod-code">357895</div><div class="prod-cor">cor 55384</div></td>
+          <td class="right"><span class="taxa-pill taxa-alto">17,3%</span></td>
+          <td class="right">24</td><td class="right">139</td><td class="right">R$ 11.811</td>
+          <td><span class="motivo-tag alerta">faltando acessório</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/366001_55375/image" loading="lazy" onerror="this.style.display='none'" alt="366001"></td>
+          <td><div class="prod-code">366001</div><div class="prod-cor">cor 55375</div></td>
+          <td class="right"><span class="taxa-pill taxa-alto">16,5%</span></td>
+          <td class="right">26</td><td class="right">158</td><td class="right">R$ 7.320</td>
+          <td><span class="motivo-tag">tamanho pequeno</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/357832_55382/image" loading="lazy" onerror="this.style.display='none'" alt="357832"></td>
+          <td><div class="prod-code">357832</div><div class="prod-cor">cor 55382</div></td>
+          <td class="right"><span class="taxa-pill taxa-alto">14,4%</span></td>
+          <td class="right">23</td><td class="right">160</td><td class="right">R$ 9.588</td>
+          <td><span class="motivo-tag">tamanho pequeno</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/356971_55573/image" loading="lazy" onerror="this.style.display='none'" alt="356971"></td>
+          <td><div class="prod-code">356971</div><div class="prod-cor">cor 55573</div></td>
+          <td class="right"><span class="taxa-pill taxa-alto">12,0%</span></td>
+          <td class="right">26</td><td class="right">217</td><td class="right">R$ 6.571</td>
+          <td><span class="motivo-tag alerta">qualidade não agradou</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/351055_53965/image" loading="lazy" onerror="this.style.display='none'" alt="351055"></td>
+          <td><div class="prod-code">351055</div><div class="prod-cor">cor 53965</div></td>
+          <td class="right"><span class="taxa-pill taxa-medio">9,3%</span></td>
+          <td class="right">48</td><td class="right">516</td><td class="right">R$ 13.654</td>
+          <td><span class="motivo-tag">tamanho grande</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/356095_56089/image" loading="lazy" onerror="this.style.display='none'" alt="356095"></td>
+          <td><div class="prod-code">356095</div><div class="prod-cor">cor 56089</div></td>
+          <td class="right"><span class="taxa-pill taxa-medio">8,5%</span></td>
+          <td class="right">22</td><td class="right">258</td><td class="right">R$ 6.175</td>
+          <td><span class="motivo-tag alerta">veio com defeito</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/364007_07768/image" loading="lazy" onerror="this.style.display='none'" alt="364007"></td>
+          <td><div class="prod-code">364007</div><div class="prod-cor">cor 07768</div></td>
+          <td class="right"><span class="taxa-pill taxa-medio">7,8%</span></td>
+          <td class="right">48</td><td class="right">617</td><td class="right">R$ 19.104</td>
+          <td><span class="motivo-tag">tamanho grande</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/361453_56651/image" loading="lazy" onerror="this.style.display='none'" alt="361453"></td>
+          <td><div class="prod-code">361453</div><div class="prod-cor">cor 56651</div></td>
+          <td class="right"><span class="taxa-pill taxa-ok">4,8%</span></td>
+          <td class="right">24</td><td class="right">495</td><td class="right">R$ 21.552</td>
+          <td><span class="motivo-tag">tamanho grande</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/362274_56707/image" loading="lazy" onerror="this.style.display='none'" alt="362274"></td>
+          <td><div class="prod-code">362274</div><div class="prod-cor">cor 56707</div></td>
+          <td class="right"><span class="taxa-pill taxa-ok">4,7%</span></td>
+          <td class="right">52</td><td class="right">1.105</td><td class="right">R$ 33.648</td>
+          <td><span class="motivo-tag">tamanho grande</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/363368_57226/image" loading="lazy" onerror="this.style.display='none'" alt="363368"></td>
+          <td><div class="prod-code">363368</div><div class="prod-cor">cor 57226</div></td>
+          <td class="right"><span class="taxa-pill taxa-ok">3,8%</span></td>
+          <td class="right">23</td><td class="right">604</td><td class="right">R$ 9.105</td>
+          <td><span class="motivo-tag">tamanho pequeno</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/368415_11025/image" loading="lazy" onerror="this.style.display='none'" alt="368415"></td>
+          <td><div class="prod-code">368415</div><div class="prod-cor">cor 11025</div></td>
+          <td class="right"><span class="taxa-pill taxa-ok">3,3%</span></td>
+          <td class="right">24</td><td class="right">737</td><td class="right">R$ 9.552</td>
+          <td><span class="motivo-tag">tamanho grande</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/356081_56207/image" loading="lazy" onerror="this.style.display='none'" alt="356081"></td>
+          <td><div class="prod-code">356081</div><div class="prod-cor">cor 56207</div></td>
+          <td class="right"><span class="taxa-pill taxa-ok">4,2%</span></td>
+          <td class="right">23</td><td class="right">548</td><td class="right">R$ 7.382</td>
+          <td><span class="motivo-tag">tamanho pequeno</span></td>
+        </tr>
+        <tr>
+          <td><img class="prod-img" src="https://images.somalabs.com.br/brands/2/products/reference_id/361806_56687/image" loading="lazy" onerror="this.style.display='none'" alt="361806"></td>
+          <td><div class="prod-code">361806</div><div class="prod-cor">cor 56687</div></td>
+          <td class="right"><span class="taxa-pill taxa-ok">2,4%</span></td>
+          <td class="right">23</td><td class="right">975</td><td class="right">R$ 11.454</td>
+          <td><span class="motivo-tag">tamanho pequeno</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="legenda">
+    <span><span class="taxa-pill taxa-alto" style="font-size:10px">≥12%</span> Taxa crítica</span>
+    <span><span class="taxa-pill taxa-medio" style="font-size:10px">5–12%</span> Taxa de atenção</span>
+    <span><span class="taxa-pill taxa-ok" style="font-size:10px">&lt;5%</span> Taxa normal</span>
+  </div>
+
+  <div style="margin-top:2rem">
+    <div class="section-label">Principais achados</div>
+    <div class="insights-grid">
+      <div class="insight-card alert">
+        <div class="insight-title">Alerta · produto 351056</div>
+        <div class="insight-body"><strong>43,7% de taxa de devolução</strong> — maior da lista por larga margem. Com apenas 71 peças vendidas, 31 retornaram. Motivo dominante: "peça muito curta" (52% dos casos). Discrepância clara entre foto/descrição e produto real. Ação imediata recomendada.</div>
+      </div>
+      <div class="insight-card alert">
+        <div class="insight-title">Alerta · produto 356251</div>
+        <div class="insight-body"><strong>19% de taxa</strong> em 248 peças vendidas. Clientes divididos entre "tamanho pequeno" e "tamanho grande" — grade mal definida ou descrição de tamanho inconsistente para essa modelagem.</div>
+      </div>
+      <div class="insight-card amber">
+        <div class="insight-title">Atenção · produto 357895</div>
+        <div class="insight-body"><strong>17,3% de taxa</strong> com motivo "veio faltando acessório" — não é problema de tamanho: é <strong>falha operacional no CD</strong>. Checar processo de separação e embalagem para esse SKU.</div>
+      </div>
+      <div class="insight-card amber">
+        <div class="insight-title">Atenção · produto 356971</div>
+        <div class="insight-body"><strong>12% de taxa</strong> com motivo "qualidade não agradou". Não se resolve com guia de medidas — indica <strong>gap entre expectativa e entrega de produto</strong>. Revisar fotos e descrição no site.</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-title">Contexto · alto volume com baixa taxa</div>
+        <div class="insight-body">Os maiores vendedores (362274: 1.105 peças; 361806: 975 peças) têm taxa abaixo de 5%. O problema está concentrado em SKUs de menor volume, onde poucos retornos inflam a taxa proporcionalmente.</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-title">Padrão estrutural · grade e tamanho</div>
+        <div class="insight-body"><strong>62% dos 18.450 itens devolvidos</strong> são por problema de tamanho. Afeta a Farm como um todo — guia de medidas com instrução de modelagem no PDP é a intervenção de maior impacto potencial.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>Farm · Reversas MTD · 01–23/abr/2026 · Gerado em 24/abr/2026 · Dados: BigQuery soma-crm-bi.dados_trusted</footer>
+</body>
+</html>

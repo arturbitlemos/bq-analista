@@ -263,6 +263,8 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
             author_email=settings.github.author_email,
             branch=settings.github.branch,
             push=os.environ.get("MCP_GIT_PUSH", "0") == "1",
+            github_app_id=os.environ.get("GITHUB_APP_ID"),
+            github_app_private_key=os.environ.get("GITHUB_APP_PRIVATE_KEY"),
         )
         try:
             sha = git.commit_paths(

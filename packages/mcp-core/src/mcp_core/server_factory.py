@@ -42,6 +42,14 @@ def _repo_root() -> Path:
     return Path(os.environ.get("MCP_REPO_ROOT", "/app/repo"))
 
 
+def _image_root() -> Path:
+    """Root of the immutable code image (shared/, agents/, .claude/).
+
+    Distinct from _repo_root() which points to the mutable git clone used by
+    publicar_dashboard. Defaults to /app to match the Dockerfile layout."""
+    return Path(os.environ.get("MCP_IMAGE_ROOT", "/app"))
+
+
 def _settings_path() -> Path:
     return Path(os.environ.get("MCP_SETTINGS", "/app/config/settings.toml"))
 
@@ -137,10 +145,10 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         Call once at session start to prime Claude with domain knowledge."""
         _current_email(ctx)
         settings = load_settings(_settings_path())
-        repo_root = _repo_root()
+        image_root = _image_root()
         domain = settings.server.domain
-        shared_root = repo_root / "shared" / "context"
-        agent_root = repo_root / "agents" / domain / "src" / "agent"
+        shared_root = image_root / "shared" / "context"
+        agent_root = image_root / "agents" / domain / "src" / "agent"
         loaded = load_exec_context(agent_root=agent_root, shared_root=shared_root)
         return {"text": loaded.text, "allowed_tables": loaded.allowed_tables}
 

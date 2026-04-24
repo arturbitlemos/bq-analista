@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml uv.lock ./
 COPY packages/mcp-core/ packages/mcp-core/
 COPY agents/vendas-linx/ agents/vendas-linx/
+COPY shared/ shared/
+COPY .claude/ .claude/
 
 # Install agent and its mcp-core dependency via uv workspace
 WORKDIR /app/agents/vendas-linx

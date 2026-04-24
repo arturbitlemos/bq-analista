@@ -15,6 +15,9 @@ def mint_installation_token(app_id: str, private_key: str) -> str:
     """Mint a short-lived installation access token for the GitHub App.
 
     Picks the first Organization installation available."""
+    # Normalize PEM: some hosts store newlines as literal '\n'.
+    if "\\n" in private_key and "\n" not in private_key:
+        private_key = private_key.replace("\\n", "\n")
     now = int(time.time())
     app_jwt = jwt.encode(
         {"iat": now, "exp": now + 600, "iss": app_id},

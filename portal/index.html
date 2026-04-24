@@ -112,6 +112,22 @@
     .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(200%); background: var(--ink); color: var(--surface); padding: 0.75rem 1.25rem; border-radius: 6px; font-size: 0.85rem; font-weight: 500; z-index: 100; transition: transform 0.25s ease-out; pointer-events: none; }
     .toast.visible { transform: translateX(-50%) translateY(0); }
 
+    /* Bottom sheet */
+    .sheet { position: fixed; inset: 0; z-index: 200; display: none; }
+    .sheet.open { display: block; }
+    .sheet-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.2s; }
+    .sheet.open .sheet-backdrop { opacity: 1; }
+    .sheet-panel { position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 16px 16px 0 0; padding: 0.5rem 1.5rem 1.5rem; max-height: 75vh; transform: translateY(100%); transition: transform 0.25s ease-out; display: flex; flex-direction: column; }
+    .sheet.open .sheet-panel { transform: translateY(0); }
+    .sheet-handle { width: 40px; height: 4px; background: var(--surface-warm); border-radius: 2px; margin: 0.5rem auto 1rem; }
+    .sheet-header { font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; margin-bottom: 1rem; }
+    .sheet-content { display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; }
+    .sheet-field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .sheet-field span { font-size: 0.8rem; color: var(--ink-soft); }
+    .sheet-field select { border: 1px solid var(--surface-warm); padding: 0.65rem 0.75rem; border-radius: 6px; font-size: 0.95rem; font-family: inherit; background: var(--surface); color: var(--ink); }
+    .sheet-footer { padding-top: 1rem; }
+    .sheet-footer button { width: 100%; background: var(--navy); color: var(--surface); border: none; padding: 0.9rem; border-radius: 6px; font-size: 0.95rem; font-weight: 600; }
+
     /* Error banner */
     .error-banner { background: var(--surface-warm); border-bottom: 1px solid var(--status-pending); color: var(--ink); padding: 0.75rem 2rem; text-align: center; font-size: 0.85rem; }
 
@@ -199,6 +215,37 @@
   </div>
 
   <div id="toast" class="toast" aria-live="polite"></div>
+
+  <div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="sheet-backdrop"></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">Filtros</div>
+      <div class="sheet-content">
+        <label class="sheet-field"><span>Agente</span><select id="sheet-agent"></select></label>
+        <label class="sheet-field"><span>Marca</span><select id="sheet-brand"></select></label>
+        <label class="sheet-field"><span>Período</span>
+          <select id="sheet-period">
+            <option value="">Tudo</option>
+            <option value="7d">Últimos 7 dias</option>
+            <option value="30d">Últimos 30 dias</option>
+            <option value="quarter">Este trimestre</option>
+            <option value="year">Este ano</option>
+          </select>
+        </label>
+        <label class="sheet-field"><span>Ordenar</span>
+          <select id="sheet-sort">
+            <option value="recent">Mais recente</option>
+            <option value="old">Mais antiga</option>
+            <option value="title">Título A→Z</option>
+          </select>
+        </label>
+      </div>
+      <div class="sheet-footer">
+        <button id="sheet-apply">Aplicar</button>
+      </div>
+    </div>
+  </div>
 
 <script type="module">
 import { initMsal } from '/msal-init.js'
@@ -622,13 +669,47 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.card-menu-dropdown.open').forEach(d => d.classList.remove('open'))
 })
 
-// Bottom sheet mobile (Task 9 implementa)
+// Bottom sheet mobile
 document.getElementById('mobile-filters').addEventListener('click', openBottomSheet)
 
 function openBottomSheet() {
-  // Placeholder — implementado em Task 9
-  alert('Filtros: implementação mobile em Task 9')
+  const agents = [...new Map(allItems.filter(i => i.agent).map(i => [i.agent.name, i.agent])).values()]
+  const brands = [...new Set(allItems.map(i => i.brand).filter(Boolean))].sort()
+  fillSelect('sheet-agent', 'Agente', agents.map(a => [a.name, a.label]))
+  fillSelect('sheet-brand', 'Marca', brands.map(b => [b, b]))
+  document.getElementById('sheet-agent').value = filterAgent
+  document.getElementById('sheet-brand').value = filterBrand
+  document.getElementById('sheet-period').value = filterPeriod
+  document.getElementById('sheet-sort').value = sortMode
+  const sheet = document.getElementById('sheet')
+  sheet.classList.add('open')
+  sheet.setAttribute('aria-hidden', 'false')
 }
+function closeBottomSheet() {
+  const sheet = document.getElementById('sheet')
+  sheet.classList.remove('open')
+  sheet.setAttribute('aria-hidden', 'true')
+}
+
+document.querySelector('#sheet .sheet-backdrop').addEventListener('click', closeBottomSheet)
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape' && document.getElementById('sheet').classList.contains('open')) {
+    closeBottomSheet()
+  }
+})
+document.getElementById('sheet-apply').addEventListener('click', () => {
+  filterAgent = document.getElementById('sheet-agent').value
+  filterBrand = document.getElementById('sheet-brand').value
+  filterPeriod = document.getElementById('sheet-period').value
+  sortMode = document.getElementById('sheet-sort').value
+  // Sincroniza os selects de desktop também (caso usuário volte pro desktop sem recarregar)
+  document.getElementById('facet-agent').value = filterAgent
+  document.getElementById('facet-brand').value = filterBrand
+  document.getElementById('facet-period').value = filterPeriod
+  document.getElementById('facet-sort').value = sortMode
+  closeBottomSheet()
+  render()
+})
 
 init()
 </script>

@@ -115,6 +115,11 @@
     /* Error banner */
     .error-banner { background: var(--surface-warm); border-bottom: 1px solid var(--status-pending); color: var(--ink); padding: 0.75rem 2rem; text-align: center; font-size: 0.85rem; }
 
+    /* Skeleton */
+    .skeleton-card { background: var(--surface); border: 1px solid var(--surface-warm); border-radius: 8px; height: 200px; position: relative; overflow: hidden; }
+    .skeleton-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent); animation: shimmer 1.4s infinite; }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
     /* Responsive */
     @media (max-width: 900px) {
       #grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); padding: 1.25rem; }
@@ -307,6 +312,10 @@ async function init() {
     const accounts = msalInstance.getAllAccounts()
     document.getElementById('user-email').textContent = accounts[0]?.username ?? userEmail
 
+    document.getElementById('loading').style.display = 'none'
+    document.getElementById('library-view').style.display = 'block'
+    document.getElementById('grid').innerHTML = Array.from({length: 6}).map(() => '<div class="skeleton-card"></div>').join('')
+
     await loadAllLibraries()
   } catch (err) {
     document.getElementById('loading').innerHTML =
@@ -336,12 +345,8 @@ async function loadAllLibraries() {
     }
     allItems = [...merged.values()]
     render()
-    document.getElementById('loading').style.display = 'none'
-    document.getElementById('library-view').style.display = 'block'
   } catch (err) {
     showErrorBanner(`Não consegui carregar a library: ${err.message}. Tente atualizar a página.`)
-    document.getElementById('loading').style.display = 'none'
-    document.getElementById('library-view').style.display = 'block'
     // Renderiza grid vazio (sem skeletons pendurados)
     const grid = document.getElementById('grid')
     if (grid) grid.innerHTML = ''

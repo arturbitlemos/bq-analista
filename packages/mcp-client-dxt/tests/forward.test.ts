@@ -111,6 +111,40 @@ describe('forwardToolCall', () => {
     ).rejects.toMatchObject({ kind: 'network' });
   });
 
+  it('sessão cached stale (server redeployed) → auto-retry com sessão nova e devolve ok', async () => {
+    let created = 0;
+    const factory: ForwardSessionFactory = async () => {
+      created += 1;
+      if (created === 1) {
+        // Session A: ok no primeiro callTool, 404 nas chamadas seguintes
+        // (simula Railway redeploy invalidando o session id entre calls).
+        let calls = 0;
+        return fakeSession({
+          onCall: async () => {
+            calls += 1;
+            if (calls === 1) return { content: [{ type: 'text', text: 'ok-1' }] };
+            const err: any = new Error('session not found');
+            err.code = 404;
+            throw err;
+          },
+        });
+      }
+      return fakeSession({ onCall: async () => ({ content: [{ type: 'text', text: 'ok-2' }] }) });
+    };
+    // Call 1: pool empty, cria A, callTool OK.
+    await forwardToolCall(
+      { agentUrl: 'https://s.x', tool: 'x', args: {}, getAccessToken: () => 'T' },
+      factory,
+    );
+    // Call 2: cached A throws 404 → evict + reconnect B → retry succeeds, usuário nunca vê erro.
+    const r = await forwardToolCall(
+      { agentUrl: 'https://s.x', tool: 'x', args: {}, getAccessToken: () => 'T' },
+      factory,
+    );
+    expect(r).toEqual({ content: [{ type: 'text', text: 'ok-2' }] });
+    expect(created).toBe(2);
+  });
+
   it('factory failure (connect falhou) → ForwardError(unavailable) e NÃO cacheia', async () => {
     let attempts = 0;
     const factory: ForwardSessionFactory = async () => {

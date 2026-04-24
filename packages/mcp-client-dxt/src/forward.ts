@@ -44,22 +44,42 @@ export async function forwardToolCall(
   p: ForwardParams,
   factory: ForwardSessionFactory = defaultFactory,
 ): Promise<unknown> {
-  let session = pool.get(p.agentUrl);
-  if (!session) {
+  const cached = pool.get(p.agentUrl);
+  if (cached) {
     try {
-      session = await factory(p.agentUrl, p.getAccessToken);
+      return await cached.callTool(p.tool, (p.args ?? {}) as Record<string, unknown>);
     } catch (err) {
-      // Factory failures = connect/transport level: classify as unavailable, don't cache.
-      const e = err as { message?: string };
-      throw new ForwardError('unavailable', String(e.message ?? err));
+      const translated = translateCallError(err);
+      // auth_invalid/forbidden are about credentials, not stale sessions —
+      // retrying with a fresh session won't help; surface to the caller.
+      if (translated.kind === 'auth_invalid') {
+        pool.delete(p.agentUrl);
+        await cached.close().catch(() => undefined);
+        throw translated;
+      }
+      if (translated.kind === 'forbidden') {
+        throw translated;
+      }
+      // malformed/unavailable/network on a cached session usually means the
+      // server redeployed and the session id is stale. Drop it and fall
+      // through to reconnect + retry once.
+      pool.delete(p.agentUrl);
+      await cached.close().catch(() => undefined);
     }
-    pool.set(p.agentUrl, session);
   }
+  let session: ForwardSession;
+  try {
+    session = await factory(p.agentUrl, p.getAccessToken);
+  } catch (err) {
+    const e = err as { message?: string };
+    throw new ForwardError('unavailable', String(e.message ?? err));
+  }
+  pool.set(p.agentUrl, session);
   try {
     return await session.callTool(p.tool, (p.args ?? {}) as Record<string, unknown>);
   } catch (err) {
     const translated = translateCallError(err);
-    if (translated.kind === 'auth_invalid' || translated.kind === 'network') {
+    if (translated.kind !== 'forbidden') {
       pool.delete(p.agentUrl);
       await session.close().catch(() => undefined);
     }

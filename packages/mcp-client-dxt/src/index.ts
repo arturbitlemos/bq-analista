@@ -3,7 +3,6 @@ import crypto from 'node:crypto';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import open from 'open';
 import { fetchManifest, type Manifest } from './manifest.js';
 import { loadCredentials, saveCredentials, clearCredentials, type Credentials } from './auth.js';
 import { resolveRoute, listPrefixedTools } from './router.js';
@@ -12,6 +11,27 @@ import { isStale } from './version.js';
 import { MSG } from './errors.js';
 
 const PORTAL_URL = process.env.AZZAS_MCP_PORTAL_URL || 'https://bq-analista.vercel.app';
+
+async function openBrowser(url: string): Promise<void> {
+  const { spawn } = await import('node:child_process');
+  let cmd: string, args: string[];
+  if (process.platform === 'win32') {
+    // rundll32 url.dll,FileProtocolHandler invokes the Windows Shell URL handler directly —
+    // no PowerShell or cmd required, works even when execution policy blocks both.
+    cmd = 'rundll32.exe';
+    args = ['url.dll,FileProtocolHandler', url];
+  } else if (process.platform === 'darwin') {
+    cmd = 'open'; args = [url];
+  } else {
+    cmd = 'xdg-open'; args = [url];
+  }
+  await new Promise<void>((resolve) => {
+    const child = spawn(cmd, args, { detached: true, stdio: 'ignore' });
+    child.unref();
+    child.on('error', (err) => console.error('[azzas-mcp] openBrowser error:', err));
+    resolve();
+  });
+}
 const DXT_VERSION = '1.0.3'; // sync com package.json e manifest.json
 
 let cachedManifest: Manifest | null = null;
@@ -98,7 +118,13 @@ async function runAuthFlow(expectedNonce: string): Promise<void> {
     const startUrl = new URL(`${PORTAL_URL}/api/mcp/auth/start`);
     startUrl.searchParams.set('redirect_uri', `http://localhost:${port}/cb`);
     startUrl.searchParams.set('nonce', expectedNonce);
-    await open(startUrl.toString());
+    const loginUrl = startUrl.toString();
+    try {
+      await openBrowser(loginUrl);
+    } catch (err) {
+      console.error('[azzas-mcp] não consegui abrir o browser automaticamente:', err);
+      console.error('[azzas-mcp] abra manualmente:', loginUrl);
+    }
 
     const params = await new Promise<Record<string, string>>((resolve, reject) => {
       const timer = setTimeout(() => { server!.close(); reject(new Error('timeout')); }, 120_000);

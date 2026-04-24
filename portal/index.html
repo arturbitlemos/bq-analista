@@ -196,174 +196,399 @@
   <div id="toast" class="toast" aria-live="polite"></div>
 
 <script type="module">
-import { initMsal, InteractionRequiredAuthError } from './msal-init.js'
+import { initMsal } from '/msal-init.js'
+import { InteractionRequiredAuthError } from '@azure/msal-browser'
 
-// ────────────────────────────────────────────────────────────────────────────
+// ─── Estado global ─────────────────────────────────────────────────────────
+let userIdentity = null                    // slug do email (usado no middleware)
+let userEmail = null                       // email completo (lowercase)
+let allItems = []                          // Todos os items carregados, c/ source e agent
+let activeTab = 'mine'                     // 'mine' | 'team' | 'archived'
+let searchQuery = ''
+let filterAgent = ''
+let filterBrand = ''
+let filterPeriod = ''
+let sortMode = 'recent'
 
-let userIdentity = null
-let currentDomain = null
-let allAnalyses = []
-let activeFilter = 'all'
+// ─── LocalStorage: arquivamento ────────────────────────────────────────────
+const ARCHIVE_KEY = 'azzas_archived'
 
+function getArchivedIds() {
+  try {
+    const raw = localStorage.getItem(ARCHIVE_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    return new Set(arr.map(a => a.id))
+  } catch { return new Set() }
+}
+function setArchived(ids) {
+  const arr = [...ids].map(id => ({ id, archivedAt: new Date().toISOString() }))
+  localStorage.setItem(ARCHIVE_KEY, JSON.stringify(arr))
+}
+function archiveItem(id) {
+  const s = getArchivedIds(); s.add(id); setArchived(s)
+}
+function unarchiveItem(id) {
+  const s = getArchivedIds(); s.delete(id); setArchived(s)
+}
+
+// ─── Slug de email (igual ao Python) ───────────────────────────────────────
+// packages/mcp-core/src/mcp_core/server_factory.py:
+//   email_slug = re.sub(r"[^a-z0-9]+", "-", exec_email.lower()).strip("-")[:24] or "user"
+function emailSlug(email) {
+  if (!email) return 'user'
+  const s = email.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24)
+  return s || 'user'
+}
+
+// ─── Classificação mine/team ───────────────────────────────────────────────
+function isMine(item) {
+  if (item.source === 'private') return true
+  if (item.author_email) return item.author_email.toLowerCase() === userEmail
+  // Fallback pra items antigos sem author_email: checa prefixo do filename
+  const slug = emailSlug(userEmail)
+  return (item.filename ?? '').startsWith(slug + '-')
+}
+
+// ─── Filtros ───────────────────────────────────────────────────────────────
+function matchesSearch(item, q) {
+  if (!q) return true
+  const hay = [item.title, item.description, (item.tags ?? []).join(' '), item.brand]
+    .filter(Boolean).join(' ').toLowerCase()
+  return hay.includes(q.toLowerCase())
+}
+function matchesAgent(item, slug) { return !slug || item.agent?.name === slug }
+function matchesBrand(item, brand) { return !brand || item.brand === brand }
+function matchesPeriod(item, code) {
+  if (!code || code === 'all') return true
+  const d = Date.parse(item.date)
+  if (Number.isNaN(d)) return false
+  const now = Date.now()
+  const day = 86400000
+  if (code === '7d') return now - d <= 7 * day
+  if (code === '30d') return now - d <= 30 * day
+  if (code === 'quarter') {
+    const nowDate = new Date(now); const qStart = new Date(nowDate.getFullYear(), Math.floor(nowDate.getMonth() / 3) * 3, 1)
+    return d >= qStart.getTime()
+  }
+  if (code === 'year') {
+    const y = new Date(now).getFullYear()
+    return d >= Date.parse(`${y}-01-01`)
+  }
+  return true
+}
+
+// ─── Carregamento ──────────────────────────────────────────────────────────
 async function init() {
   try {
     const msalInstance = await initMsal()
     await msalInstance.initialize()
     const redirectResult = await msalInstance.handleRedirectPromise()
-
     let idToken = null
-    if (redirectResult) {
-      idToken = redirectResult.idToken
-    } else {
+    if (redirectResult) { idToken = redirectResult.idToken }
+    else {
       const accounts = msalInstance.getAllAccounts()
-      if (accounts.length === 0) {
-        await msalInstance.loginRedirect({ scopes: ['openid', 'profile'] })
-        return
-      }
+      if (accounts.length === 0) { await msalInstance.loginRedirect({ scopes: ['openid', 'profile'] }); return }
       try {
-        const silent = await msalInstance.acquireTokenSilent({
-          account: accounts[0],
-          scopes: ['openid', 'profile']
-        })
+        const silent = await msalInstance.acquireTokenSilent({ account: accounts[0], scopes: ['openid', 'profile'] })
         idToken = silent.idToken
       } catch (e) {
-        if (e instanceof InteractionRequiredAuthError) {
-          await msalInstance.loginRedirect({ scopes: ['openid', 'profile'] })
-          return
-        }
+        if (e instanceof InteractionRequiredAuthError) { await msalInstance.loginRedirect({ scopes: ['openid', 'profile'] }); return }
         throw e
       }
     }
 
-    const authResult = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken }),
-      credentials: 'include'
-    })
+    const authResult = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }), credentials: 'include' })
     if (!authResult.ok) throw new Error('Falha na autenticação com o servidor')
     const { identity } = await authResult.json()
     userIdentity = identity
+    userEmail = identity.toLowerCase()
 
     const accounts = msalInstance.getAllAccounts()
-    if (accounts[0]?.username) {
-      document.getElementById('user-email').textContent = accounts[0].username
-    }
+    document.getElementById('user-email').textContent = accounts[0]?.username ?? userEmail
 
-    const configRes = await fetch('/api/config')
-    const { domain } = await configRes.json()
-    currentDomain = domain
-    await loadLibrary(domain)
+    await loadAllLibraries()
   } catch (err) {
     document.getElementById('loading').innerHTML =
       `<p style="color:var(--ink); font-family:var(--font-editorial); font-style:italic;">Erro: ${err.message}</p>`
   }
 }
 
-async function loadLibrary(domain) {
-  const [publicRes, privateRes] = await Promise.allSettled([
-    fetch(`library/${domain}/public.json`).then(r => r.json()),
-    fetch(`library/${domain}/${encodeURIComponent(userIdentity)}.json`).then(r => r.json())
-  ])
+async function loadAllLibraries() {
+  try {
+    const agentsRes = await fetch('/api/mcp/agents')
+    if (!agentsRes.ok) throw new Error('Não consegui buscar a lista de agentes')
+    const { agents } = await agentsRes.json()
 
-  const publicList = publicRes.status === 'fulfilled' ? publicRes.value : []
-  const privateList = privateRes.status === 'fulfilled' ? privateRes.value : []
-
-  // Merge: private has priority (owns the entry); deduplicate by id
-  const byId = new Map()
-  publicList.forEach(a => byId.set(a.id, a))
-  privateList.forEach(a => byId.set(a.id, a))
-  allAnalyses = [...byId.values()].sort((a, b) => b.date.localeCompare(a.date))
-
-  buildFilters()
-  renderGrid()
-
-  document.getElementById('loading').style.display = 'none'
-  document.getElementById('library-view').style.display = 'block'
+    const tasks = []
+    for (const agent of agents) {
+      tasks.push(fetchLibraryFile(agent, 'private'))
+      tasks.push(fetchLibraryFile(agent, 'public'))
+    }
+    const results = await Promise.all(tasks)
+    const merged = new Map() // dedupe by id, private wins
+    for (const list of results) {
+      for (const item of list) {
+        if (item.source === 'private' || !merged.has(item.id)) {
+          merged.set(item.id, item)
+        }
+      }
+    }
+    allItems = [...merged.values()]
+    render()
+    document.getElementById('loading').style.display = 'none'
+    document.getElementById('library-view').style.display = 'block'
+  } catch (err) {
+    showErrorBanner(`Não consegui carregar a library: ${err.message}. Tente atualizar a página.`)
+    document.getElementById('loading').style.display = 'none'
+    document.getElementById('library-view').style.display = 'block'
+    // Renderiza grid vazio (sem skeletons pendurados)
+    const grid = document.getElementById('grid')
+    if (grid) grid.innerHTML = ''
+  }
 }
 
-function buildFilters() {
-  const brands = [...new Set(allAnalyses.map(a => a.brand).filter(Boolean))]
-  const tags = [...new Set(allAnalyses.flatMap(a => a.tags ?? []))]
-  const filtersEl = document.getElementById('filters')
-  filtersEl.innerHTML = '<button class="chip active" data-filter="all">Todas</button>'
-
-  brands.forEach(b => {
-    const btn = document.createElement('button')
-    btn.className = 'chip'
-    btn.dataset.filter = `brand:${b}`
-    btn.textContent = b
-    filtersEl.appendChild(btn)
-  })
-
-  tags.slice(0, 8).forEach(t => {
-    const btn = document.createElement('button')
-    btn.className = 'chip'
-    btn.dataset.filter = `tag:${t}`
-    btn.textContent = t
-    filtersEl.appendChild(btn)
-  })
-
-  filtersEl.addEventListener('click', e => {
-    const chip = e.target.closest('.chip')
-    if (!chip) return
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'))
-    chip.classList.add('active')
-    activeFilter = chip.dataset.filter
-    renderGrid()
-  })
+function showErrorBanner(msg) {
+  let banner = document.getElementById('error-banner')
+  if (!banner) {
+    banner = document.createElement('div')
+    banner.id = 'error-banner'
+    banner.className = 'error-banner'
+    document.body.insertBefore(banner, document.body.firstChild)
+  }
+  banner.textContent = msg
 }
 
-function getFiltered() {
-  if (activeFilter === 'all') return allAnalyses
-  const [type, value] = activeFilter.split(':')
-  if (type === 'brand') return allAnalyses.filter(a => a.brand === value)
-  if (type === 'tag') return allAnalyses.filter(a => a.tags?.includes(value))
-  return allAnalyses
+async function fetchLibraryFile(agent, source) {
+  const path = source === 'private'
+    ? `/library/${agent.name}/${encodeURIComponent(userIdentity)}.json`
+    : `/library/${agent.name}/public.json`
+  try {
+    const r = await fetch(path)
+    if (!r.ok) return []
+    const arr = await r.json()
+    return arr.map(item => ({ ...item, source, agent: { name: agent.name, label: agent.label } }))
+  } catch { return [] }
 }
 
-function renderGrid() {
+// ─── Render ────────────────────────────────────────────────────────────────
+function render() {
+  const archivedIds = getArchivedIds()
+  const visibleInTab = allItems.filter(item => {
+    const archived = archivedIds.has(item.id)
+    if (activeTab === 'archived') return archived
+    if (archived) return false
+    if (activeTab === 'mine') return isMine(item)
+    if (activeTab === 'team') return !isMine(item)
+    return true
+  })
+
+  // Counts (tabs sempre refletem universo antes dos facets/busca)
+  const countMine = allItems.filter(i => !archivedIds.has(i.id) && isMine(i)).length
+  const countTeam = allItems.filter(i => !archivedIds.has(i.id) && !isMine(i)).length
+  const countArchived = [...archivedIds].filter(id => allItems.some(i => i.id === id)).length
+  document.getElementById('count-mine').textContent = countMine
+  document.getElementById('count-team').textContent = countTeam
+  document.getElementById('count-archived').textContent = countArchived
+
+  // Facets filtram o que é mostrado DENTRO da tab
+  let filtered = visibleInTab
+    .filter(i => matchesSearch(i, searchQuery))
+    .filter(i => matchesAgent(i, filterAgent))
+    .filter(i => matchesBrand(i, filterBrand))
+    .filter(i => matchesPeriod(i, filterPeriod))
+
+  // Sort
+  if (sortMode === 'recent') filtered.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+  else if (sortMode === 'old') filtered.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+  else if (sortMode === 'title') filtered.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
+
+  renderHero(countMine, countTeam, countArchived)
+  renderFacets(visibleInTab)
+  renderGrid(filtered)
+}
+
+function renderHero(mine, team, archived) {
+  const titleEl = document.getElementById('hero-title')
+  const subEl = document.getElementById('hero-sub')
+  if (activeTab === 'mine') {
+    titleEl.textContent = 'Minhas análises'
+    subEl.textContent = `${mine} publicadas · ${archived} arquivadas`
+  } else if (activeTab === 'team') {
+    titleEl.textContent = 'Análises do time'
+    subEl.textContent = `${team} publicadas por colegas`
+  } else {
+    titleEl.textContent = 'Arquivadas'
+    subEl.textContent = `${archived} escondidas da sua library`
+  }
+}
+
+function renderFacets(items) {
+  const agents = [...new Map(items.filter(i => i.agent).map(i => [i.agent.name, i.agent])).values()]
+  const brands = [...new Set(items.map(i => i.brand).filter(Boolean))].sort()
+  fillSelect('facet-agent', 'Agente', agents.map(a => [a.name, a.label]))
+  fillSelect('facet-brand', 'Marca', brands.map(b => [b, b]))
+}
+function fillSelect(id, label, options) {
+  const el = document.getElementById(id)
+  const current = el.value
+  el.innerHTML = `<option value="">${label}</option>` + options.map(([v, l]) => `<option value="${escapeHtml(v)}">${escapeHtml(l)}</option>`).join('')
+  // Preserva seleção só se ainda existe nas opções — evita value "fantasma"
+  if (options.some(([v]) => v === current)) {
+    el.value = current
+  } else {
+    el.value = ''
+    // Propaga o reset pro filtro global
+    if (id === 'facet-agent') filterAgent = ''
+    if (id === 'facet-brand') filterBrand = ''
+  }
+}
+
+function renderGrid(items) {
   const grid = document.getElementById('grid')
-  const filtered = getFiltered()
-  if (filtered.length === 0) {
-    grid.innerHTML = '<div id="empty">Nenhuma análise encontrada.</div>'
+  if (items.length === 0) {
+    grid.innerHTML = renderEmpty()
     return
   }
-
   grid.innerHTML = ''
-  filtered.forEach(a => {
-    const card = document.createElement('div')
-    card.className = 'card'
-    card.innerHTML = `
-      <div class="card-brand">${a.brand ?? ''}</div>
-      <div class="card-title">${a.title}</div>
-      <div class="card-period">${a.period ?? a.date}</div>
-      <div class="card-desc">${a.description ?? ''}</div>
-      <div class="card-footer">
-        ${(a.tags ?? []).map(t => `<span class="tag">${t}</span>`).join('')}
-        ${a.public
-          ? '<span class="badge-public">público</span>'
-          : (a.file?.startsWith(`analyses/${currentDomain}/${userIdentity}/`)
-              ? `<button class="btn-share" data-id="${a.id}">tornar público</button>`
-              : '')}
+  for (const item of items) { grid.appendChild(buildCard(item)) }
+}
+
+function renderEmpty() {
+  if (activeTab === 'mine' && !searchQuery && !filterAgent && !filterBrand && !filterPeriod) {
+    return `<div class="empty">Você ainda não publicou nenhuma análise.<span class="empty-hint">Peça uma análise no Claude Desktop com a extensão Azzas MCP instalada.</span></div>`
+  }
+  if (activeTab === 'team' && !searchQuery && !filterAgent && !filterBrand && !filterPeriod) {
+    return `<div class="empty">O time ainda não publicou nada público.</div>`
+  }
+  if (activeTab === 'archived') {
+    return `<div class="empty">Nada arquivado.</div>`
+  }
+  return `<div class="empty">Nenhuma análise encontrada${searchQuery ? ` pra "${searchQuery}"` : ''}.</div>`
+}
+
+const THUMB_PALETTE = [
+  { css: 'linear-gradient(135deg, #C5D9ED, #A1C6ED)', dark: false }, // light → powder
+  { css: 'linear-gradient(135deg, #F9F6EA, #E8D9A6)', dark: false }, // cream → tan
+  { css: 'linear-gradient(135deg, #3D5A73, #274566)', dark: true  }, // steel → navy
+  { css: 'linear-gradient(135deg, #E8E8E4, #B5AFA8)', dark: false }, // bege → warm gray
+]
+function pickThumb(brand) {
+  let h = 0
+  for (const ch of (brand ?? 'default')) { h = (h * 31 + ch.charCodeAt(0)) >>> 0 }
+  return THUMB_PALETTE[h % THUMB_PALETTE.length]
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return ''
+  const d = Date.parse(dateStr); if (Number.isNaN(d)) return ''
+  const days = Math.floor((Date.now() - d) / 86400000)
+  if (days < 1) return 'hoje'
+  if (days === 1) return 'há 1 dia'
+  if (days < 30) return `há ${days} dias`
+  if (days < 365) return `há ${Math.floor(days / 30)} meses`
+  return `há ${Math.floor(days / 365)} anos`
+}
+
+function buildCard(item) {
+  const card = document.createElement('div')
+  card.className = 'card'
+  const thumb = pickThumb(item.brand)
+  card.innerHTML = `
+    <div class="card-thumb" style="background: ${thumb.css};">
+      ${item.brand ? `<div class="card-brand-chip"${thumb.dark ? ' style="background:#fff;"' : ''}>${escapeHtml(item.brand)}</div>` : ''}
+      <button class="card-menu" aria-label="Mais ações">⋯</button>
+      <div class="card-menu-dropdown"></div>
+    </div>
+    <div class="card-body">
+      <div class="card-title">${escapeHtml(item.title ?? '—')}</div>
+      <div class="card-meta">
+        ${item.agent?.label ? `<span class="agent">${escapeHtml(item.agent.label)}</span>·` : ''}
+        ${escapeHtml(item.period ?? item.date ?? '')} ${item.date ? `· ${timeAgo(item.date)}` : ''}
       </div>
-    `
-    card.querySelector('.btn-share')?.addEventListener('click', e => {
-      e.stopPropagation()
-      shareAnalysis(a, e.currentTarget)
+      <div class="card-desc">${escapeHtml(item.description ?? '')}</div>
+      <div class="card-tags">${(item.tags ?? []).map(t => `<span class="tag-chip">${escapeHtml(t)}</span>`).join('')}</div>
+    </div>
+  `
+  card.querySelector('.card-thumb').addEventListener('click', ev => { if (!ev.target.closest('.card-menu')) openAnalysis(item) })
+  card.querySelector('.card-body').addEventListener('click', () => openAnalysis(item))
+  card.querySelector('.card-menu').addEventListener('click', ev => { ev.stopPropagation(); toggleMenu(card, item) })
+  return card
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+// ─── Menu + ações do card ──────────────────────────────────────────────────
+function toggleMenu(card, item) {
+  const dropdown = card.querySelector('.card-menu-dropdown')
+  // Fecha outros
+  document.querySelectorAll('.card-menu-dropdown.open').forEach(d => { if (d !== dropdown) d.classList.remove('open') })
+  // Conteúdo
+  const archivedIds = getArchivedIds()
+  const archived = archivedIds.has(item.id)
+  const publicItem = item.source === 'public'
+  let html = ''
+  if (publicItem && !archived) html += `<button data-action="copy-link">Copiar link</button>`
+  if (!publicItem && !archived) html += `<button data-action="share">Tornar pública</button>`
+  html += archived ? `<button data-action="unarchive">Restaurar</button>` : `<button data-action="archive">Arquivar</button>`
+  dropdown.innerHTML = html
+  dropdown.classList.toggle('open')
+
+  dropdown.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', ev => {
+      ev.stopPropagation()
+      dropdown.classList.remove('open')
+      const action = btn.dataset.action
+      if (action === 'archive') { archiveItem(item.id); render() }
+      else if (action === 'unarchive') { unarchiveItem(item.id); render() }
+      else if (action === 'copy-link') { copyLink(item) }
+      else if (action === 'share') { shareAnalysis(item) }
     })
-    card.addEventListener('click', () => openAnalysis(a))
-    grid.appendChild(card)
   })
 }
 
-function openAnalysis(analysis) {
+async function copyLink(item) {
+  const url = window.location.origin + (item.link ?? `/${item.file ?? ''}`)
+  try {
+    await navigator.clipboard.writeText(url)
+    showToast('Link copiado')
+  } catch {
+    showToast('Não consegui copiar — verifique permissão')
+  }
+}
+
+function showToast(text) {
+  const el = document.getElementById('toast')
+  el.textContent = text
+  el.classList.add('visible')
+  clearTimeout(el._timer)
+  el._timer = setTimeout(() => el.classList.remove('visible'), 2000)
+}
+
+async function shareAnalysis(item) {
+  try {
+    const res = await fetch('/api/share', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ analysisId: item.id }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error ?? 'Erro desconhecido')
+    await loadAllLibraries()
+    showToast('Análise agora é pública')
+  } catch (err) {
+    showToast(`Erro ao tornar público: ${err.message}`)
+  }
+}
+
+// ─── Iframe viewer ─────────────────────────────────────────────────────────
+function openAnalysis(item) {
   document.getElementById('library-view').style.display = 'none'
   const view = document.getElementById('analysis-view')
   view.style.display = 'flex'
-  document.getElementById('analysis-crumb').textContent =
-    `${analysis.brand ?? ''} · ${analysis.title}`
-  document.getElementById('analysis-iframe').src = analysis.file
+  document.getElementById('analysis-crumb').textContent = `${item.brand ?? ''} · ${item.title ?? ''}`
+  document.getElementById('analysis-iframe').src = item.file ?? item.link?.replace(/^\//, '') ?? ''
 }
 
 document.getElementById('back-btn').addEventListener('click', () => {
@@ -372,26 +597,32 @@ document.getElementById('back-btn').addEventListener('click', () => {
   document.getElementById('library-view').style.display = 'block'
 })
 
-async function shareAnalysis(analysis, btn) {
-  btn.disabled = true
-  btn.textContent = 'publicando…'
-  try {
-    const res = await fetch('/api/share', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ analysisId: analysis.id }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error ?? 'Erro desconhecido')
-    // Update in-memory entry so iframe opens the public URL going forward
-    analysis.public = true
-    analysis.file = data.publicUrl.replace(/^\//, '')
-    renderGrid()
-  } catch (err) {
-    alert(`Erro ao tornar público: ${err.message}`)
-    btn.disabled = false
-    btn.textContent = 'tornar público'
-  }
+// ─── Tabs e facets ─────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'))
+    t.classList.add('active')
+    activeTab = t.dataset.tab
+    render()
+  })
+})
+document.getElementById('search').addEventListener('input', ev => { searchQuery = ev.target.value; render() })
+document.getElementById('facet-agent').addEventListener('change', ev => { filterAgent = ev.target.value; render() })
+document.getElementById('facet-brand').addEventListener('change', ev => { filterBrand = ev.target.value; render() })
+document.getElementById('facet-period').addEventListener('change', ev => { filterPeriod = ev.target.value; render() })
+document.getElementById('facet-sort').addEventListener('change', ev => { sortMode = ev.target.value; render() })
+
+// Fecha menus ao clicar fora
+document.addEventListener('click', () => {
+  document.querySelectorAll('.card-menu-dropdown.open').forEach(d => d.classList.remove('open'))
+})
+
+// Bottom sheet mobile (Task 9 implementa)
+document.getElementById('mobile-filters').addEventListener('click', openBottomSheet)
+
+function openBottomSheet() {
+  // Placeholder — implementado em Task 9
+  alert('Filtros: implementação mobile em Task 9')
 }
 
 init()

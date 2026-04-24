@@ -22,7 +22,7 @@ const MANIFEST = {
 };
 
 const VERSION = {
-  latest: '1.0.0',
+  latest: '1.0.1',
   min: '1.0.0',
 };
 

@@ -11,6 +11,35 @@ import jwt
 import requests
 
 
+def mint_installation_token(app_id: str, private_key: str) -> str:
+    """Mint a short-lived installation access token for the GitHub App.
+
+    Picks the first Organization installation available."""
+    now = int(time.time())
+    app_jwt = jwt.encode(
+        {"iat": now, "exp": now + 600, "iss": app_id},
+        private_key,
+        algorithm="RS256",
+    )
+    resp = requests.post(
+        "https://api.github.com/app/installations",
+        headers={"Authorization": f"Bearer {app_jwt}"},
+    )
+    resp.raise_for_status()
+    org = next(
+        (i for i in resp.json() if i["account"]["type"] == "Organization"),
+        None,
+    )
+    if not org:
+        raise RuntimeError("No organization installation found for GitHub App")
+    resp = requests.post(
+        f"https://api.github.com/app/installations/{org['id']}/access_tokens",
+        headers={"Authorization": f"Bearer {app_jwt}"},
+    )
+    resp.raise_for_status()
+    return resp.json()["token"]
+
+
 @dataclass
 class GitOps:
     repo_path: Path
@@ -24,34 +53,7 @@ class GitOps:
     def _get_github_token(self) -> str | None:
         if not self.github_app_id or not self.github_app_private_key:
             return None
-        now = int(time.time())
-        payload = {
-            "iat": now,
-            "exp": now + 600,
-            "iss": self.github_app_id,
-        }
-        app_jwt = jwt.encode(
-            payload, self.github_app_private_key, algorithm="RS256"
-        )
-        resp = requests.post(
-            "https://api.github.com/app/installations",
-            headers={"Authorization": f"Bearer {app_jwt}"},
-        )
-        resp.raise_for_status()
-        installations = resp.json()
-        org_install = next(
-            (i for i in installations if i["account"]["type"] == "Organization"),
-            None,
-        )
-        if not org_install:
-            raise RuntimeError("No organization installation found for GitHub App")
-        install_id = org_install["id"]
-        resp = requests.post(
-            f"https://api.github.com/app/installations/{install_id}/access_tokens",
-            headers={"Authorization": f"Bearer {app_jwt}"},
-        )
-        resp.raise_for_status()
-        return resp.json()["token"]
+        return mint_installation_token(self.github_app_id, self.github_app_private_key)
 
     def _run(self, *args: str, **kwargs) -> str:
         return subprocess.check_output(

@@ -1,13 +1,8 @@
 #!/bin/bash
 set -e
 
-# Clone or update the monorepo (provides shared/context + agents/*/context + analyses + library)
-if [ -n "$GITHUB_TOKEN" ] && [ -n "$GITHUB_REPO" ]; then
-    if [ ! -d "/app/repo/.git" ]; then
-        git clone "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git" /app/repo
-    else
-        git -C /app/repo fetch origin main && git -C /app/repo reset --hard origin/main
-    fi
-fi
+# Clone or sync the monorepo using GitHub App auth (mutable /app/repo, used
+# by publicar_dashboard for commits/pushes). Silent no-op if env vars unset.
+uv run python -m mcp_core.clone_repo
 
 exec uv run python -m agent.server

@@ -12,7 +12,7 @@ import { isStale } from './version.js';
 import { MSG } from './errors.js';
 
 const PORTAL_URL = process.env.AZZAS_MCP_PORTAL_URL || 'https://bq-analista.vercel.app';
-const DXT_VERSION = '1.0.0'; // sync com package.json e manifest.json
+const DXT_VERSION = '1.0.3'; // sync com package.json e manifest.json
 
 let cachedManifest: Manifest | null = null;
 
@@ -26,7 +26,7 @@ async function getManifest(): Promise<Manifest> {
 }
 
 function needsRefresh(creds: Credentials): boolean {
-  return new Date(creds.access_expires_at).getTime() - Date.now() < 300_000;
+  return new Date(creds.access_expires_at).getTime() - Date.now() < 900_000;
 }
 
 async function refreshSilent(creds: Credentials): Promise<Credentials | null | 'invalid'> {
@@ -196,20 +196,41 @@ async function main() {
       return { content: [{ type: 'text', text: MSG.unknownTool(toolName) }], isError: true };
     }
 
-    const authState = await ensureAuth();
-    if (authState === 'auth_needed') {
+    const initial = await ensureAuth();
+    if (initial === 'auth_needed') {
       return { content: [{ type: 'text', text: MSG.authNeeded }], isError: true };
     }
+    // Mutable holder so a reactive refresh updates the token used by getAccessToken
+    // without rebuilding the forward session.
+    const credsRef: { current: Credentials } = { current: initial };
+
+    const doCall = () => forwardToolCall({
+      agentUrl: route.agent.url,
+      tool: route.tool,
+      args,
+      getAccessToken: () => credsRef.current.access_token,
+    });
 
     try {
-      const result = await forwardToolCall({
-        agentUrl: route.agent.url,
-        tool: route.tool,
-        args,
-        getAccessToken: () => authState.access_token,
-      });
-      // forward retorna o CallToolResult do agente Python (já no formato MCP).
-      // Passar direto pro Claude Desktop sem re-serializar.
+      let result: unknown;
+      try {
+        result = await doCall();
+      } catch (err) {
+        // Reactive refresh: access token expired mid-session. Try the refresh
+        // token silently and retry the call once before asking the user to
+        // reauthenticate.
+        if (err instanceof ForwardError && err.kind === 'auth_invalid') {
+          const refreshed = await refreshSilent(credsRef.current);
+          if (refreshed && refreshed !== 'invalid') {
+            credsRef.current = refreshed;
+            result = await doCall();
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
       return result as { content: unknown[]; isError?: boolean };
     } catch (err) {
       if (err instanceof ForwardError) {

@@ -61,27 +61,6 @@ def build_auth_app(
             raise HTTPException(status_code=401, detail=str(e))
         return JSONResponse({"access_token": access})
 
-    @app.get("/auth/issue-token")
-    def issue_token(email: str, req: Request, days: int = 30) -> JSONResponse:
-        admin_key = os.environ.get("MCP_ADMIN_KEY", "")
-        if not admin_key or req.headers.get("x-admin-key", "") != admin_key:
-            raise HTTPException(status_code=403, detail="invalid admin key")
-        if not allowlist.is_allowed(email):
-            raise HTTPException(status_code=403, detail=f"not on allowlist: {email}")
-        long_issuer = TokenIssuer(
-            secret=issuer.secret,
-            issuer=issuer.issuer,
-            access_ttl_s=days * 86400,
-            refresh_ttl_s=issuer.refresh_ttl_s,
-        )
-        pair = long_issuer.issue(email=email)
-        return JSONResponse({
-            "access_token": pair.access_token,
-            "email": email,
-            "expires_at": pair.expires_at,
-            "expires_in_days": days,
-        })
-
     @app.get("/favicon.ico", include_in_schema=False)
     def favicon() -> FileResponse:
         repo_root = Path(os.environ.get("MCP_REPO_ROOT", "/app/repo"))

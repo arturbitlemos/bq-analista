@@ -16,7 +16,6 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "jsonwebtoken": "^9.0.2",
-    "open": "^10.1.0",
     "undici": "^6.19.8"
   },
   "devDependencies": {

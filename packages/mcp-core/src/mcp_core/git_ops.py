@@ -20,13 +20,8 @@ def mint_installation_token(app_id: str, private_key: str) -> str:
         private_key = private_key.replace("\\n", "\n")
     private_key = private_key.strip()
     now = int(time.time())
-    iss: int | str
-    try:
-        iss = int(app_id)
-    except ValueError:
-        iss = app_id
     app_jwt = jwt.encode(
-        {"iat": now - 30, "exp": now + 540, "iss": iss},
+        {"iat": now - 30, "exp": now + 540, "iss": str(app_id)},
         private_key,
         algorithm="RS256",
     )

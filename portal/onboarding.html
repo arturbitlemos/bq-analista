@@ -109,7 +109,7 @@
 
   <section class="content">
     <div class="content-inner">
-      <h2 class="section-heading">Instalação</h2>
+      <h2 class="section-heading">Passo 1 · Extensão MCP</h2>
       <ol class="steps">
         <li><div class="step-text">Baixe o arquivo <strong>.dxt</strong> acima.</div></li>
         <li><div class="step-text">No Claude Desktop, clique no seu nome (canto inferior esquerdo) → <strong>Configurações</strong> → <strong>Extensões</strong> → <strong>Configurações avançadas</strong> → <strong>Instalar extensão</strong>.</div></li>
@@ -120,6 +120,22 @@
   </section>
 
   <section class="content alt">
+    <div class="content-inner">
+      <h2 class="section-heading">Passo 2 · Skill do analista</h2>
+      <p style="color: var(--ink-soft); font-weight: 300; line-height: 1.6; margin-bottom: 1.25rem;">A extensão dá o <strong>acesso</strong> aos dados. A skill ensina o Claude a <strong>interpretar</strong> como um analista do grupo — Prime Directive anti-alucinação, comparação obrigatória vs LY, tiers de dado (✅/📈/🔶/❓) e protocolo de PII antes de qualquer query. Sem ela, o Claude responde mais genérico.</p>
+      <p style="margin-bottom: 1.5rem;">
+        <a id="download-skill-btn" class="cta" style="background: var(--navy); color: var(--surface);" href="/api/download-skill">Baixar Skill v<span id="skill-version">—</span> ↓</a>
+      </p>
+      <ol class="steps">
+        <li><div class="step-text">Baixe o <strong>.zip</strong> e <strong>descompacte</strong>. Você terá uma pasta <code>azzas-analista/</code>.</div></li>
+        <li><div class="step-text">No Claude Desktop, <strong>Configurações</strong> → <strong>Capabilities</strong> → <strong>Skills</strong> → <strong>Install skill</strong> e selecione a pasta descompactada.</div></li>
+        <li><div class="step-text">A skill é ativada automaticamente quando você pedir análise de vendas, KPI, comparação vs LY, etc.</div></li>
+        <li><div class="step-text">Quando sair nova versão, baixe de novo aqui e reinstale (sobrescreve a anterior).</div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="content">
     <div class="content-inner">
       <h2 class="section-heading">O que você ganha</h2>
       <ul id="agents-list" class="agents"><li class="agent"><h3>Carregando agentes…</h3></li></ul>
@@ -162,6 +178,7 @@
 
     fetch('/api/mcp/version').then(r => r.json()).then(v => {
       document.getElementById('dxt-version').textContent = v.latest;
+      if (v.skill) document.getElementById('skill-version').textContent = v.skill;
       const lastKnown = localStorage.getItem('mcp_last_known_version');
       if (lastKnown && lastKnown !== v.latest) {
         const ribbon = document.getElementById('ribbon');
@@ -171,6 +188,7 @@
       localStorage.setItem('mcp_last_known_version', v.latest);
     }).catch(() => {
       document.getElementById('dxt-version').textContent = '?';
+      document.getElementById('skill-version').textContent = '?';
     });
 
     fetch('/api/mcp/agents').then(r => r.json()).then(m => {

@@ -26,4 +26,8 @@ const VERSION = {
   min: '1.0.0',
 };
 
-module.exports = { MANIFEST, VERSION };
+const SKILL_VERSION = {
+  latest: '1.0.0',
+};
+
+module.exports = { MANIFEST, VERSION, SKILL_VERSION };

@@ -1,0 +1,16 @@
+{
+  "name": "@azzas/skill",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Azzas analyst skill for Claude Desktop — composed from shared/context sources",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-skill.mjs"
+  },
+  "devDependencies": {
+    "archiver": "^7.0.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -54,13 +54,10 @@ class GitOps:
         return resp.json()["token"]
 
     def _run(self, *args: str, **kwargs) -> str:
-        cmd = ["git", "-C", str(self.repo_path), *args]
-        env = os.environ.copy()
-        if self.github_app_id and self.github_app_private_key:
-            token = self._get_github_token()
-            env["GIT_CREDENTIALS"] = f"https://x-access-token:{token}@github.com"
         return subprocess.check_output(
-            cmd, stderr=subprocess.STDOUT, env=env, **kwargs
+            ["git", "-C", str(self.repo_path), *args],
+            stderr=subprocess.STDOUT,
+            **kwargs,
         ).decode()
 
     def commit_paths(self, paths: list[Path], message: str) -> str:
@@ -74,5 +71,17 @@ class GitOps:
         self._run(*env_args)
         sha = self._run("rev-parse", "HEAD").strip()
         if self.push:
-            self._run("push", "origin", self.branch)
+            if self.github_app_id and self.github_app_private_key:
+                token = self._get_github_token()
+                # Fetch remote URL and reconstruct with token credentials
+                remote_url = self._run("config", "--get", "remote.origin.url").strip()
+                # Transform https://github.com/owner/repo → https://x-access-token:TOKEN@github.com/owner/repo
+                if remote_url.startswith("https://github.com/"):
+                    auth_url = f"https://x-access-token:{token}@github.com/{remote_url.split('github.com/', 1)[1]}"
+                    self._run("push", auth_url, f"HEAD:{self.branch}")
+                else:
+                    # Fallback for SSH or other URL schemes
+                    self._run("push", "origin", self.branch)
+            else:
+                self._run("push", "origin", self.branch)
         return sha

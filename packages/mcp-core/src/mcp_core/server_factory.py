@@ -190,8 +190,25 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
     ) -> dict[str, object]:
         """Publish an HTML dashboard to the public library and return the URL.
 
-        After publishing, share the `url` field directly with the user so they can
-        open the report at https://analysis-lib.vercel.app/."""
+        Only call when the user explicitly asks to publish/share/save. Default
+        flow is to render the HTML inline in the chat.
+
+        Args are English — do not translate field names. Example call:
+
+            publicar_dashboard(
+                title="Farm · Produtividade por Loja · Abril/2026",
+                brand="Farm",
+                period="2026-04-01 a 2026-04-23",
+                description="Comparativo de venda líquida e PA por filial vs LY.",
+                html_content="<!doctype html>...",
+                tags=["farm", "produtividade", "lojas"],
+            )
+
+        Using PT aliases (titulo/marca/periodo/descricao) will fail with
+        `Field required`.
+
+        After publishing, share the returned `url` so the user can open the
+        report at https://analysis-lib.vercel.app/."""
         exec_email = _current_email(ctx)
         settings = load_settings(_settings_path())
         repo_root = _repo_root()

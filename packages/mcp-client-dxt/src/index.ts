@@ -26,16 +26,17 @@ async function getManifest(): Promise<Manifest> {
 }
 
 function needsRefresh(creds: Credentials): boolean {
-  return new Date(creds.access_expires_at).getTime() - Date.now() < 30_000;
+  return new Date(creds.access_expires_at).getTime() - Date.now() < 300_000;
 }
 
-async function refreshSilent(creds: Credentials): Promise<Credentials | null> {
+async function refreshSilent(creds: Credentials): Promise<Credentials | null | 'invalid'> {
   try {
     const res = await fetch(`${PORTAL_URL}/api/mcp/auth/refresh`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${creds.refresh_token}` },
     });
-    if (!res.ok) return null;
+    if (res.status === 401 || res.status === 403) return 'invalid';
+    if (!res.ok) return null; // 5xx / transient — keep credentials on disk
     const body = await res.json() as { access: string; access_exp: number };
     const updated: Credentials = {
       ...creds,
@@ -45,7 +46,7 @@ async function refreshSilent(creds: Credentials): Promise<Credentials | null> {
     saveCredentials(updated);
     return updated;
   } catch {
-    return null;
+    return null; // network error — keep credentials on disk
   }
 }
 
@@ -58,8 +59,11 @@ async function ensureAuth(): Promise<Credentials | 'auth_needed'> {
   }
   if (needsRefresh(creds)) {
     const refreshed = await refreshSilent(creds);
+    if (refreshed === 'invalid') { clearCredentials(); return authInteractive(); }
     if (refreshed) return refreshed;
-    clearCredentials();
+    // Transient error: use existing access token if still valid, otherwise open browser
+    // but keep credentials on disk so next call retries refresh automatically.
+    if (new Date(creds.access_expires_at).getTime() > Date.now()) return creds;
     return authInteractive();
   }
   return creds;
@@ -220,7 +224,7 @@ async function main() {
         if (err.kind === 'unavailable' || err.kind === 'network') {
           return { content: [{ type: 'text', text: MSG.agentUnavailable(route.agent.name) }], isError: true };
         }
-        return { content: [{ type: 'text', text: MSG.malformedAgentResponse(route.agent.name) }], isError: true };
+        return { content: [{ type: 'text', text: MSG.malformedAgentResponse(route.agent.name, `${PORTAL_URL}/onboarding`) }], isError: true };
       }
       throw err;
     }

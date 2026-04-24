@@ -11,6 +11,6 @@ export const MSG = {
   agentUnavailable: (name: string) => `⚠️ O agente \`${name}\` está indisponível no momento. Tente novamente em alguns minutos.`,
   agentForbidden: (name: string) => `⚠️ Seu e-mail não tem acesso ao agente \`${name}\`. Se isso é um engano, contate ai.labs@somagrupo.com.br.`,
   unknownTool: (tool: string) => `⚠️ Ferramenta \`${tool}\` não reconhecida. A lista de agentes pode ter mudado — reinicie o Claude Desktop.`,
-  malformedAgentResponse: (name: string) => `⚠️ O agente \`${name}\` devolveu uma resposta inesperada. Tente de novo ou contate ai.labs@somagrupo.com.br.`,
+  malformedAgentResponse: (name: string, onboardingUrl?: string) => `⚠️ O agente \`${name}\` devolveu uma resposta inesperada. Primeira tentativa: baixe a versão mais nova do Azzas MCP${onboardingUrl ? ` em ${onboardingUrl}` : ''} e reinstale. Se persistir, contate ai.labs@somagrupo.com.br.`,
   versionStale: (current: string, url: string) => `⚠️ Sua versão do Azzas MCP (v${current}) não é mais suportada. Baixe a versão mais nova em ${url}.`,
 };

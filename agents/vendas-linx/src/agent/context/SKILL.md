@@ -82,7 +82,7 @@ Antes de executar qualquer query, classifique o pedido:
 - Comparação simples entre dois valores
 - Pedido explícito de resposta rápida
 
-**Relatório analítico** (gera HTML e exibe inline no chat — não publicar, não salvar em lugar nenhum):
+**Relatório analítico** (gera HTML e exibe inline no chat por padrão; publicar só a pedido explícito):
 - Análise com múltiplos KPIs ou seções
 - Pedido de "análise", "relatório", "dashboard", "comparativo completo"
 - Análise histórica com mais de 2 dimensões
@@ -97,7 +97,7 @@ Antes de executar qualquer query, classifique o pedido:
 3. **Sample data** to verify column names and value formats
 4. **Dry-run** the query
 5. **Execute** and interpret results in business context
-6. **Se relatório analítico**: Build HTML dashboard (mobile-first, dark green theme — see existing dashboards for reference) e renderize inline (Artifact / `present_files`). **Não publicar, não persistir em arquivo, não rodar `publicar_dashboard`.**
+6. **Se relatório analítico**: Build HTML dashboard (mobile-first, dark green theme — see existing dashboards for reference) e renderize inline (Artifact / `present_files`). **Inline é o padrão — só rodar `publicar_dashboard` quando o usuário pedir explicitamente (ex.: "publica", "salva na biblioteca", "compartilha no portal").**
    - **Grão produto × cor → foto é OBRIGATÓRIA e deve ser a PRIMEIRA coluna da tabela.** Usar `https://images.somalabs.com.br/brands/{RL_DESTINO}/products/reference_id/{PRODUTO}_{COR_PRODUTO}/image` com `loading="lazy"` e `onerror="this.style.display='none'"`. Detalhes completos em `.claude/skills/product-photos/SKILL.md`. **Omitir a foto é erro de entrega — não fechar o HTML sem ela.**
 7. **After corrections** → update `schema.md` with what you learned
 
@@ -142,9 +142,23 @@ Quando o fluxo exigir um relatório analítico (ver Passo 0), **renderize o HTML
 
 ### O que NÃO fazer
 - ❌ Não colar o HTML como bloco de código no chat (exceto fallback explícito).
-- ❌ Não rodar a ferramenta MCP `publicar_dashboard`.
-- ❌ Não criar arquivos em `analyses/`, `library/` ou `public/` do repositório.
-- ❌ Não fazer `git add/commit/push` de relatórios.
-- ❌ Não pedir `USER_EMAIL` nem ler `.env` para fins de publicação.
+- ❌ Não rodar `publicar_dashboard` sem pedido explícito do usuário.
+- ❌ Não criar arquivos em `analyses/`, `library/` ou `public/` do repositório manualmente (a tool cuida).
+- ❌ Não pedir `USER_EMAIL` nem ler `.env`.
 
-Se o usuário pedir explicitamente para "publicar", "compartilhar" ou "salvar na biblioteca", responda que esse fluxo está desativado no momento e ofereça o artifact inline como alternativa.
+### Publicando (quando pedido explicitamente)
+
+A tool `publicar_dashboard` aceita **exatamente** estes args, em inglês — **não traduzir**:
+
+```json
+{
+  "title": "Farm · Produtividade por Loja · Abril/2026",
+  "brand": "Farm",
+  "period": "2026-04-01 a 2026-04-23",
+  "description": "Comparativo de venda líquida e PA por filial vs LY.",
+  "html_content": "<!doctype html>...",
+  "tags": ["farm", "produtividade", "lojas"]
+}
+```
+
+Nunca usar `titulo`, `marca`, `periodo`, `descricao` — a tool rejeita com `Field required`.

@@ -42,7 +42,7 @@ Classifique o pedido antes de rodar qualquer query:
 - Múltiplas seções, comparativos, recomendações
 - Quando o usuário pedir explicitamente "análise" ou "relatório"
 
-No MVP conversacional, **não publicar dashboard** — só responder no chat.
+Por padrão, responder inline no chat. Só rodar `publicar_dashboard` quando o usuário pedir explicitamente ("publica", "salva na biblioteca", "compartilha no portal").
 
 ### Passo 1 — Confirmar escopo antes de rodar
 
@@ -159,7 +159,7 @@ Ou em lista:
 
 No MVP, este agent não:
 
-- ❌ Publica dashboards (tool `publicar_dashboard` não está disponível)
+- ❌ Publica dashboards sem pedido explícito do usuário — inline é o default. Quando pedido, usar `publicar_dashboard` com args **em inglês**: `title`, `brand`, `period`, `description`, `html_content`, `tags`. Nunca traduzir (`titulo`/`marca`/`periodo` → rejeitado com `Field required`).
 - ❌ Envia emails, mensagens Slack, ou qualquer comunicação externa
 - ❌ Escreve em nenhuma tabela — apenas leitura (`SELECT` / `WITH`)
 - ❌ Consulta outras tabelas além de `trusted_troque_devolucao`

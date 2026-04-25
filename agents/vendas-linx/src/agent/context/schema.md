@@ -302,6 +302,8 @@ WHERE TIPO_FILIAL = 'LOJA VAREJO'
   AND FILIAL NOT LIKE '%CDS%'
 ```
 
+> ⚠️ Sempre aplicar `DATA_FECHAMENTO IS NULL` — sem esse filtro, FILIAIS tem 2.157 linhas incluindo histórico de lojas fechadas.
+>
 > 📌 **Pendência de ferramenta:** `list_active_retail_stores(marca)` — futura ferramenta MCP que aplicará esse filtro server-side. Enquanto não existir, usar o WHERE acima. Ver `business-rules.md §13`.
 
 **🔴 PII — NÃO selecionar:**
@@ -375,11 +377,16 @@ SAFE_DIVIDE(SAFE_CAST(VENDA AS NUMERIC), SAFE_CAST(PREVISAO_VALOR AS NUMERIC)) A
 | `PRODUTO` | STRING | FK |
 | `COR_PRODUTO` | STRING | FK |
 | `FILIAL` | STRING | FK |
-| `ESTOQUE` | INTEGER | Estoque total |
-| `ESTOQUE_DISPONIVEL` | INTEGER | Disponível p/ venda |
+| `ESTOQUE` | INTEGER | Estoque total (inclui reservados) |
+| `ESTOQUE_DISPONIVEL` | INTEGER | Disponível p/ venda (= ESTOQUE menos reservas ativas) |
 | `ESTOQUE_EM_TRANSITO` | INTEGER | Em trânsito |
 | `ESTOQUE_VENDA_EXTERNA` | INTEGER | Reservado p/ venda externa |
 | `PRECO_VAREJO` | STRING | Preço referência (cast) |
+
+**`ESTOQUE` vs `ESTOQUE_DISPONIVEL`:**
+- `ESTOQUE` = total físico na loja incluindo peças com reserva ativa (em processo de checkout, separação, etc.).
+- `ESTOQUE_DISPONIVEL` = `ESTOQUE` menos reservas — o que pode ser vendido agora. **Use este para cobertura/giro.**
+- `ESTOQUE - ESTOQUE_DISPONIVEL` > 0 é normal e esperado (reservas de pedidos em andamento). Valores muito altos (ex: >30% do estoque reservado por >7 dias) podem indicar reservas presas — mas isso requer análise específica, não filtrar silenciosamente.
 
 ### 6.2 `ANMN_ESTOQUE_HISTORICO_PROD_GRADE` (prod-cor-tam-loja)
 

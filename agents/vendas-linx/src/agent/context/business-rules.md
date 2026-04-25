@@ -518,19 +518,43 @@ Para atingimento total (físico + digital combinados por marca):
 
 ### 13.1 Definição canônica de "loja ativa"
 
+Filtro primário via `FILIAIS`:
 ```sql
--- Loja ativa = sem data de fechamento E com venda nos últimos 30 dias
-DATA_FECHAMENTO IS NULL
-AND venda_ultimos_30d > 0
+WHERE TIPO_FILIAL IN ('LOJA VAREJO', 'FRANQUIA')
+  AND DATA_FECHAMENTO IS NULL
 ```
 
-Para calcular `venda_ultimos_30d` por loja, fazer subquery em `TB_WANMTP_VENDAS_LOJA_CAPTADO` com `DATA_VENDA >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`.
+Para análises de performance (ranking, cobertura), adicionar critério de atividade recente:
+```sql
+AND venda_ultimos_30d > 0  -- via subquery em TB_WANMTP_VENDAS_LOJA_CAPTADO
+```
+
+**Escopo por marca:** combinar com `REDE_LOJAS = '<código>'` ou join com `LOJAS_REDE`.
 
 ### 13.2 Lojas com estoque = 0 e venda = 0
 
 Lojas com `ESTOQUE = 0` AND `SUM(venda 30d) ≤ 0` são **presumivelmente fechadas ou inativas**. Não entram em análises de performance, ranking ou cobertura. Excluí-las silenciosamente e registrar na resposta: "N lojas excluídas por inatividade (sem venda nos últimos 30 dias)."
 
 > 📌 **Pendência de ferramenta:** `list_active_stores(marca, periodo)` — futura ferramenta MCP que retornará as lojas ativas com base nas regras acima, eliminando a necessidade de inferir manualmente. Enquanto não existir, aplicar as regras acima inline.
+
+---
+
+## 14. Padrão de encerramento de análise
+
+Ao terminar qualquer análise ou resposta analítica, incluir **um próximo passo concreto**:
+
+- Se o resultado mostra anomalia ou oportunidade: sugerir drill-down ou confirmação.
+- Se a análise cobriu um período: sugerir comparação vs LY ou vs meta se ainda não feito.
+- Se há dado indisponível ou estimativa: indicar qual tabela/query resolveria a dúvida.
+
+Formato: uma linha ao final, precedida por `---`, e.g.:
+
+```
+---
+**Próximo passo sugerido:** comparar com mesmo período LY via `DATE_SUB(DATA_VENDA, INTERVAL 1 YEAR)` para quantificar o delta de crescimento.
+```
+
+Não inventar próximos passos genéricos. Deve ser específico ao resultado da análise.
 
 ---
 

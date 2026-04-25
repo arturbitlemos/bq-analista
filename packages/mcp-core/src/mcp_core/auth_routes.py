@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import time
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
@@ -15,6 +16,12 @@ from mcp_core.azure_auth import AzureAuth, AzureAuthError
 from mcp_core.jwt_tokens import TokenError, TokenIssuer
 
 _LifespanT = Callable[[Any], AbstractAsyncContextManager[None]] | None
+
+# In-memory CSRF state store: state_token → creation timestamp (time.time()).
+# Single-process Railway deployments only — no Redis needed.
+_pending_states: dict[str, float] = {}
+
+_STATE_TTL_S = 600  # 10 minutes
 
 
 def build_auth_app(
@@ -30,10 +37,18 @@ def build_auth_app(
     @app.get("/auth/start")
     def start() -> RedirectResponse:
         state = secrets.token_urlsafe(16)
+        _pending_states[state] = time.time()
         return RedirectResponse(azure.authorization_url(state=state), status_code=302)
 
     @app.get("/auth/callback")
     def callback(code: str, state: str | None = None) -> JSONResponse:
+        # CSRF state validation
+        if state is None or state not in _pending_states:
+            raise HTTPException(status_code=400, detail="invalid_state: missing or unknown state parameter")
+        created_at = _pending_states.pop(state)
+        if time.time() - created_at > _STATE_TTL_S:
+            raise HTTPException(status_code=400, detail="invalid_state: state parameter has expired")
+
         try:
             info = azure.exchange_code(code=code)
         except AzureAuthError as e:

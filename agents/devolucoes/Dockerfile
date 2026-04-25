@@ -25,7 +25,7 @@ RUN uv sync --frozen
 # Stage config to /app/config (default MCP_SETTINGS path)
 RUN mkdir -p /app/config && cp -r /app/agents/devolucoes/config/. /app/config/
 
-COPY agents/devolucoes/scripts/entrypoint.sh /app/scripts/entrypoint.sh
+COPY shared/scripts/entrypoint.sh /app/scripts/entrypoint.sh
 
 RUN useradd -m -u 1000 mcp \
     && mkdir -p /var/mcp /app/repo \

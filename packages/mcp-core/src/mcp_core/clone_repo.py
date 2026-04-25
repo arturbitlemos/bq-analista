@@ -33,10 +33,6 @@ def main() -> int:
     target = Path(os.environ.get("MCP_REPO_ROOT", "/app/repo"))
     branch = os.environ.get("MCP_GITHUB_BRANCH", "main")
 
-    # Normalize PEM: some hosts store newlines as literal '\n'.
-    if "\\n" in private_key and "\n" not in private_key:
-        private_key = private_key.replace("\\n", "\n")
-
     try:
         token = mint_installation_token(app_id, private_key)
     except Exception as e:

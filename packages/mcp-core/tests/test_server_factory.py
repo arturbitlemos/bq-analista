@@ -1,4 +1,3 @@
-# packages/mcp-core/tests/test_server_factory.py
 import os
 import pytest
 from unittest.mock import patch

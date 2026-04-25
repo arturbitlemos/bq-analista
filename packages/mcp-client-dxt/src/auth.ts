@@ -46,6 +46,7 @@ export interface LoopbackParams {
   access_exp?: string;
   refresh_exp?: string;
   email?: string;
+  nonce?: string;
   error?: string;
   error_description?: string;
 }

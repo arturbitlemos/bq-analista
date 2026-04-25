@@ -1,13 +1,5 @@
 const crypto = require('crypto')
-
-function parseCookie(header, name) {
-  if (!header) return null
-  for (const part of header.split(';')) {
-    const [k, ...v] = part.trim().split('=')
-    if (k.trim() === name) return v.join('=')
-  }
-  return null
-}
+const { parseCookie } = require('./_helpers/cookie')
 
 function verifySession(cookieValue, secret) {
   const parts = cookieValue.split('~')

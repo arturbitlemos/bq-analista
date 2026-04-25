@@ -1,4 +1,3 @@
-# packages/mcp-core/src/mcp_core/server_factory.py
 from __future__ import annotations
 
 import contextlib

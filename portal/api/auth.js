@@ -1,4 +1,5 @@
 const crypto = require('crypto')
+const { b64urlToBuffer } = require('./_helpers/b64url')
 
 // Module-level JWKS cache (survives warm Lambda invocations)
 let jwksCache = { keys: [], fetchedAt: 0 }
@@ -14,18 +15,12 @@ async function getJwks(tenantId) {
   return jwksCache.keys
 }
 
-function b64urlDecode(str) {
-  str = str.replace(/-/g, '+').replace(/_/g, '/')
-  while (str.length % 4) str += '='
-  return Buffer.from(str, 'base64')
-}
-
 async function validateToken(token, clientId, tenantId) {
   const parts = token.split('.')
   if (parts.length !== 3) throw new Error('Formato de token inválido')
 
-  const header = JSON.parse(b64urlDecode(parts[0]).toString())
-  const payload = JSON.parse(b64urlDecode(parts[1]).toString())
+  const header = JSON.parse(b64urlToBuffer(parts[0]).toString())
+  const payload = JSON.parse(b64urlToBuffer(parts[1]).toString())
 
   const now = Math.floor(Date.now() / 1000)
   const SKEW = 300
@@ -48,7 +43,7 @@ async function validateToken(token, clientId, tenantId) {
 
   const publicKey = crypto.createPublicKey({ key: jwk, format: 'jwk' })
   const data = Buffer.from(`${parts[0]}.${parts[1]}`)
-  const signature = b64urlDecode(parts[2])
+  const signature = b64urlToBuffer(parts[2])
   const valid = crypto.verify('RSA-SHA256', data, publicKey, signature)
   if (!valid) throw new Error('Assinatura inválida')
 

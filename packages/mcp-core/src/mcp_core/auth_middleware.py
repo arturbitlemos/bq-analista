@@ -43,7 +43,7 @@ def _peek_iss(token: str) -> str:
         raise AuthError(f"malformed token: {e}") from e
 
 
-def _validate_azure_signature(token: str, ctx: AuthContext) -> dict:
+def _validate_azure_signature(token: str, ctx: AuthContext) -> dict[str, object]:
     """Verify Azure AD token signature and audience; return validated payload."""
     signing_key = ctx._get_jwks_client().get_signing_key_from_jwt(token)
     return pyjwt.decode(
@@ -54,7 +54,7 @@ def _validate_azure_signature(token: str, ctx: AuthContext) -> dict:
     )
 
 
-def _extract_azure_email(payload: dict) -> str:
+def _extract_azure_email(payload: dict[str, object]) -> str:
     email = payload.get("preferred_username") or payload.get("upn") or ""
     if not email:
         raise AuthError("azure token missing preferred_username/upn claim")

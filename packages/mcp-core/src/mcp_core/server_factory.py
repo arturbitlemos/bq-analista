@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import time as _time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, cast
@@ -86,6 +87,30 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         ),
     )
 
+    # ── Cached app state (settings, BqClient, context files) ──────────────
+
+    @dataclass
+    class _AppState:
+        settings: object       # Settings instance
+        bq_client: object      # BqClient instance
+        schema_text: str | None   # contents of schema.md, or None
+        rules_text: str | None    # contents of business-rules.md, or None
+
+    @functools.lru_cache(maxsize=1)
+    def _load_cached_state() -> _AppState:
+        settings = load_settings(_settings_path())
+        image_root = _image_root()
+        domain = settings.server.domain
+        agent_root = image_root / "agents" / domain / "src" / "agent"
+        schema_path = agent_root / "context" / "schema.md"
+        rules_path = agent_root / "context" / "business-rules.md"
+        return _AppState(
+            settings=settings,
+            bq_client=BqClient(settings.bigquery),
+            schema_text=schema_path.read_text() if schema_path.exists() else None,
+            rules_text=rules_path.read_text() if rules_path.exists() else None,
+        )
+
     # ── Internal singletons ────────────────────────────────────────────────
 
     _audit: AuditLog | None = None
@@ -93,14 +118,14 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
     def _get_audit() -> AuditLog:
         nonlocal _audit
         if _audit is None:
-            settings = load_settings(_settings_path())
+            settings = _load_cached_state().settings
             _audit = AuditLog(db_path=Path(settings.audit.db_path))
         return _audit
 
     # lru_cache(1) caches the AuthContext across requests so PyJWKClient is reused
     @functools.lru_cache(maxsize=1)
     def _get_auth_context() -> AuthContext:
-        settings = load_settings(_settings_path())
+        settings = _load_cached_state().settings
         secret = os.environ.get("MCP_JWT_SECRET")
         if not secret:
             raise RuntimeError(
@@ -133,10 +158,6 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         token = auth.split(None, 1)[1].strip()
         return extract_exec_email(token=token, ctx=_get_auth_context())
 
-    def _build_bq_client() -> BqClient:
-        settings = load_settings(_settings_path())
-        return BqClient(settings=settings.bigquery)
-
     # ── Base tool: get_context ─────────────────────────────────────────────
     @mcp.tool()
     def get_context(ctx: Context) -> dict[str, object]:
@@ -144,7 +165,8 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         Call once at session start. For full table schema use describe_table().
         For business rules and canonical SQL use get_business_rules()."""
         _current_email(ctx)
-        settings = load_settings(_settings_path())
+        state = _load_cached_state()
+        settings = state.settings
         image_root = _image_root()
         domain = settings.server.domain
         shared_root = image_root / "shared" / "context"
@@ -159,14 +181,9 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         Call before writing SQL that targets this table.
         table_name: exact name in UPPER_CASE (e.g. TB_WANMTP_VENDAS_LOJA_CAPTADO)."""
         _current_email(ctx)
-        settings = load_settings(_settings_path())
-        image_root = _image_root()
-        domain = settings.server.domain
-        agent_root = image_root / "agents" / domain / "src" / "agent"
-        schema_path = agent_root / "context" / "schema.md"
-        if not schema_path.exists():
+        schema_text = _load_cached_state().schema_text
+        if schema_text is None:
             return {"error": "schema.md não encontrado"}
-        schema_text = schema_path.read_text()
         section = extract_table_section(schema_text, table_name)
         if not section:
             available = parse_table_index(schema_text)
@@ -179,14 +196,10 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         """Business rules: KPI definitions, canonical SQL patterns, known gotchas.
         Consult when calculating venda líquida, LY comparison, giro, or cobertura."""
         _current_email(ctx)
-        settings = load_settings(_settings_path())
-        image_root = _image_root()
-        domain = settings.server.domain
-        agent_root = image_root / "agents" / domain / "src" / "agent"
-        rules_path = agent_root / "context" / "business-rules.md"
-        if not rules_path.exists():
+        rules_text = _load_cached_state().rules_text
+        if rules_text is None:
             return {"error": "business-rules.md não encontrado"}
-        return {"business_rules": rules_path.read_text()}
+        return {"business_rules": rules_text}
 
     # ── Base tool: ping ────────────────────────────────────────────────────
     @mcp.tool()
@@ -194,7 +207,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         """Health-check: returns server status, BigQuery project, and visible datasets.
         Call before any query to verify connectivity and confirm available datasets."""
         _current_email(ctx)
-        settings = load_settings(_settings_path())
+        settings = _load_cached_state().settings
         return {
             "status": "ok",
             "domain": settings.server.domain,
@@ -216,7 +229,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         except SqlValidationError as e:
             return {"error": f"sql_validation: {e}"}
         await ctx.report_progress(progress=0.2, total=1.0, message="checking dataset access...")
-        client = _build_bq_client()
+        client = _load_cached_state().bq_client
         try:
             result = client.run_query(sql=sql, exec_email=exec_email)
         except DatasetNotAllowedError as e:
@@ -269,7 +282,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         After publishing, share the returned `url` so the user can open the
         report at https://analysis-lib.vercel.app/."""
         exec_email = _current_email(ctx)
-        settings = load_settings(_settings_path())
+        settings = _load_cached_state().settings
         repo_root = _repo_root()
         domain = settings.server.domain
 
@@ -346,7 +359,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         if escopo not in ("mine", "public"):
             return {"error": "invalid_escopo: must be 'mine' or 'public'"}
         exec_email = _current_email(ctx)
-        settings = load_settings(_settings_path())
+        settings = _load_cached_state().settings
         repo_root = _repo_root()
         domain = settings.server.domain
         email_key = exec_email if escopo == "mine" else "public"

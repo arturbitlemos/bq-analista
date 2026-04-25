@@ -28,10 +28,11 @@ test('cada agente tem name, label, url, tools', async () => {
     assert.ok(agent.label);
     assert.ok(agent.url.startsWith('https://'));
     assert.ok(Array.isArray(agent.tools));
-    assert.ok(agent.tools.length > 0);
+    assert.ok(agent.tools.length >= 7, `agente ${agent.name} deve ter ao menos 7 tools`);
     for (const tool of agent.tools) {
       assert.equal(typeof tool.name, 'string', `tool.name deve ser string em ${agent.name}`);
       assert.equal(typeof tool.inputSchema, 'object', `tool.inputSchema deve ser objeto em ${agent.name}`);
+      assert.equal(typeof tool.description, 'string', `tool.description deve ser string em ${agent.name}:${tool.name}`);
     }
   }
 });

@@ -1,6 +1,7 @@
 export interface Agent {
   name: string;
   label: string;
+  description: string;
   url: string;
   tools: string[];
 }

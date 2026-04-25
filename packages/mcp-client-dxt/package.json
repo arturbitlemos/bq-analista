@@ -15,8 +15,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "jsonwebtoken": "^9.0.2",
-    "undici": "^6.19.8"
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.2",

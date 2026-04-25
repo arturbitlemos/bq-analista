@@ -35,7 +35,7 @@ def test_agent_has_base_tools():
 
 
 def test_agent_has_no_extra_tools_by_default():
-    """vendas-linx has no domain-specific tools beyond the 4 base ones."""
+    """devolucoes has no domain-specific tools beyond the 4 base ones."""
     with patch.dict(os.environ, ENV):
         m = _reload_server()
     registered = set(m.app._tool_manager._tools.keys())

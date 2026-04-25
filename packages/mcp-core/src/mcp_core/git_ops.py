@@ -63,11 +63,10 @@ class GitOps:
             return None
         return mint_installation_token(self.github_app_id, self.github_app_private_key)
 
-    def _run(self, *args: str, **kwargs) -> str:
+    def _run(self, *args: str) -> str:
         return subprocess.check_output(
             ["git", "-C", str(self.repo_path), *args],
             stderr=subprocess.STDOUT,
-            **kwargs,
         ).decode()
 
     def commit_paths(self, paths: list[Path], message: str) -> str:

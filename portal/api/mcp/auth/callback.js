@@ -1,29 +1,16 @@
 const crypto = require('crypto');
 const { verifyState } = require('../_helpers/state');
 const { issueTokens } = require('../_helpers/jwt');
+const { parseCookie } = require('../../_helpers/cookie');
+const { b64urlToString } = require('../../_helpers/b64url');
 
 const ACCESS_TTL_S = 1800;
 const REFRESH_TTL_S = 604800;
 
-function parseCookie(header, name) {
-  if (!header) return null;
-  for (const part of header.split(';')) {
-    const [k, ...v] = part.trim().split('=');
-    if (k === name) return v.join('=');
-  }
-  return null;
-}
-
-function b64urlDecode(str) {
-  str = str.replace(/-/g, '+').replace(/_/g, '/');
-  while (str.length % 4) str += '=';
-  return Buffer.from(str, 'base64').toString('utf8');
-}
-
 function decodeIdToken(idToken) {
   const parts = idToken.split('.');
   if (parts.length !== 3) throw new Error('bad id_token');
-  return JSON.parse(b64urlDecode(parts[1]));
+  return JSON.parse(b64urlToString(parts[1]));
 }
 
 function redirectLoopback(res, redirectUri, params) {

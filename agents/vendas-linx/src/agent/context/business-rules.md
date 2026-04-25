@@ -164,10 +164,27 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 | Análise de venda (default) | `DATA_VENDA` ✅ |
 | Ticket físico (momento exato no caixa) | `DATA_VENDA_TICKET` |
 | Venda digitada no ERP | `DATA_DIGITACAO` |
-| Comparativo YoY com calendário ajustado | `DATA_VENDA_RELATIVA` |
 | Filtro de canceladas | `DATA_DESATIVACAO` (semântica a confirmar) |
 
-`DATA_VENDA` é a escolha segura para quase toda análise. Usar `DATA_VENDA_RELATIVA` apenas quando **explicitamente** pedido comparativo com semana/dia equivalente do ano anterior.
+`DATA_VENDA` é a escolha segura para quase toda análise.
+
+### 6.1 DATA_VENDA_RELATIVA — NÃO USAR (coluna nula em produção)
+
+> 🚫 **`DATA_VENDA_RELATIVA` é NULL em todas as partições históricas (validado 2026-04-25). Não usar para nada.**
+
+Para comparativo LY (last year), usar data fixa calculada no SQL:
+
+```sql
+-- LY: mesmo dia do ano anterior
+DATE_SUB(DATA_VENDA, INTERVAL 1 YEAR)
+
+-- LY: weekday-equivalent (mesma semana × dia da semana do ano anterior)
+-- usar apenas se o usuário pedir explicitamente "semana equivalente" ou
+-- "calendário ajustado" — e só quando o calendário comercial for anunciado aqui
+DATE_SUB(DATA_VENDA, INTERVAL 52 WEEK)
+```
+
+**Regra:** LY default = mesmo dia do calendário (`INTERVAL 1 YEAR`). Só usar weekday-equivalent se o usuário pedir e se a diferença de calendário for documentada neste arquivo.
 
 ### 6.1 Glossário de janelas temporais
 
@@ -195,6 +212,25 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 - **Sempre que usar markup/margem:** join com `PRODUTOS_PRECOS` (§4).
 - **Sempre que usar PA ou ticket:** usar `chave_pedido` via §3.
 - `DESCONTO_PROD` é negativo → inverter sinal (`-DESCONTO_PROD`) pra somar como valor positivo de desconto.
+
+---
+
+## 6.2 Limite de complexidade de query
+
+> ⚠️ **Tabelas EXTERNAL não têm partição nativa — o plano de execução é linear no volume total.**
+
+Para análises multi-dimensão (ex.: venda × LY × cota × estoque × cobertura num único SQL):
+
+✅ **Fazer:** N queries menores, cada uma com 1–2 CTEs, agregadas no cliente (Python/JS).
+❌ **Não fazer:** mega-query com >3 CTEs e múltiplos LEFT JOINs entre tabelas EXTERNAL — alto risco de timeout.
+
+Exemplos de splits seguros:
+- Query 1: venda do período (com filtro de data)
+- Query 2: venda LY (com filtro de data equivalente)
+- Query 3: cota do período
+- Query 4: foto de estoque (1 data específica, com filtro de loja/produto)
+
+Cada query retorna em segundos. A consolidação multi-métrica acontece no cliente após as queries.
 
 ---
 
@@ -267,7 +303,38 @@ Os dois campos principais de categorização de produto são:
 - Se ele não responder ou disser "tanto faz / o que for melhor", usar **`LINHA`** como default.
 - Ambas as colunas vivem em `PRODUTOS` — joinar via `USING (PRODUTO)`.
 
-### Fotos de produto em relatórios
+### 8.2 Escopo por marca — mapeamento canônico de RL_DESTINO
+
+Quando o usuário pedir análise "de Animale" (ou qualquer marca), usar **exatamente** o(s) código(s) da rede abaixo — não incluir sub-redes ou variantes a não ser que explicitamente pedido.
+
+| Marca | RL_DESTINO(s) default | Excluir da análise física | Observação |
+|---|---|---|---|
+| Animale | `1` | `CODIGO_FILIAL_DESTINO = 190454` (ANIMALE ECOMMERCE CM — filial digital, não física) | Redes 8 (MAS ANIMALE), 10 (ANIMALE JEANS), 11 (ATACADO), 12 (ESTOQUES), 13 (ECOMMERCE), 14 (JOIAS), 96 (ANIMALE SP) **não entram** no filtro default "Animale" |
+| Farm | `2` | — | |
+| Fabula | `5` | — | |
+| Outlet | `6` | — | |
+| Foxton | `7` | — | |
+| Cris Barros | `9` | — | |
+| Maria Filo | `15` | — | |
+| BYNV | `16` | — | |
+| Carol Bassi | `30` | — | |
+
+**Regra:** ao receber pedido "analise X" onde X é uma marca, filtrar `CAST(RL_DESTINO AS STRING) = '<código>'` — nunca assumir que múltiplos RL representam a mesma marca. Se o usuário quiser ver sub-redes (ex.: "MAS Animale separado"), ele deve pedir explicitamente.
+
+### 8.3 Formato de entrega padrão — HTML, não markdown
+
+> **Default de todo relatório é HTML inline.** Markdown só sob pedido explícito do usuário ("me dá em markdown", "exporta como .md", "só o texto").
+
+```
+Relatório default = HTML inline
+  ├── com foto quando o grão é produto × cor (ver §8.4 abaixo)
+  ├── com tabelas HTML (<table>) quando o output é tabular
+  └── com seções <h2>/<h3> para hierarquia
+
+Markdown = só se explicitamente pedido
+```
+
+### 8.4 Fotos de produto em relatórios
 
 Quando o output for uma lista/tabela cujo grão é produto × cor, **incluir sempre** a foto usando:
 ```
@@ -388,12 +455,58 @@ LEFT JOIN venda v ON c.FILIAL = v.filial_nome
 
 Padrão SQL completo e tabela de filiais canônicas: ver `schema.md §11`.
 
+### 12.4 Meta zero — não calcular atingimento
+
+Lojas com `PREVISAO_VALOR = 0` (ou NULL) no período **não têm meta cadastrada** — não calcular atingimento.
+
+```sql
+-- ✅ Correto: segregar lojas sem meta
+SELECT
+  c.FILIAL,
+  v.venda,
+  c.meta,
+  CASE
+    WHEN c.meta IS NULL OR SAFE_CAST(c.meta AS NUMERIC) = 0
+      THEN NULL  -- sem meta — não calcular
+    ELSE SAFE_DIVIDE(v.venda, SAFE_CAST(c.meta AS NUMERIC))
+  END AS atingimento,
+  CASE
+    WHEN c.meta IS NULL OR SAFE_CAST(c.meta AS NUMERIC) = 0
+      THEN 'sem meta cadastrada'
+    ELSE NULL
+  END AS nota
+FROM cota c
+LEFT JOIN venda v ON c.FILIAL = v.filial_nome
+```
+
+Reportar lojas sem meta em bloco separado com flag "⚠️ sem meta cadastrada — verificar planejamento". Nunca incluí-las no cálculo agregado de atingimento da marca.
+
 ### 12.4 Cota mista (física + digital juntos)
 
 Para atingimento total (físico + digital combinados por marca):
 - Cota: somar todas as filiais da marca em `LOJAS_PREVISAO_VENDAS` (não filtrar por ecom)
 - Venda: somar todos os `TIPO_VENDA` com `RL_DESTINO = <código da marca>`
 - Agregar por `REDE_LOJAS` / marca
+
+---
+
+## 13. Lojas ativas vs fechadas
+
+### 13.1 Definição canônica de "loja ativa"
+
+```sql
+-- Loja ativa = sem data de fechamento E com venda nos últimos 30 dias
+DATA_FECHAMENTO IS NULL
+AND venda_ultimos_30d > 0
+```
+
+Para calcular `venda_ultimos_30d` por loja, fazer subquery em `TB_WANMTP_VENDAS_LOJA_CAPTADO` com `DATA_VENDA >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`.
+
+### 13.2 Lojas com estoque = 0 e venda = 0
+
+Lojas com `ESTOQUE = 0` AND `SUM(venda 30d) ≤ 0` são **presumivelmente fechadas ou inativas**. Não entram em análises de performance, ranking ou cobertura. Excluí-las silenciosamente e registrar na resposta: "N lojas excluídas por inatividade (sem venda nos últimos 30 dias)."
+
+> 📌 **Pendência de ferramenta:** `list_active_stores(marca, periodo)` — futura ferramenta MCP que retornará as lojas ativas com base nas regras acima, eliminando a necessidade de inferir manualmente. Enquanto não existir, aplicar as regras acima inline.
 
 ---
 

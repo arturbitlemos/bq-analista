@@ -47,7 +47,10 @@ export async function selfRegisterClaudeCode(
       'azzas-mcp': { type: 'stdio', command: execPath, args: [scriptPath], env: {} },
     };
 
-    fs.writeFileSync(claudeJsonPath(), JSON.stringify(config, null, 2));
+    const target = claudeJsonPath();
+    const tmp = `${target}.tmp.${process.pid}`;
+    fs.writeFileSync(tmp, JSON.stringify(config, null, 2));
+    fs.renameSync(tmp, target);
     appendLog(`registered: command=${execPath} args=${scriptPath}`);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

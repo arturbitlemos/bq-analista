@@ -147,13 +147,10 @@ async function runAuthFlow(expectedNonce: string): Promise<void> {
       return;
     }
 
-    // Validate nonce before trusting any credential data
-    if (!params.error) {
-      const got = params.nonce ?? '';
-      if (!timingEqual(got, expectedNonce)) {
-        console.error('[azzas-mcp] nonce mismatch — abortando');
-        return;
-      }
+    const got = params.nonce ?? '';
+    if (!timingEqual(got, expectedNonce)) {
+      console.error('[azzas-mcp] nonce mismatch — abortando');
+      return;
     }
 
     if (!params.access || !params.refresh) return;

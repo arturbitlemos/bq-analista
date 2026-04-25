@@ -102,12 +102,16 @@ describe('selfRegisterClaudeCode', () => {
   });
 
   it('loga erro mas não lança quando não tem permissão de escrita', async () => {
+    // Pre-create log dir so appendLog still works after tmpHome becomes non-writable
+    fs.mkdirSync(path.join(tmpHome, '.mcp', 'logs'), { recursive: true });
     fs.writeFileSync(claudeJsonPath(), '{}');
-    fs.chmodSync(claudeJsonPath(), 0o444);
+    // Atomic write creates a tmp file in tmpHome, so making the directory non-writable
+    // is what triggers the permission error (not just the target file).
+    fs.chmodSync(tmpHome, 0o555);
 
     await expect(selfRegisterClaudeCode(FAKE_EXEC, FAKE_SCRIPT)).resolves.toBeUndefined();
     expect(readLog()).toContain('error writing ~/.claude.json:');
 
-    fs.chmodSync(claudeJsonPath(), 0o644);
+    fs.chmodSync(tmpHome, 0o755);
   });
 });

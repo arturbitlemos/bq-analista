@@ -14,8 +14,7 @@ module.exports = async function handler(req, res) {
   if (!MCP_JWT_SECRET) return res.status(500).json({ error: 'env não configurada' });
 
   try {
-    const access = refreshAccess(match[1], MCP_JWT_SECRET, MCP_JWT_ISSUER, ACCESS_TTL_S);
-    const exp = Math.floor(Date.now() / 1000) + ACCESS_TTL_S;
+    const { token: access, exp } = refreshAccess(match[1], MCP_JWT_SECRET, MCP_JWT_ISSUER, ACCESS_TTL_S);
     return res.status(200).json({ access, access_exp: exp });
   } catch (err) {
     return res.status(401).json({ error: 'refresh inválido', detail: String(err && err.message || err) });

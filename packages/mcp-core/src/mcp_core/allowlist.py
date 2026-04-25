@@ -32,5 +32,11 @@ class Allowlist:
 
     def is_allowed(self, email: str) -> bool:
         if time.monotonic() - self._last_reload > _RELOAD_TTL_S:
-            self.reload()
+            try:
+                self.reload()
+            except Exception:
+                # Reload failure (mid-deploy file write, malformed JSON) must
+                # not lock everyone out — keep using the previously cached
+                # allowlist and back off so we don't retry every request.
+                self._last_reload = time.monotonic()
         return email.lower() in self._emails

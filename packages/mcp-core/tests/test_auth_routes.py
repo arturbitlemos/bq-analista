@@ -5,12 +5,22 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlparse
 
+import pytest
 from fastapi.testclient import TestClient
 
 from mcp_core.allowlist import Allowlist
 from mcp_core.auth_routes import _pending_states, build_auth_app
 from mcp_core.azure_auth import AzureTokenInfo
 from mcp_core.jwt_tokens import TokenIssuer
+
+
+@pytest.fixture(autouse=True)
+def _isolate_pending_states():
+    """The CSRF state store is module-level; clear before AND after each test
+    so leftover entries from one test never leak into another."""
+    _pending_states.clear()
+    yield
+    _pending_states.clear()
 
 
 def _app(allowlist_emails: list[str]) -> TestClient:
@@ -101,7 +111,6 @@ def test_refresh_invalid_token_returns_401() -> None:
 
 
 def test_callback_missing_state_returns_400() -> None:
-    _pending_states.clear()
     c = _app(["exec@azzas.com.br"])
     r = c.get("/auth/callback?code=abc")
     assert r.status_code == 400
@@ -109,7 +118,6 @@ def test_callback_missing_state_returns_400() -> None:
 
 
 def test_callback_unknown_state_returns_400() -> None:
-    _pending_states.clear()
     c = _app(["exec@azzas.com.br"])
     r = c.get("/auth/callback?code=abc&state=totally-unknown-state")
     assert r.status_code == 400
@@ -117,7 +125,6 @@ def test_callback_unknown_state_returns_400() -> None:
 
 
 def test_callback_expired_state_returns_400() -> None:
-    _pending_states.clear()
     c = _app(["exec@azzas.com.br"])
     state = _start_and_get_state(c)
     # Backdate the stored timestamp by more than 10 minutes

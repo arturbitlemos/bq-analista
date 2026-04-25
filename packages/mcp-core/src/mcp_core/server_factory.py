@@ -324,8 +324,14 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
             "form-action 'none';"
             "\">"
         )
-        safe_html = re.sub(r"(?i)<head([^>]*)>", r"<head\1>" + _csp, html_content, count=1)
-        if safe_html == html_content:  # no <head> tag — prepend to document
+        # Use a callable replacement so backslash sequences in _csp are never
+        # interpreted as re.sub back-references (defensive against future edits).
+        safe_html, n = re.subn(
+            r"(?i)<head([^>]*)>",
+            lambda m: f"<head{m.group(1)}>{_csp}",
+            html_content, count=1,
+        )
+        if n == 0:  # no <head> tag — prepend to document
             safe_html = _csp + html_content
         analysis_path.write_text(safe_html)
 

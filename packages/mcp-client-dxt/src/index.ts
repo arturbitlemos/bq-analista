@@ -33,7 +33,7 @@ async function openBrowser(url: string): Promise<void> {
     resolve();
   });
 }
-const DXT_VERSION = '1.0.7'; // sync com package.json e manifest.json
+const DXT_VERSION = '1.0.8'; // sync com package.json e manifest.json
 
 let cachedManifest: Manifest | null = null;
 

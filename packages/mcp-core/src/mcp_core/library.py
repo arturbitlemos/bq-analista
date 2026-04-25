@@ -31,4 +31,6 @@ def prepend_entry(library_path: Path, entry: LibraryEntry) -> None:
     # Manter `link` para compat com consumidores novos.
     record["file"] = entry.link.lstrip("/")
     existing.insert(0, record)
-    library_path.write_text(json.dumps(existing, indent=2, ensure_ascii=False))
+    tmp = library_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(existing, indent=2, ensure_ascii=False))
+    tmp.replace(library_path)

@@ -23,7 +23,7 @@ from mcp_core.auth_middleware import AuthContext, AuthError, extract_exec_email
 from mcp_core.auth_routes import build_auth_app
 from mcp_core.azure_auth import AzureAuth
 from mcp_core.bq_client import BqClient, DatasetNotAllowedError
-from mcp_core.context_loader import extract_table_section, load_exec_context, parse_table_index
+from mcp_core.context_loader import ExecContext, extract_table_section, load_exec_context, parse_table_index
 from mcp_core.git_ops import GitOps
 from mcp_core.jwt_tokens import TokenIssuer
 from mcp_core.library import LibraryEntry, prepend_entry
@@ -34,7 +34,7 @@ from mcp_core.sandbox import (
     public_analysis_path,
     public_library_path,
 )
-from mcp_core.settings import load_settings
+from mcp_core.settings import Settings, load_settings
 from mcp_core.sql_validator import SqlValidationError, validate_readonly_sql
 
 
@@ -91,10 +91,11 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
 
     @dataclass
     class _AppState:
-        settings: object       # Settings instance
-        bq_client: object      # BqClient instance
+        settings: Settings
+        bq_client: BqClient
         schema_text: str | None   # contents of schema.md, or None
         rules_text: str | None    # contents of business-rules.md, or None
+        exec_context: ExecContext
 
     @functools.lru_cache(maxsize=1)
     def _load_cached_state() -> _AppState:
@@ -104,11 +105,14 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         agent_root = image_root / "agents" / domain / "src" / "agent"
         schema_path = agent_root / "context" / "schema.md"
         rules_path = agent_root / "context" / "business-rules.md"
+        shared_root = image_root / "shared" / "context"
+        loaded = load_exec_context(agent_root=agent_root, shared_root=shared_root)
         return _AppState(
             settings=settings,
             bq_client=BqClient(settings.bigquery),
             schema_text=schema_path.read_text() if schema_path.exists() else None,
             rules_text=rules_path.read_text() if rules_path.exists() else None,
+            exec_context=loaded,
         )
 
     # ── Internal singletons ────────────────────────────────────────────────
@@ -166,13 +170,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         For business rules and canonical SQL use get_business_rules()."""
         _current_email(ctx)
         state = _load_cached_state()
-        settings = state.settings
-        image_root = _image_root()
-        domain = settings.server.domain
-        shared_root = image_root / "shared" / "context"
-        agent_root = image_root / "agents" / domain / "src" / "agent"
-        loaded = load_exec_context(agent_root=agent_root, shared_root=shared_root)
-        return {"text": loaded.text, "allowed_tables": loaded.allowed_tables}
+        return {"text": state.exec_context.text, "allowed_tables": state.exec_context.allowed_tables}
 
     # ── Base tool: describe_table ──────────────────────────────────────────
     @mcp.tool()
@@ -374,7 +372,8 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
 
     # ── main() entrypoint ──────────────────────────────────────────────────
     def main() -> None:
-        settings = load_settings(_settings_path())
+        _load_cached_state()  # validate credentials and load context files at startup
+        settings = _load_cached_state().settings
         azure = AzureAuth(
             tenant_id=os.environ["MCP_AZURE_TENANT_ID"],
             client_id=os.environ["MCP_AZURE_CLIENT_ID"],

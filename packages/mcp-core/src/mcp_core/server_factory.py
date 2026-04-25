@@ -11,7 +11,7 @@ import time as _time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, cast
+from typing import Callable, Literal, cast
 
 import uvicorn
 from mcp.server.fastmcp import Context, FastMCP
@@ -163,7 +163,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         return extract_exec_email(token=token, ctx=_get_auth_context())
 
     # ── Base tool: get_context ─────────────────────────────────────────────
-    @mcp.tool()
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
     def get_context(ctx: Context) -> dict[str, object]:
         """Lightweight context: analyst principles, PII rules, and table index.
         Call once at session start. For full table schema use describe_table().
@@ -173,7 +173,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         return {"text": state.exec_context.text, "allowed_tables": state.exec_context.allowed_tables}
 
     # ── Base tool: describe_table ──────────────────────────────────────────
-    @mcp.tool()
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
     def describe_table(table_name: str, ctx: Context) -> dict[str, object]:
         """Full schema for a BigQuery table: columns, types, PII flags, join patterns.
         Call before writing SQL that targets this table.
@@ -189,7 +189,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         return {"table_name": table_name.upper(), "schema": section}
 
     # ── Base tool: get_business_rules ──────────────────────────────────────
-    @mcp.tool()
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
     def get_business_rules(ctx: Context) -> dict[str, object]:
         """Business rules: KPI definitions, canonical SQL patterns, known gotchas.
         Consult when calculating venda líquida, LY comparison, giro, or cobertura."""
@@ -200,7 +200,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         return {"business_rules": rules_text}
 
     # ── Base tool: ping ────────────────────────────────────────────────────
-    @mcp.tool()
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
     def ping(ctx: Context) -> dict[str, object]:
         """Health-check: returns server status, BigQuery project, and visible datasets.
         Call before any query to verify connectivity and confirm available datasets."""
@@ -215,7 +215,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         }
 
     # ── Base tool: consultar_bq ────────────────────────────────────────────
-    @mcp.tool()
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
     async def consultar_bq(sql: str, ctx: Context) -> dict[str, object]:
         """Run a SELECT query against BigQuery. Only SELECT/WITH is accepted.
         Returns rows, bytes_billed, bytes_processed."""
@@ -252,7 +252,7 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         }
 
     # ── Base tool: publicar_dashboard ─────────────────────────────────────
-    @mcp.tool()
+    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
     async def publicar_dashboard(
         title: str, brand: str, period: str,
         description: str, html_content: str,
@@ -351,11 +351,9 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         return {"id": entry_id, "link": link, "url": url, "published_at": today, "commit_sha": sha}
 
     # ── Base tool: listar_analises ─────────────────────────────────────────
-    @mcp.tool()
-    async def listar_analises(escopo: str, ctx: Context) -> dict[str, object]:
-        """List analyses. escopo: 'mine' (own sandbox) or 'public' (shared library)."""
-        if escopo not in ("mine", "public"):
-            return {"error": "invalid_escopo: must be 'mine' or 'public'"}
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
+    async def listar_analises(escopo: Literal["mine", "public"], ctx: Context, limit: int = 20) -> dict[str, object]:
+        """List analyses. escopo: 'mine' (own sandbox) or 'public' (shared library). limit: max items returned (default 20)."""
         exec_email = _current_email(ctx)
         settings = _load_cached_state().settings
         repo_root = _repo_root()
@@ -363,12 +361,14 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         email_key = exec_email if escopo == "mine" else "public"
         lib = repo_root / "portal" / "library" / domain / f"{email_key}.json"
         if not lib.exists():
-            return {"items": []}
+            return {"items": [], "total": 0, "limit": limit}
         try:
             data = json.loads(lib.read_text() or "[]")
         except json.JSONDecodeError as e:
             return {"error": f"library_parse: {e}"}
-        return {"items": data}
+        total = len(data)
+        items = data[:limit]
+        return {"items": items, "total": total, "limit": limit}
 
     # ── main() entrypoint ──────────────────────────────────────────────────
     def main() -> None:

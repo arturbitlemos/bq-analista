@@ -35,6 +35,22 @@ def _strip_comments(sql: str) -> str:
     return sql.strip()
 
 
+def _func_name(node: exp.Func) -> str:
+    """Return the SQL function name (upper-case), or empty string.
+
+    `exp.Anonymous` wraps unknown functions and stores the user-supplied
+    name on `.name`.  Other `Func` subclasses expose the canonical SQL name
+    via `.sql_name()`.  Checking both means EXTERNAL_QUERY is caught even if
+    a future sqlglot version registers it as a named Func subclass.
+    """
+    if isinstance(node, exp.Anonymous):
+        return (node.name or "").upper()
+    try:
+        return (node.sql_name() or "").upper()
+    except Exception:
+        return ""
+
+
 def _validate_ast(sql: str) -> None:
     """Parse SQL with sqlglot and walk the full AST for write operations.
 
@@ -69,8 +85,8 @@ def _validate_ast(sql: str) -> None:
             raise SqlValidationError(
                 f"write operation not allowed inside query: {type(node).__name__}"
             )
-        if isinstance(node, exp.Anonymous):
-            name = (node.name or "").upper()
+        if isinstance(node, exp.Func):
+            name = _func_name(node)
             if name in _DANGEROUS_FUNCTIONS:
                 raise SqlValidationError(f"function not allowed: {name}")
 

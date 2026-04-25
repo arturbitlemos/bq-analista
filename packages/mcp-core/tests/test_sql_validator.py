@@ -142,3 +142,18 @@ def test_rejects_external_query_inside_union_branch() -> None:
         validate_readonly_sql(
             "SELECT 1 UNION ALL SELECT * FROM EXTERNAL_QUERY('c', 'q')"
         )
+
+
+def test_func_name_handles_named_func_subclass() -> None:
+    """A future sqlglot release may register EXTERNAL_QUERY as a named Func
+    subclass (instead of exp.Anonymous). _func_name must resolve both shapes
+    so the dangerous-function guard does not silently regress."""
+    import sqlglot.expressions as exp
+    from mcp_core.sql_validator import _func_name
+
+    class _FakeExternalQuery(exp.Func):
+        def sql_name(self) -> str:
+            return "EXTERNAL_QUERY"
+
+    assert _func_name(_FakeExternalQuery()) == "EXTERNAL_QUERY"
+    assert _func_name(exp.Anonymous(this="EXTERNAL_QUERY")) == "EXTERNAL_QUERY"

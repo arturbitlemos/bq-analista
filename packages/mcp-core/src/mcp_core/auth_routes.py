@@ -98,11 +98,17 @@ def build_auth_app(
         """Return the canonical public base URL.
 
         Uses the MCP_PUBLIC_HOST env var (set at deploy time) so attacker-
-        controlled request headers cannot redirect OAuth flows to a foreign host.
-        Falls back to localhost for local dev only.
+        controlled request headers cannot redirect OAuth flows to a foreign
+        host.  MCP_PUBLIC_PROTO can override the auto-detected scheme; by
+        default localhost / 127.0.0.1 / 0.0.0.0 use http and everything else
+        uses https. The hostname is exact-matched against the dev set so
+        names like "localhost.evil.com" are correctly classified as remote.
         """
         host = os.environ.get("MCP_PUBLIC_HOST", "localhost:3000")
-        proto = "https" if "localhost" not in host else "http"
+        proto = os.environ.get("MCP_PUBLIC_PROTO")
+        if not proto:
+            hostname = host.split(":", 1)[0].lower()
+            proto = "http" if hostname in {"localhost", "127.0.0.1", "0.0.0.0"} else "https"
         return f"{proto}://{host}"
 
     @app.get("/.well-known/oauth-authorization-server")

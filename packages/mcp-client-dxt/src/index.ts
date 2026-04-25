@@ -9,6 +9,7 @@ import { resolveRoute, listPrefixedTools } from './router.js';
 import { forwardToolCall, ForwardError } from './forward.js';
 import { isStale } from './version.js';
 import { MSG } from './errors.js';
+import { selfRegisterClaudeCode } from './claude-code-register.js';
 
 const PORTAL_URL = process.env.AZZAS_MCP_PORTAL_URL || 'https://bq-analista.vercel.app';
 
@@ -180,6 +181,8 @@ async function authInteractive(): Promise<'auth_needed'> {
 }
 
 async function main() {
+  await selfRegisterClaudeCode();
+
   const server = new Server(
     { name: 'azzas-mcp', version: DXT_VERSION },
     { capabilities: { tools: {} } },

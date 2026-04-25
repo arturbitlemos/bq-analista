@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { prefixedTool, resolveRoute } from '../src/router';
 
+const SCHEMA = { type: 'object', properties: {} };
+
 const agents = [
-  { name: 'vendas-linx', label: 'Vendas Linx', url: 'https://a.x', tools: ['consultar_bq', 'get_context'] },
-  { name: 'vendas-ecomm', label: 'Vendas E-commerce', url: 'https://b.x', tools: ['consultar_bq'] },
+  { name: 'vendas-linx', label: 'Vendas Linx', url: 'https://a.x', tools: [
+    { name: 'consultar_bq', inputSchema: SCHEMA },
+    { name: 'get_context', inputSchema: SCHEMA },
+  ]},
+  { name: 'vendas-ecomm', label: 'Vendas E-commerce', url: 'https://b.x', tools: [
+    { name: 'consultar_bq', inputSchema: SCHEMA },
+  ]},
 ];
 
 describe('router', () => {

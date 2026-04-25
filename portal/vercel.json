@@ -3,7 +3,8 @@
   "outputDirectory": ".",
   "functions": {
     "api/auth.js": { "maxDuration": 10 },
-    "api/share.js": { "maxDuration": 30 }
+    "api/share.js": { "maxDuration": 30 },
+    "api/mcp/auth/callback.js": { "maxDuration": 15 }
   },
   "rewrites": [
     { "source": "/onboarding", "destination": "/onboarding.html" }

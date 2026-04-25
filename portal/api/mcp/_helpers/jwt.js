@@ -31,8 +31,7 @@ function decodeToken(token, secret, issuer) {
 function refreshAccess(refreshToken, secret, issuer, accessTtlS) {
   const claims = decodeToken(refreshToken, secret, issuer);
   if (claims.kind !== 'refresh') throw new Error('not a refresh token');
-  const result = encode('access', { email: claims.email, secret, issuer, ttl: accessTtlS });
-  return result.token;
+  return encode('access', { email: claims.email, secret, issuer, ttl: accessTtlS });
 }
 
 module.exports = { issueTokens, decodeToken, refreshAccess };

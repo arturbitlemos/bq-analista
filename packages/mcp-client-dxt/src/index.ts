@@ -9,6 +9,7 @@ import { resolveRoute, listPrefixedTools } from './router.js';
 import { forwardToolCall, ForwardError } from './forward.js';
 import { isStale } from './version.js';
 import { MSG } from './errors.js';
+import { selfRegisterClaudeCode } from './claude-code-register.js';
 
 const PORTAL_URL = process.env.AZZAS_MCP_PORTAL_URL || 'https://bq-analista.vercel.app';
 
@@ -32,7 +33,7 @@ async function openBrowser(url: string): Promise<void> {
     resolve();
   });
 }
-const DXT_VERSION = '1.0.3'; // sync com package.json e manifest.json
+const DXT_VERSION = '1.0.8'; // sync com package.json e manifest.json
 
 let cachedManifest: Manifest | null = null;
 
@@ -146,13 +147,10 @@ async function runAuthFlow(expectedNonce: string): Promise<void> {
       return;
     }
 
-    // Validate nonce before trusting any credential data
-    if (!params.error) {
-      const got = params.nonce ?? '';
-      if (!timingEqual(got, expectedNonce)) {
-        console.error('[azzas-mcp] nonce mismatch — abortando');
-        return;
-      }
+    const got = params.nonce ?? '';
+    if (!timingEqual(got, expectedNonce)) {
+      console.error('[azzas-mcp] nonce mismatch — abortando');
+      return;
     }
 
     if (!params.access || !params.refresh) return;
@@ -180,6 +178,8 @@ async function authInteractive(): Promise<'auth_needed'> {
 }
 
 async function main() {
+  await selfRegisterClaudeCode();
+
   const server = new Server(
     { name: 'azzas-mcp', version: DXT_VERSION },
     { capabilities: { tools: {} } },
@@ -193,8 +193,8 @@ async function main() {
       }
       const tools = listPrefixedTools(manifest.agents).map((t) => ({
         name: t.name,
-        description: `${t.agent.label}: ${t.tool}`,
-        inputSchema: { type: 'object', properties: {}, additionalProperties: true },
+        description: `${t.agent.label}: ${t.tool.name}`,
+        inputSchema: t.tool.inputSchema,
       }));
       return { tools };
     } catch {

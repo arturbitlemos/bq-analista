@@ -1,4 +1,4 @@
-import type { Agent } from './manifest.js';
+import type { Agent, ToolDef } from './manifest.js';
 
 function slug(name: string): string {
   return name.replace(/-/g, '_');
@@ -8,11 +8,11 @@ export function prefixedTool(agentName: string, tool: string): string {
   return `${slug(agentName)}__${tool}`;
 }
 
-export function listPrefixedTools(agents: Agent[]): { name: string; agent: Agent; tool: string }[] {
-  const result: { name: string; agent: Agent; tool: string }[] = [];
+export function listPrefixedTools(agents: Agent[]): { name: string; agent: Agent; tool: ToolDef }[] {
+  const result: { name: string; agent: Agent; tool: ToolDef }[] = [];
   for (const agent of agents) {
     for (const tool of agent.tools) {
-      result.push({ name: prefixedTool(agent.name, tool), agent, tool });
+      result.push({ name: prefixedTool(agent.name, tool.name), agent, tool });
     }
   }
   return result;
@@ -25,6 +25,6 @@ export function resolveRoute(toolName: string, agents: Agent[]): { agent: Agent;
   const tool = toolName.slice(idx + 2);
   const agent = agents.find((a) => slug(a.name) === agentSlug);
   if (!agent) return null;
-  if (!agent.tools.includes(tool)) return null;
+  if (!agent.tools.some((t) => t.name === tool)) return null;
   return { agent, tool };
 }

@@ -153,8 +153,6 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         )
 
     def _current_email(ctx: Context) -> str:
-        if os.environ.get("MCP_DEV_EXEC_EMAIL"):
-            return os.environ["MCP_DEV_EXEC_EMAIL"]
         headers = getattr(ctx.request_context.request, "headers", {}) or {}
         auth = headers.get("authorization") or headers.get("Authorization") or ""
         if not auth.lower().startswith("bearer "):
@@ -312,7 +310,24 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
 
         await ctx.report_progress(progress=0.0, total=1.0, message="rendering dashboard...")
         analysis_path.parent.mkdir(parents=True, exist_ok=True)
-        analysis_path.write_text(html_content)
+        # Inject CSP to block credential exfiltration from the portal origin.
+        # Scripts and inline styles are allowed (needed for chart libraries), but
+        # network access and form submissions are restricted to same-origin only.
+        _csp = (
+            "<meta http-equiv=\"Content-Security-Policy\" content=\""
+            "default-src 'self' data: blob:; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.plot.ly; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: blob:; "
+            "connect-src 'self'; "
+            "form-action 'none';"
+            "\">"
+        )
+        safe_html = re.sub(r"(?i)<head([^>]*)>", r"<head\1>" + _csp, html_content, count=1)
+        if safe_html == html_content:  # no <head> tag — prepend to document
+            safe_html = _csp + html_content
+        analysis_path.write_text(safe_html)
 
         entry_id = f"{slug}-{short_hash}"
         entry_filename = analysis_path.name

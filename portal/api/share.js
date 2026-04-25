@@ -9,7 +9,10 @@ function verifySession(cookieValue, secret) {
   const identity = parts.join('~')
   if (parseInt(expiry) < Date.now() / 1000) return null
   const expected = crypto.createHmac('sha256', secret).update(`${identity}~${expiry}`).digest('base64url')
-  return expected === signature ? identity : null
+  const a = Buffer.from(expected)
+  const b = Buffer.from(signature)
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null
+  return identity
 }
 
 function encodeGhPath(filePath) {

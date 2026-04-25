@@ -94,13 +94,21 @@ def build_auth_app(
     def health() -> dict[str, object]:
         return {"status": "ok"}
 
-    @app.get("/.well-known/oauth-authorization-server")
-    def oauth_metadata(req: Request) -> dict[str, object]:
-        """OAuth 2.0 Authorization Server Metadata (RFC 8414) for Claude.ai discovery."""
-        proto = req.headers.get("x-forwarded-proto", "https")
-        host = req.headers.get("x-forwarded-host") or req.headers.get("host", "localhost:3000")
-        base_url = f"{proto}://{host}"
+    def _base_url() -> str:
+        """Return the canonical public base URL.
 
+        Uses the MCP_PUBLIC_HOST env var (set at deploy time) so attacker-
+        controlled request headers cannot redirect OAuth flows to a foreign host.
+        Falls back to localhost for local dev only.
+        """
+        host = os.environ.get("MCP_PUBLIC_HOST", "localhost:3000")
+        proto = "https" if "localhost" not in host else "http"
+        return f"{proto}://{host}"
+
+    @app.get("/.well-known/oauth-authorization-server")
+    def oauth_metadata() -> dict[str, object]:
+        """OAuth 2.0 Authorization Server Metadata (RFC 8414) for Claude.ai discovery."""
+        base_url = _base_url()
         return {
             "issuer": base_url,
             "authorization_endpoint": f"{base_url}/auth/start",
@@ -113,11 +121,9 @@ def build_auth_app(
         }
 
     @app.get("/.well-known/oauth-protected-resource")
-    def oauth_protected_resource(req: Request) -> dict[str, object]:
+    def oauth_protected_resource() -> dict[str, object]:
         """OAuth 2.0 Protected Resource Metadata (RFC 9728) for Claude.ai discovery."""
-        proto = req.headers.get("x-forwarded-proto", "https")
-        host = req.headers.get("x-forwarded-host") or req.headers.get("host", "localhost")
-        base_url = f"{proto}://{host}"
+        base_url = _base_url()
         return {
             "resource": f"{base_url}/mcp",
             "authorization_servers": [base_url],

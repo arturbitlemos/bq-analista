@@ -2,7 +2,7 @@ import json
 import tempfile
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlparse
 
 from fastapi.testclient import TestClient
@@ -115,6 +115,7 @@ def test_callback_unknown_state_returns_400() -> None:
 
 
 def test_callback_expired_state_returns_400() -> None:
+    _pending_states.clear()
     c = _app(["exec@azzas.com.br"])
     state = _start_and_get_state(c)
     # Backdate the stored timestamp by more than 10 minutes

@@ -36,6 +36,12 @@ def build_auth_app(
 
     @app.get("/auth/start")
     def start() -> RedirectResponse:
+        # Prune expired entries
+        now = time.time()
+        stale = [k for k, v in _pending_states.items() if now - v > _STATE_TTL_S]
+        for k in stale:
+            del _pending_states[k]
+
         state = secrets.token_urlsafe(16)
         _pending_states[state] = time.time()
         return RedirectResponse(azure.authorization_url(state=state), status_code=302)
@@ -54,7 +60,7 @@ def build_auth_app(
         except AzureAuthError as e:
             raise HTTPException(status_code=400, detail=f"azure_auth: {e}")
         if not allowlist.is_allowed(info.email):
-            raise HTTPException(status_code=403, detail=f"not on allowlist: {info.email}")
+            raise HTTPException(status_code=403, detail="not authorized")
         pair = issuer.issue(email=info.email)
         return JSONResponse({
             "access_token": pair.access_token,

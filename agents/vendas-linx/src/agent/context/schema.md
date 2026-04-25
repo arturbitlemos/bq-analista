@@ -271,8 +271,8 @@ Colunas-chave:
 | `REDE_LOJAS` | STRING | FK → LOJAS_REDE |
 | `REGIAO` | STRING | Região comercial |
 | `REGIAO_SUPERVISAO` | STRING | Supervisão |
-| `TIPO_FILIAL` | STRING | Tipo (loja, CD, armazém…) |
-| `FILIAL_PROPRIA` | BOOLEAN | Própria vs franquia |
+| `TIPO_FILIAL` | STRING | Tipo da filial — valores conhecidos abaixo |
+| `FILIAL_PROPRIA` | BOOLEAN | Própria (true) vs franquia (false) |
 | `INDICA_FRANQUIA` | BOOLEAN | Flag franquia |
 | `INDICA_ARMAZEM` | BOOLEAN | Flag CD |
 | `MATRIZ` / `MATRIZ_CONTROLADORA` / `MATRIZ_FISCAL` | STRING | Hierarquia |
@@ -280,6 +280,29 @@ Colunas-chave:
 | `AREA_M2` | INTEGER | Área da loja |
 | `EMPRESA` | INTEGER | Empresa contábil |
 | `REGIME_TRIBUTACAO` / `TIPO_TRIBUTACAO` | INT/STR | Fiscal |
+
+**Valores de `TIPO_FILIAL` (validados em produção):**
+
+| Valor | Significado | Entra em análise de venda? |
+|---|---|---|
+| `LOJA VAREJO` | Loja física de varejo ✅ | Sim — default para análise de lojas |
+| `FRANQUIA` | Loja franqueada | Depende — ver `INDICA_FRANQUIA` e `FILIAL_PROPRIA` |
+| `MATRIZ` | Escritório / sede | Não |
+| `CDS` / `CD` | Centro de distribuição | Não |
+| `ATACADO` | Canal atacado | Não (a menos que pedido explicitamente) |
+| `ECOMMERCE` | Filial digital | Não em análise física — usar via §2.2 |
+
+**Filtro canônico para "lojas físicas ativas" de varejo próprio:**
+```sql
+WHERE TIPO_FILIAL = 'LOJA VAREJO'
+  AND FILIAL_PROPRIA = TRUE
+  AND DATA_FECHAMENTO IS NULL
+  AND FILIAL NOT LIKE '%ECOMMERCE%'
+  AND FILIAL NOT LIKE '%MATRIZ%'
+  AND FILIAL NOT LIKE '%CDS%'
+```
+
+> 📌 **Pendência de ferramenta:** `list_active_retail_stores(marca)` — futura ferramenta MCP que aplicará esse filtro server-side. Enquanto não existir, usar o WHERE acima. Ver `business-rules.md §13`.
 
 **🔴 PII — NÃO selecionar:**
 - `CGC_CPF`, `CPF_CONTA_STONE` — documentos

@@ -76,6 +76,30 @@ END AS canal
 - **Métrica default: receita** (`SUM(VALOR_PAGO_PROD)`). Análises por volume de pedidos só se explicitamente solicitado.
 - O usuário pode pedir breakdowns alternativos (ex: ver omni separado) — nesses casos, use `TIPO_VENDA` cru ao invés do agrupamento canal.
 
+### 2.1 Escopo de canal default por tipo de análise
+
+> Esta tabela evita inconsistência entre análises — aplicar **sem exceção**.
+
+| Tipo de análise | Filtro de canal padrão | Justificativa |
+|---|---|---|
+| "venda da marca X" / totais de marca | Todos os canais (sem filtro em `TIPO_VENDA`) | Receita total da marca inclui físico + digital |
+| "venda por loja" / ranking de lojas | `TIPO_VENDA = 'VENDA_LOJA'` | Lojas físicas só vendem por VENDA_LOJA |
+| "venda digital" / ecommerce | `TIPO_VENDA IN ('VENDA_ECOM','VENDA_OMNI','VENDA_VITRINE')` | Ver §12.3 |
+| "cobertura / giro de estoque" | Mesmo canal do estoque usado (ver §2.2) | Nunca misturar escopos |
+
+Quando o usuário não especifica canal, aplicar o filtro da linha correspondente ao tipo de análise pedido. Nunca perguntar "qual canal?" se já está claro pelo contexto.
+
+### 2.2 Cobertura e giro — escopo de canal deve ser consistente
+
+> ⚠️ **Nunca misturar escopos entre numerador e denominador de cobertura/giro.**
+
+| Estoque usado | Venda a usar | Erro comum |
+|---|---|---|
+| Estoque físico (loja) | `TIPO_VENDA = 'VENDA_LOJA'` | Usar venda total (26k peças) com estoque físico (18k) → cobertura inflada |
+| Estoque total (CD + lojas) | Todos os canais | — |
+
+Regra: se o estoque é de FILIAIS físicas → a venda deve ser `TIPO_VENDA='VENDA_LOJA'`. Se o estoque inclui CD/ecom → usar todos os canais. Documentar na resposta qual escopo foi usado.
+
 ---
 
 ## 3. Chave de pedido (atendimento) — validada empiricamente 2026-04-19

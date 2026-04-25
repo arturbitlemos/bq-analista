@@ -39,20 +39,28 @@ async function verifySession(cookieValue, secret) {
 export default async function middleware(request) {
   const cookieHeader = request.headers.get('cookie')
   const sessionCookie = parseCookie(cookieHeader, 'session')
+  const url = new URL(request.url)
+  const pathname = decodeURIComponent(url.pathname)
+  const isOnboarding = pathname === '/onboarding' || pathname === '/onboarding/'
+
+  const redirectToLogin = () => {
+    const loginUrl = new URL('/', url)
+    loginUrl.searchParams.set('next', pathname)
+    return Response.redirect(loginUrl.toString(), 302)
+  }
 
   if (!sessionCookie) {
+    if (isOnboarding) return redirectToLogin()
     return new Response('Não autenticado', { status: 401 })
   }
 
   const sessionIdentity = await verifySession(sessionCookie, process.env.SESSION_SECRET)
   if (!sessionIdentity) {
+    if (isOnboarding) return redirectToLogin()
     return new Response('Sessão inválida ou expirada', { status: 401 })
   }
 
-  const url = new URL(request.url)
-  const pathname = decodeURIComponent(url.pathname)
-
-  if (pathname === '/onboarding' || pathname === '/onboarding/') return;
+  if (isOnboarding) return;
 
   // /library/{domain}/{filename}.json
   if (pathname.startsWith('/library/')) {

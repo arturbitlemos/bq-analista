@@ -15,6 +15,11 @@
       "source": "claude-office-skills/skills",
       "sourceType": "github",
       "computedHash": "a1d8f43dcdb5fd1d2d92bfb8f53fe37065b121b16b3609b54d700f12b0f94450"
+    },
+    "security-review": {
+      "source": "affaan-m/everything-claude-code",
+      "sourceType": "github",
+      "computedHash": "9814020fb226bff5a25c01f6862be0ca2853187230e25bb092689b8ec3a23759"
     }
   }
 }

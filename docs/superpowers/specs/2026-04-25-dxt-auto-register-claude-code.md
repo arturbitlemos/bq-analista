@@ -54,7 +54,7 @@ A função compara `command` e `args[0]` antes de escrever. Se já estiver corre
 
 ### Atualização de versão
 
-Quando o DXT é atualizado e o path do `dist/index.js` muda, a comparação detecta diferença e reescreve. O cowork começa a usar a nova versão na próxima session.
+O path do `dist/index.js` não muda entre versões do DXT (a extensão sempre instala no mesmo diretório). O que pode mudar é `process.execPath` quando o **Claude Desktop atualiza** seu Node bundled — nesse caso a comparação detecta diferença e reescreve automaticamente.
 
 ---
 

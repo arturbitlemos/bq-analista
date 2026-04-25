@@ -33,7 +33,7 @@ async function openBrowser(url: string): Promise<void> {
     resolve();
   });
 }
-const DXT_VERSION = '1.0.8'; // sync com package.json e manifest.json
+const DXT_VERSION = '1.0.9'; // sync com package.json e manifest.json
 
 let cachedManifest: Manifest | null = null;
 
@@ -193,7 +193,9 @@ async function main() {
       }
       const tools = listPrefixedTools(manifest.agents).map((t) => ({
         name: t.name,
-        description: `${t.agent.label}: ${t.tool.name}`,
+        description: t.tool.description
+          ? `${t.agent.label} · ${t.tool.description}`
+          : `${t.agent.label}: ${t.tool.name}`,
         inputSchema: t.tool.inputSchema,
       }));
       return { tools };

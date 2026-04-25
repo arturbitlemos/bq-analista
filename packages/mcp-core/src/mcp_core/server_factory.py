@@ -22,7 +22,7 @@ from mcp_core.auth_middleware import AuthContext, AuthError, extract_exec_email
 from mcp_core.auth_routes import build_auth_app
 from mcp_core.azure_auth import AzureAuth
 from mcp_core.bq_client import BqClient, DatasetNotAllowedError
-from mcp_core.context_loader import load_exec_context
+from mcp_core.context_loader import extract_table_section, load_exec_context, parse_table_index
 from mcp_core.git_ops import GitOps
 from mcp_core.jwt_tokens import TokenIssuer
 from mcp_core.library import LibraryEntry, prepend_entry
@@ -59,7 +59,7 @@ def _slugify(title: str) -> str:
 
 def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
     """
-    Build a FastMCP app with the 4 base tools registered.
+    Build a FastMCP app with the 7 base tools registered.
 
     Returns (app, main):
     - app:  FastMCP instance — use @app.tool() to add domain-specific tools
@@ -140,8 +140,9 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
     # ── Base tool: get_context ─────────────────────────────────────────────
     @mcp.tool()
     def get_context(ctx: Context) -> dict[str, object]:
-        """Return merged context: shared principles + agent schema + business rules.
-        Call once at session start to prime Claude with domain knowledge."""
+        """Lightweight context: analyst principles, PII rules, and table index.
+        Call once at session start. For full table schema use describe_table().
+        For business rules and canonical SQL use get_business_rules()."""
         _current_email(ctx)
         settings = load_settings(_settings_path())
         image_root = _image_root()
@@ -150,6 +151,57 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         agent_root = image_root / "agents" / domain / "src" / "agent"
         loaded = load_exec_context(agent_root=agent_root, shared_root=shared_root)
         return {"text": loaded.text, "allowed_tables": loaded.allowed_tables}
+
+    # ── Base tool: describe_table ──────────────────────────────────────────
+    @mcp.tool()
+    def describe_table(table_name: str, ctx: Context) -> dict[str, object]:
+        """Full schema for a BigQuery table: columns, types, PII flags, join patterns.
+        Call before writing SQL that targets this table.
+        table_name: exact name in UPPER_CASE (e.g. TB_WANMTP_VENDAS_LOJA_CAPTADO)."""
+        _current_email(ctx)
+        settings = load_settings(_settings_path())
+        image_root = _image_root()
+        domain = settings.server.domain
+        agent_root = image_root / "agents" / domain / "src" / "agent"
+        schema_path = agent_root / "context" / "schema.md"
+        if not schema_path.exists():
+            return {"error": "schema.md não encontrado"}
+        schema_text = schema_path.read_text()
+        section = extract_table_section(schema_text, table_name)
+        if not section:
+            available = parse_table_index(schema_text)
+            return {"error": f"Tabela '{table_name}' não encontrada.", "tabelas_disponíveis": available}
+        return {"table_name": table_name.upper(), "schema": section}
+
+    # ── Base tool: get_business_rules ──────────────────────────────────────
+    @mcp.tool()
+    def get_business_rules(ctx: Context) -> dict[str, object]:
+        """Business rules: KPI definitions, canonical SQL patterns, known gotchas.
+        Consult when calculating venda líquida, LY comparison, giro, or cobertura."""
+        _current_email(ctx)
+        settings = load_settings(_settings_path())
+        image_root = _image_root()
+        domain = settings.server.domain
+        agent_root = image_root / "agents" / domain / "src" / "agent"
+        rules_path = agent_root / "context" / "business-rules.md"
+        if not rules_path.exists():
+            return {"error": "business-rules.md não encontrado"}
+        return {"business_rules": rules_path.read_text()}
+
+    # ── Base tool: ping ────────────────────────────────────────────────────
+    @mcp.tool()
+    def ping(ctx: Context) -> dict[str, object]:
+        """Health-check: returns server status, BigQuery project, and visible datasets.
+        Call before any query to verify connectivity and confirm available datasets."""
+        _current_email(ctx)
+        settings = load_settings(_settings_path())
+        return {
+            "status": "ok",
+            "domain": settings.server.domain,
+            "bq_project": settings.bigquery.project_id,
+            "billing_project": settings.bigquery.billing_project_id,
+            "allowed_datasets": settings.bigquery.allowed_datasets,
+        }
 
     # ── Base tool: consultar_bq ────────────────────────────────────────────
     @mcp.tool()

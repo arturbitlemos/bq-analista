@@ -8,10 +8,31 @@ const TOOL_SCHEMAS = {
     type: 'object',
     properties: {},
   },
+  describe_table: {
+    type: 'object',
+    properties: {
+      table_name: {
+        type: 'string',
+        description: 'Nome exato da tabela em UPPER_CASE (ex: "TB_WANMTP_VENDAS_LOJA_CAPTADO"). Use get_context para listar as tabelas disponíveis.',
+      },
+    },
+    required: ['table_name'],
+  },
+  get_business_rules: {
+    type: 'object',
+    properties: {},
+  },
+  ping: {
+    type: 'object',
+    properties: {},
+  },
   consultar_bq: {
     type: 'object',
     properties: {
-      sql: { type: 'string', description: 'SELECT ou WITH query a executar no BigQuery.' },
+      sql: {
+        type: 'string',
+        description: 'SELECT ou WITH query. Sempre inclua filtro de data (DATA_VENDA, DATA). Nunca SELECT *. Marca em UPPER_CASE. Datas no formato YYYY-MM-DD.',
+      },
     },
     required: ['sql'],
   },
@@ -36,8 +57,25 @@ const TOOL_SCHEMAS = {
   },
 };
 
-const BASE_TOOLS = ['get_context', 'consultar_bq', 'publicar_dashboard', 'listar_analises']
-  .map((name) => ({ name, inputSchema: TOOL_SCHEMAS[name] }));
+const TOOL_DESCRIPTIONS = {
+  get_context:        'Contexto leve: princípios analíticos, regras de PII e índice de tabelas disponíveis. Chame uma vez no início da sessão.',
+  describe_table:     'Schema completo de uma tabela: colunas, tipos, flags de PII, padrões de join. Chame antes de escrever SQL para essa tabela.',
+  get_business_rules: 'Regras de negócio: definições de KPIs, SQL canônico, pitfalls conhecidos. Consulte ao calcular venda líquida, LY, giro ou cobertura.',
+  ping:               'Health-check: status do servidor, projeto BigQuery e datasets visíveis. Use antes de qualquer query para verificar conectividade.',
+  consultar_bq:       'Executa SQL SELECT/WITH no BigQuery. Requer get_context + describe_table antes. Sempre filtre por data. Nunca SELECT *.',
+  publicar_dashboard: 'Publica HTML de análise na biblioteca compartilhada do portal Azzas.',
+  listar_analises:    'Lista análises publicadas: mine (sandbox próprio) ou public (biblioteca compartilhada).',
+};
+
+const BASE_TOOLS = [
+  'get_context',
+  'describe_table',
+  'get_business_rules',
+  'ping',
+  'consultar_bq',
+  'publicar_dashboard',
+  'listar_analises',
+].map((name) => ({ name, description: TOOL_DESCRIPTIONS[name], inputSchema: TOOL_SCHEMAS[name] }));
 
 const MANIFEST = {
   min_dxt_version: '1.0.0',
@@ -60,7 +98,7 @@ const MANIFEST = {
 };
 
 const VERSION = {
-  latest: '1.0.8',
+  latest: '1.0.9',
   min: '1.0.0',
 };
 

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "azzas-mcp",
   "display_name": "Azzas MCP",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Análises Azzas via BigQuery direto no Claude Desktop",
   "author": {
     "name": "Azzas 2154",

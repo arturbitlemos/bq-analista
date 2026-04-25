@@ -101,6 +101,7 @@ def test_refresh_invalid_token_returns_401() -> None:
 
 
 def test_callback_missing_state_returns_400() -> None:
+    _pending_states.clear()
     c = _app(["exec@azzas.com.br"])
     r = c.get("/auth/callback?code=abc")
     assert r.status_code == 400
@@ -108,6 +109,7 @@ def test_callback_missing_state_returns_400() -> None:
 
 
 def test_callback_unknown_state_returns_400() -> None:
+    _pending_states.clear()
     c = _app(["exec@azzas.com.br"])
     r = c.get("/auth/callback?code=abc&state=totally-unknown-state")
     assert r.status_code == 400

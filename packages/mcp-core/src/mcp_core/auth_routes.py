@@ -56,10 +56,10 @@ def build_auth_app(
         except (ValueError, KeyError, TypeError):
             raise HTTPException(status_code=422, detail="refresh_token required")
         try:
-            access = issuer.refresh(refresh_token)
+            access, exp = issuer.refresh(refresh_token)
         except TokenError as e:
             raise HTTPException(status_code=401, detail=str(e))
-        return JSONResponse({"access_token": access})
+        return JSONResponse({"access_token": access, "expires_at": exp})
 
     @app.get("/favicon.ico", include_in_schema=False)
     def favicon() -> FileResponse:

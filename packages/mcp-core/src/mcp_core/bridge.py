@@ -54,7 +54,7 @@ def _save_creds(payload: dict[str, object]) -> None:
     os.chmod(CREDS_PATH, 0o600)
 
 
-def _try_refresh(server_url: str, refresh_token: str) -> str | None:
+def _try_refresh(server_url: str, refresh_token: str) -> tuple[str, int] | None:
     try:
         r = httpx.post(
             f"{server_url}/auth/refresh",
@@ -62,7 +62,8 @@ def _try_refresh(server_url: str, refresh_token: str) -> str | None:
             timeout=15,
         )
         if r.status_code == 200:
-            return str(r.json()["access_token"])
+            data = r.json()
+            return str(data["access_token"]), int(data["expires_at"])
     except httpx.HTTPError as e:
         _log(f"refresh failed: {e}")
     return None
@@ -89,11 +90,11 @@ def _ensure_access_token(server_url: str) -> str:
         return cast(str, creds["access_token"])
 
     if creds and creds.get("refresh_token"):
-        new_access = _try_refresh(server_url, cast(str, creds["refresh_token"]))
-        if new_access:
+        result = _try_refresh(server_url, cast(str, creds["refresh_token"]))
+        if result:
+            new_access, expires_at = result
             creds["access_token"] = new_access
-            # Refreshed access tokens inherit issuer TTL; approximate expires_at.
-            creds["expires_at"] = now + 3600 - REFRESH_MARGIN_S
+            creds["expires_at"] = expires_at
             _save_creds(creds)
             return new_access
         _log("refresh token rejected; falling back to full SSO login")

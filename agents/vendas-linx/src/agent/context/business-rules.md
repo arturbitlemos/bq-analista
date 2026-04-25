@@ -9,6 +9,14 @@
 
 ---
 
+## 0. Aliases de marca (resolver sem perguntar)
+
+| Input do usuário | Marca canônica | RL_DESTINO |
+|---|---|---|
+| NV | BYNV | 16 |
+
+---
+
 ## 1. Filtros padrão
 
 Aplicar em **toda** análise sobre `TB_WANMTP_VENDAS_LOJA_CAPTADO`:
@@ -113,6 +121,13 @@ COALESCE(
 ### Nota sobre subpacotes
 
 Em ecom/omni, ~8% dos `PEDIDO_SITE` têm múltiplos `TICKET` (remessas separadas). A chave acima **já agrega corretamente** porque usa `PEDIDO_SITE` como pai — os múltiplos tickets caem no mesmo pedido.
+
+### Regra de comportamento — "quantas transações?"
+
+Quando o usuário pedir contagem de transações **sem especificar canal**:
+- Usar sempre `COUNT(DISTINCT chave_pedido)` — nunca `COUNT(DISTINCT TICKET)` puro.
+- Retornar quebrado por `TIPO_VENDA` (físico / ecom / omni) **e** o total consolidado.
+- **Nunca defaultar silenciosamente para um canal só.** Se o usuário responder algo ambíguo durante o alinhamento de escopo, confirmar o canal antes de executar.
 
 ---
 

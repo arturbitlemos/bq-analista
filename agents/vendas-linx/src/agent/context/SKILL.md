@@ -47,14 +47,6 @@ bq ls PROJECT:DATASET
 
 **Always use `valor_pago_produto` as the base metric unless explicitly told otherwise.**
 
-**Standard filters (always apply):**
-```sql
-AND ultimo_status NOT IN ('CANCELADO', 'CANCELADO AUTOMATICO')
-AND tipo_seller <> 'EXTERNO'
-AND NOT (tipo_venda = 'FISICO' AND programa = 'franquia')
-AND TIMESTAMP_TRUNC(data_evento, DAY) >= TIMESTAMP_TRUNC(TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL N DAY), DAY)
-```
-
 **Core KPIs (see `business-rules.md` for canonical formulas with sign/key corrections):**
 - Markup = `SUM(valor_pago_produto) / SUM(cmv_liquido)` — use `cmv_liquido` to avoid double-counting in returns
 - Ticket Médio = `SUM(valor_pago_produto) / COUNT(DISTINCT chave_pedido)` — use treated `pacote` as `chave_pedido`

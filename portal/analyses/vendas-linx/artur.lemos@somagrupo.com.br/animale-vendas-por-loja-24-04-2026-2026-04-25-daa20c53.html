@@ -1,0 +1,1087 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Animale · Performance 24/04/2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Red+Hat+Display:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:#000; --ink-soft:#444; --ink-faint:#888;
+  --bg-soft: rgba(0,0,0,0.02);
+  --navy:#274566; --steel:#3D5A73; --blue-soft:#A1C6ED; --blue-light:#C5D9ED;
+  --cell-good:rgba(46,125,50,0.12); --cell-good-text:#1b5e20;
+  --cell-bad:rgba(198,40,40,0.12); --cell-bad-text:#b71c1c;
+  --cell-amber:rgba(255,160,0,0.14); --cell-amber-text:#a04a00;
+  --cell-neutral:transparent;
+  --border:rgba(0,0,0,0.08);
+  --font-primary:'Red Hat Display', Arial, sans-serif;
+  --font-editorial:'Playfair Display', Georgia, serif;
+}
+body { font-family: var(--font-primary); color: var(--ink); background: transparent; margin:0; padding:0; line-height:1.45; }
+.wrap { max-width:1280px; margin:0 auto; padding: 24px 20px 48px; }
+header { border-bottom: 2px solid var(--ink); padding-bottom: 16px; margin-bottom: 24px; }
+.eyebrow { font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase; color: var(--navy); font-weight:600; }
+h1 { font-family: var(--font-primary); font-weight: 400; font-size: 2.4rem; margin: 4px 0 4px; letter-spacing:0.01em; }
+.sub { font-family: var(--font-editorial); font-style: italic; color: var(--ink-soft); font-size:1.1rem; margin: 0 0 8px; }
+.context { color: var(--ink-soft); font-size: 0.92rem; max-width: 850px; margin-top: 8px; }
+h2 { font-family: var(--font-primary); font-weight: 600; font-size: 1.15rem; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+h3 { font-family: var(--font-primary); font-weight: 600; font-size: 0.98rem; margin: 18px 0 8px; color: var(--navy); }
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 16px 0 8px; }
+.kpi { border: 1px solid var(--border); border-left: 3px solid var(--navy); padding: 12px 14px; }
+.kpi .label { font-size: 0.7rem; letter-spacing:0.1em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; }
+.kpi .value { font-size: 1.45rem; font-weight: 600; margin-top: 4px; color: var(--ink); }
+.kpi .delta { font-size: 0.82rem; margin-top: 2px; color: var(--ink-soft); }
+.kpi .delta.good { color: var(--cell-good-text); font-weight: 600; }
+.kpi .delta.bad { color: var(--cell-bad-text); font-weight: 600; }
+.tier-legend { font-size: 0.78rem; color: var(--ink-soft); margin: 12px 0; }
+.tier-legend span { margin-right: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+thead th { text-align: left; padding: 10px 8px; border-bottom: 2px solid var(--ink); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; }
+thead th.num { text-align: right; }
+tbody td { padding: 8px; border-bottom: 1px solid var(--border); }
+tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+tbody td.store { font-weight: 500; min-width: 215px; }
+tbody td.strong { font-weight: 600; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+.cell-good { background: var(--cell-good); color: var(--cell-good-text); font-weight: 600; }
+.cell-bad { background: var(--cell-bad); color: var(--cell-bad-text); font-weight: 600; }
+.cell-amber { background: var(--cell-amber); color: var(--cell-amber-text); font-weight: 600; }
+.cell-neutral { background: var(--cell-neutral); }
+.muted { color: var(--ink-faint); font-style: italic; }
+.section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 8px; }
+@media (max-width: 800px) { .section-grid { grid-template-columns: 1fr; } }
+.callouts { list-style: none; padding: 0; margin: 0; }
+.callouts li { border-left: 3px solid var(--navy); padding: 8px 12px; margin-bottom: 8px; background: var(--bg-soft); font-size: 0.92rem; }
+.callouts li.bad { border-left-color: var(--cell-bad-text); }
+.callouts li.good { border-left-color: var(--cell-good-text); }
+.callouts li.amber { border-left-color: var(--cell-amber-text); }
+.callouts strong { font-weight: 600; }
+.notes { font-size: 0.82rem; color: var(--ink-soft); margin-top: 6px; }
+.notes ul { padding-left: 18px; }
+details { margin: 8px 0; border: 1px solid var(--border); padding: 8px 12px; background: var(--bg-soft); }
+details summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--navy); }
+details pre { overflow-x: auto; font-size: 0.74rem; background: rgba(0,0,0,0.04); padding: 10px; margin: 8px 0 0; border-radius: 4px; }
+footer { margin-top: 36px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.74rem; color: var(--ink-faint); }
+.tier-tag { font-size: 0.66rem; vertical-align: super; margin-left: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Azzas 2154 · Animale</div>
+  <h1>Performance Loja Física · 24 de abril de 2026</h1>
+  <p class="sub">Sexta-feira · venda do dia × meta × LY × cobertura</p>
+  <p class="context">Escopo: rede 1 (Animale canônico, §8.2 business rules), apenas físico (<code>TIPO_VENDA = VENDA_LOJA</code>),
+  excluída a filial digital 190454 (ECOMMERCE CM). Venda líquida inclui devoluções por padrão (§1.1). LY = mesmo dia
+  do calendário (24/04/2025, quinta-feira) — regra default §6.1; <strong>diferença de dia da semana (sex vs qui) tende a inflar +5/+8% o atual</strong>, ler com ressalva.</p>
+  <p class="tier-legend">
+    <span>✅ Dado real (BigQuery, 25/04/2026)</span>
+    <span>📈 LY (histórico interno)</span>
+    <span>🔶 Estimativa</span>
+    <span>❓ Indisponível</span>
+  </p>
+</header>
+
+<h2>Resumo Executivo</h2>
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="label">Venda Líquida ✅</div>
+    <div class="value">R$ 1.956.699</div>
+    <div class="delta good">2,9% vs LY 📈 (R$ 1.901.611)</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Meta dia ✅</div>
+    <div class="value">R$ 2.120.065</div>
+    <div class="delta ">92,3% de atingimento · gap R$ -163.366</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Atendimentos ✅</div>
+    <div class="value">1.254</div>
+    <div class="delta">em 58 lojas ativas</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Ticket médio ✅</div>
+    <div class="value">R$ 1.560</div>
+    <div class="delta">PA 1,81 · 2.265 peças</div>
+  </div>
+</div>
+
+<h2>Ranking por loja</h2>
+<table>
+<thead>
+<tr>
+  <th>Loja</th>
+  <th class="num">Venda dia ✅</th>
+  <th class="num">Meta ✅</th>
+  <th class="num">% Ating ✅</th>
+  <th class="num">Δ vs Meta ✅</th>
+  <th class="num">LY 24/04/25 📈</th>
+  <th class="num">Var vs LY 📈</th>
+  <th class="num">Atend ✅</th>
+  <th class="num">Ticket ✅</th>
+  <th class="num">PA ✅</th>
+  <th class="num">Peças ✅</th>
+  <th class="num">Estoque ✅</th>
+  <th class="num">Cobertura 🔶</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td class="store">ANIMALE JK SAO PAULO CM</td>
+  <td class="num strong">R$ 122.805</td>
+  <td class="num">R$ 85.360</td>
+  <td class="num cell-good">143,9%</td>
+  <td class="num cell-good">R$ 37.445</td>
+  <td class="num">R$ 52.804</td>
+  <td class="num cell-good">132,6%</td>
+  <td class="num">44</td>
+  <td class="num">R$ 2.791</td>
+  <td class="num">2,48</td>
+  <td class="num">109</td>
+  <td class="num">3.540</td>
+  <td class="num cell-good">117 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE RIO DESIGN CM</td>
+  <td class="num strong">R$ 115.528</td>
+  <td class="num">R$ 91.835</td>
+  <td class="num cell-good">125,8%</td>
+  <td class="num cell-good">R$ 23.693</td>
+  <td class="num">R$ 50.408</td>
+  <td class="num cell-good">129,2%</td>
+  <td class="num">46</td>
+  <td class="num">R$ 2.511</td>
+  <td class="num">2,17</td>
+  <td class="num">100</td>
+  <td class="num">3.617</td>
+  <td class="num cell-good">105 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE SHOP VITORIA CM</td>
+  <td class="num strong">R$ 105.029</td>
+  <td class="num">R$ 74.805</td>
+  <td class="num cell-good">140,4%</td>
+  <td class="num cell-good">R$ 30.223</td>
+  <td class="num">R$ 72.445</td>
+  <td class="num cell-good">45,0%</td>
+  <td class="num">46</td>
+  <td class="num">R$ 2.283</td>
+  <td class="num">2,28</td>
+  <td class="num">105</td>
+  <td class="num">3.085</td>
+  <td class="num cell-good">126 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE IPANEMA CM ⚠️</td>
+  <td class="num strong">R$ 97.584</td>
+  <td class="num"><span class="muted">n/d</span></td>
+  <td class="num cell-neutral muted">n/d</td>
+  <td class="num muted">n/d</td>
+  <td class="num">R$ 18.398</td>
+  <td class="num cell-good">430,4%</td>
+  <td class="num">21</td>
+  <td class="num">R$ 4.647</td>
+  <td class="num">5,57</td>
+  <td class="num">117</td>
+  <td class="num">2.137</td>
+  <td class="num cell-good">99 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE SHOP LEBLON CM</td>
+  <td class="num strong">R$ 93.194</td>
+  <td class="num">R$ 86.140</td>
+  <td class="num cell-good">108,2%</td>
+  <td class="num cell-good">R$ 7.054</td>
+  <td class="num">R$ 37.882</td>
+  <td class="num cell-good">146,0%</td>
+  <td class="num">52</td>
+  <td class="num">R$ 1.792</td>
+  <td class="num">1,87</td>
+  <td class="num">97</td>
+  <td class="num">3.304</td>
+  <td class="num cell-good">76 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE GAL CAMPINAS CM</td>
+  <td class="num strong">R$ 84.270</td>
+  <td class="num">R$ 33.987</td>
+  <td class="num cell-good">247,9%</td>
+  <td class="num cell-good">R$ 50.282</td>
+  <td class="num">R$ 116.923</td>
+  <td class="num cell-bad">-27,9%</td>
+  <td class="num">17</td>
+  <td class="num">R$ 4.957</td>
+  <td class="num">4,35</td>
+  <td class="num">74</td>
+  <td class="num">2.634</td>
+  <td class="num cell-amber">215 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE MORUMBI CM</td>
+  <td class="num strong">R$ 57.444</td>
+  <td class="num">R$ 47.827</td>
+  <td class="num cell-good">120,1%</td>
+  <td class="num cell-good">R$ 9.617</td>
+  <td class="num">R$ 49.231</td>
+  <td class="num cell-good">16,7%</td>
+  <td class="num">20</td>
+  <td class="num">R$ 2.872</td>
+  <td class="num">2,10</td>
+  <td class="num">42</td>
+  <td class="num">2.385</td>
+  <td class="num cell-good">118 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE PORTO ALEGRE CM</td>
+  <td class="num strong">R$ 53.306</td>
+  <td class="num">R$ 47.138</td>
+  <td class="num cell-good">113,1%</td>
+  <td class="num cell-good">R$ 6.168</td>
+  <td class="num">R$ 15.676</td>
+  <td class="num cell-good">240,1%</td>
+  <td class="num">19</td>
+  <td class="num">R$ 2.806</td>
+  <td class="num">2,00</td>
+  <td class="num">38</td>
+  <td class="num">2.377</td>
+  <td class="num cell-good">125 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE HIGIENOPOLIS CM</td>
+  <td class="num strong">R$ 52.727</td>
+  <td class="num">R$ 58.313</td>
+  <td class="num cell-neutral">90,4%</td>
+  <td class="num cell-neutral">R$ -5.586</td>
+  <td class="num">R$ 86.963</td>
+  <td class="num cell-bad">-39,4%</td>
+  <td class="num">39</td>
+  <td class="num">R$ 1.352</td>
+  <td class="num">1,79</td>
+  <td class="num">70</td>
+  <td class="num">3.235</td>
+  <td class="num cell-good">97 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE RIOMAR FORTAL CM</td>
+  <td class="num strong">R$ 51.161</td>
+  <td class="num">R$ 45.572</td>
+  <td class="num cell-good">112,3%</td>
+  <td class="num cell-good">R$ 5.588</td>
+  <td class="num">R$ 24.685</td>
+  <td class="num cell-good">107,3%</td>
+  <td class="num">26</td>
+  <td class="num">R$ 1.968</td>
+  <td class="num">1,73</td>
+  <td class="num">45</td>
+  <td class="num">2.916</td>
+  <td class="num cell-good">148 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE IGUATEMI SP CM</td>
+  <td class="num strong">R$ 50.430</td>
+  <td class="num">R$ 75.256</td>
+  <td class="num cell-bad">67,0%</td>
+  <td class="num cell-bad">R$ -24.826</td>
+  <td class="num">R$ 103.116</td>
+  <td class="num cell-bad">-51,1%</td>
+  <td class="num">32</td>
+  <td class="num">R$ 1.576</td>
+  <td class="num">1,41</td>
+  <td class="num">45</td>
+  <td class="num">3.357</td>
+  <td class="num cell-good">99 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE MANAUARA CM</td>
+  <td class="num strong">R$ 49.572</td>
+  <td class="num">R$ 20.823</td>
+  <td class="num cell-good">238,1%</td>
+  <td class="num cell-good">R$ 28.749</td>
+  <td class="num">R$ 4.284</td>
+  <td class="num cell-good">1.057,0%</td>
+  <td class="num">17</td>
+  <td class="num">R$ 2.916</td>
+  <td class="num">1,94</td>
+  <td class="num">33</td>
+  <td class="num">2.238</td>
+  <td class="num cell-amber">161 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE BELEM CM</td>
+  <td class="num strong">R$ 44.710</td>
+  <td class="num">R$ 25.191</td>
+  <td class="num cell-good">177,5%</td>
+  <td class="num cell-good">R$ 19.519</td>
+  <td class="num">R$ 31.092</td>
+  <td class="num cell-good">43,8%</td>
+  <td class="num">32</td>
+  <td class="num">R$ 1.397</td>
+  <td class="num">1,50</td>
+  <td class="num">48</td>
+  <td class="num">2.278</td>
+  <td class="num cell-amber">153 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE VILLAGE MALL CM</td>
+  <td class="num strong">R$ 43.764</td>
+  <td class="num">R$ 52.833</td>
+  <td class="num cell-neutral">82,8%</td>
+  <td class="num cell-neutral">R$ -9.069</td>
+  <td class="num">R$ 30.834</td>
+  <td class="num cell-good">41,9%</td>
+  <td class="num">29</td>
+  <td class="num">R$ 1.509</td>
+  <td class="num">1,83</td>
+  <td class="num">53</td>
+  <td class="num">2.542</td>
+  <td class="num cell-good">88 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE ICARAI CM</td>
+  <td class="num strong">R$ 42.001</td>
+  <td class="num">R$ 51.471</td>
+  <td class="num cell-neutral">81,6%</td>
+  <td class="num cell-neutral">R$ -9.471</td>
+  <td class="num">R$ 50.734</td>
+  <td class="num cell-bad">-17,2%</td>
+  <td class="num">61</td>
+  <td class="num">R$ 689</td>
+  <td class="num">1,33</td>
+  <td class="num">81</td>
+  <td class="num">2.959</td>
+  <td class="num cell-good">107 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE RECIFE CM</td>
+  <td class="num strong">R$ 41.977</td>
+  <td class="num">R$ 24.452</td>
+  <td class="num cell-good">171,7%</td>
+  <td class="num cell-good">R$ 17.525</td>
+  <td class="num">R$ 22.520</td>
+  <td class="num cell-good">86,4%</td>
+  <td class="num">45</td>
+  <td class="num">R$ 933</td>
+  <td class="num">1,58</td>
+  <td class="num">71</td>
+  <td class="num">2.164</td>
+  <td class="num cell-amber">160 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE BARRA SHOP CM</td>
+  <td class="num strong">R$ 39.524</td>
+  <td class="num">R$ 56.405</td>
+  <td class="num cell-bad">70,1%</td>
+  <td class="num cell-bad">R$ -16.881</td>
+  <td class="num">R$ 19.063</td>
+  <td class="num cell-good">107,3%</td>
+  <td class="num">36</td>
+  <td class="num">R$ 1.098</td>
+  <td class="num">1,39</td>
+  <td class="num">50</td>
+  <td class="num">2.207</td>
+  <td class="num cell-good">73 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE IGUATEMI BSB CM</td>
+  <td class="num strong">R$ 38.294</td>
+  <td class="num">R$ 41.908</td>
+  <td class="num cell-neutral">91,4%</td>
+  <td class="num cell-neutral">R$ -3.614</td>
+  <td class="num">R$ 8.000</td>
+  <td class="num cell-good">378,7%</td>
+  <td class="num">24</td>
+  <td class="num">R$ 1.596</td>
+  <td class="num">1,50</td>
+  <td class="num">36</td>
+  <td class="num">2.424</td>
+  <td class="num cell-good">139 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE SHOP BATEL CM</td>
+  <td class="num strong">R$ 35.612</td>
+  <td class="num">R$ 64.099</td>
+  <td class="num cell-bad">55,6%</td>
+  <td class="num cell-bad">R$ -28.487</td>
+  <td class="num">R$ 60.420</td>
+  <td class="num cell-bad">-41,1%</td>
+  <td class="num">33</td>
+  <td class="num">R$ 1.079</td>
+  <td class="num">1,42</td>
+  <td class="num">47</td>
+  <td class="num">3.027</td>
+  <td class="num cell-good">127 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE BARRA SALVADOR CM</td>
+  <td class="num strong">R$ 35.431</td>
+  <td class="num">R$ 35.817</td>
+  <td class="num cell-neutral">98,9%</td>
+  <td class="num cell-neutral">R$ -386</td>
+  <td class="num">R$ 26.735</td>
+  <td class="num cell-good">32,5%</td>
+  <td class="num">13</td>
+  <td class="num">R$ 2.725</td>
+  <td class="num">2,31</td>
+  <td class="num">30</td>
+  <td class="num">2.463</td>
+  <td class="num cell-amber">174 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE RIOMAR RECIFE CM</td>
+  <td class="num strong">R$ 33.588</td>
+  <td class="num">R$ 41.938</td>
+  <td class="num cell-neutral">80,1%</td>
+  <td class="num cell-neutral">R$ -8.350</td>
+  <td class="num">R$ 28.150</td>
+  <td class="num cell-good">19,3%</td>
+  <td class="num">35</td>
+  <td class="num">R$ 960</td>
+  <td class="num">1,37</td>
+  <td class="num">48</td>
+  <td class="num">2.694</td>
+  <td class="num cell-good">126 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE GOIABEIRAS CM</td>
+  <td class="num strong">R$ 32.831</td>
+  <td class="num">R$ 15.948</td>
+  <td class="num cell-good">205,9%</td>
+  <td class="num cell-good">R$ 16.883</td>
+  <td class="num">R$ 16.187</td>
+  <td class="num cell-good">102,8%</td>
+  <td class="num">34</td>
+  <td class="num">R$ 966</td>
+  <td class="num">1,79</td>
+  <td class="num">61</td>
+  <td class="num">1.852</td>
+  <td class="num cell-amber">204 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE IG FLORIPA CM</td>
+  <td class="num strong">R$ 32.592</td>
+  <td class="num">R$ 15.810</td>
+  <td class="num cell-good">206,1%</td>
+  <td class="num cell-good">R$ 16.782</td>
+  <td class="num">R$ 12.234</td>
+  <td class="num cell-good">166,4%</td>
+  <td class="num">12</td>
+  <td class="num">R$ 2.716</td>
+  <td class="num">2,58</td>
+  <td class="num">31</td>
+  <td class="num">1.906</td>
+  <td class="num cell-amber">213 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE IG RIBEIRAO CM</td>
+  <td class="num strong">R$ 32.434</td>
+  <td class="num">R$ 45.720</td>
+  <td class="num cell-bad">70,9%</td>
+  <td class="num cell-bad">R$ -13.286</td>
+  <td class="num">R$ 32.800</td>
+  <td class="num cell-neutral">-1,1%</td>
+  <td class="num">22</td>
+  <td class="num">R$ 1.474</td>
+  <td class="num">1,86</td>
+  <td class="num">41</td>
+  <td class="num">3.464</td>
+  <td class="num cell-amber">188 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE SJ RIO PRETO CM</td>
+  <td class="num strong">R$ 32.306</td>
+  <td class="num">R$ 13.361</td>
+  <td class="num cell-good">241,8%</td>
+  <td class="num cell-good">R$ 18.945</td>
+  <td class="num">R$ 3.278</td>
+  <td class="num cell-good">885,7%</td>
+  <td class="num">31</td>
+  <td class="num">R$ 1.042</td>
+  <td class="num">1,65</td>
+  <td class="num">51</td>
+  <td class="num">1.869</td>
+  <td class="num cell-amber">189 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE PRAIA DO CANTO CM</td>
+  <td class="num strong">R$ 30.722</td>
+  <td class="num">R$ 46.175</td>
+  <td class="num cell-bad">66,5%</td>
+  <td class="num cell-bad">R$ -15.453</td>
+  <td class="num">R$ 104.556</td>
+  <td class="num cell-bad">-70,6%</td>
+  <td class="num">32</td>
+  <td class="num">R$ 960</td>
+  <td class="num">1,41</td>
+  <td class="num">45</td>
+  <td class="num">2.315</td>
+  <td class="num cell-amber">164 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE MOINHOS CM</td>
+  <td class="num strong">R$ 28.774</td>
+  <td class="num">R$ 27.847</td>
+  <td class="num cell-good">103,3%</td>
+  <td class="num cell-good">R$ 927</td>
+  <td class="num">R$ 17.590</td>
+  <td class="num cell-good">63,6%</td>
+  <td class="num">17</td>
+  <td class="num">R$ 1.693</td>
+  <td class="num">1,53</td>
+  <td class="num">26</td>
+  <td class="num">2.741</td>
+  <td class="num cell-amber">234 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE MOEMA CM</td>
+  <td class="num strong">R$ 28.704</td>
+  <td class="num">R$ 42.636</td>
+  <td class="num cell-bad">67,3%</td>
+  <td class="num cell-bad">R$ -13.932</td>
+  <td class="num">R$ 37.544</td>
+  <td class="num cell-bad">-23,5%</td>
+  <td class="num">21</td>
+  <td class="num">R$ 1.367</td>
+  <td class="num">1,81</td>
+  <td class="num">38</td>
+  <td class="num">2.907</td>
+  <td class="num cell-amber">154 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE BARIGUI CM</td>
+  <td class="num strong">R$ 28.356</td>
+  <td class="num">R$ 46.842</td>
+  <td class="num cell-bad">60,5%</td>
+  <td class="num cell-bad">R$ -18.486</td>
+  <td class="num">R$ 46.876</td>
+  <td class="num cell-bad">-39,5%</td>
+  <td class="num">17</td>
+  <td class="num">R$ 1.668</td>
+  <td class="num">1,65</td>
+  <td class="num">28</td>
+  <td class="num">2.579</td>
+  <td class="num cell-good">128 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE VILA NOVA CM</td>
+  <td class="num strong">R$ 28.120</td>
+  <td class="num">R$ 42.422</td>
+  <td class="num cell-bad">66,3%</td>
+  <td class="num cell-bad">R$ -14.302</td>
+  <td class="num">R$ 72.312</td>
+  <td class="num cell-bad">-61,1%</td>
+  <td class="num">17</td>
+  <td class="num">R$ 1.654</td>
+  <td class="num">1,76</td>
+  <td class="num">30</td>
+  <td class="num">2.517</td>
+  <td class="num cell-amber">161 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE CAMPO GRANDE CM</td>
+  <td class="num strong">R$ 27.253</td>
+  <td class="num">R$ 39.743</td>
+  <td class="num cell-bad">68,6%</td>
+  <td class="num cell-bad">R$ -12.490</td>
+  <td class="num">R$ 109.369</td>
+  <td class="num cell-bad">-75,1%</td>
+  <td class="num">16</td>
+  <td class="num">R$ 1.703</td>
+  <td class="num">1,81</td>
+  <td class="num">29</td>
+  <td class="num">1.983</td>
+  <td class="num cell-good">126 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE BARRA SUL CM</td>
+  <td class="num strong">R$ 27.159</td>
+  <td class="num">R$ 16.562</td>
+  <td class="num cell-good">164,0%</td>
+  <td class="num cell-good">R$ 10.597</td>
+  <td class="num">R$ 20.220</td>
+  <td class="num cell-good">34,3%</td>
+  <td class="num">16</td>
+  <td class="num">R$ 1.697</td>
+  <td class="num">2,00</td>
+  <td class="num">32</td>
+  <td class="num">2.293</td>
+  <td class="num cell-amber">190 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE MACEIO CM</td>
+  <td class="num strong">R$ 23.914</td>
+  <td class="num">R$ 23.885</td>
+  <td class="num cell-good">100,1%</td>
+  <td class="num cell-good">R$ 29</td>
+  <td class="num">R$ 20.429</td>
+  <td class="num cell-good">17,1%</td>
+  <td class="num">13</td>
+  <td class="num">R$ 1.840</td>
+  <td class="num">2,15</td>
+  <td class="num">28</td>
+  <td class="num">2.321</td>
+  <td class="num cell-amber">201 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE ICARAI 02 CM</td>
+  <td class="num strong">R$ 21.564</td>
+  <td class="num">R$ 29.274</td>
+  <td class="num cell-bad">73,7%</td>
+  <td class="num cell-bad">R$ -7.710</td>
+  <td class="num">R$ 14.280</td>
+  <td class="num cell-good">51,0%</td>
+  <td class="num">24</td>
+  <td class="num">R$ 899</td>
+  <td class="num">1,50</td>
+  <td class="num">36</td>
+  <td class="num">2.703</td>
+  <td class="num cell-good">145 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE OSCAR FREIRE CM</td>
+  <td class="num strong">R$ 20.862</td>
+  <td class="num">R$ 56.076</td>
+  <td class="num cell-bad">37,2%</td>
+  <td class="num cell-bad">R$ -35.213</td>
+  <td class="num">R$ 14.160</td>
+  <td class="num cell-good">47,3%</td>
+  <td class="num">18</td>
+  <td class="num">R$ 1.159</td>
+  <td class="num">1,33</td>
+  <td class="num">24</td>
+  <td class="num">3.215</td>
+  <td class="num cell-good">112 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE ESTACAO CUIABA CM</td>
+  <td class="num strong">R$ 17.823</td>
+  <td class="num">R$ 29.674</td>
+  <td class="num cell-bad">60,1%</td>
+  <td class="num cell-bad">R$ -11.852</td>
+  <td class="num">R$ 24.456</td>
+  <td class="num cell-bad">-27,1%</td>
+  <td class="num">19</td>
+  <td class="num">R$ 938</td>
+  <td class="num">1,63</td>
+  <td class="num">31</td>
+  <td class="num">2.135</td>
+  <td class="num cell-amber">161 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE CAMPINAS CM</td>
+  <td class="num strong">R$ 17.470</td>
+  <td class="num">R$ 49.200</td>
+  <td class="num cell-bad">35,5%</td>
+  <td class="num cell-bad">R$ -31.730</td>
+  <td class="num">R$ 33.226</td>
+  <td class="num cell-bad">-47,4%</td>
+  <td class="num">19</td>
+  <td class="num">R$ 919</td>
+  <td class="num">1,53</td>
+  <td class="num">29</td>
+  <td class="num">3.251</td>
+  <td class="num cell-amber">156 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE FLAMBOYANT CM</td>
+  <td class="num strong">R$ 17.229</td>
+  <td class="num">R$ 44.439</td>
+  <td class="num cell-bad">38,8%</td>
+  <td class="num cell-bad">R$ -27.211</td>
+  <td class="num">R$ 34.145</td>
+  <td class="num cell-bad">-49,5%</td>
+  <td class="num">13</td>
+  <td class="num">R$ 1.325</td>
+  <td class="num">1,54</td>
+  <td class="num">20</td>
+  <td class="num">2.331</td>
+  <td class="num cell-amber">151 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE VILA VELHA CM</td>
+  <td class="num strong">R$ 16.319</td>
+  <td class="num">R$ 30.651</td>
+  <td class="num cell-bad">53,2%</td>
+  <td class="num cell-bad">R$ -14.331</td>
+  <td class="num">R$ 33.599</td>
+  <td class="num cell-bad">-51,4%</td>
+  <td class="num">19</td>
+  <td class="num">R$ 859</td>
+  <td class="num">1,47</td>
+  <td class="num">28</td>
+  <td class="num">1.999</td>
+  <td class="num cell-amber">194 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE LOURDES CM</td>
+  <td class="num strong">R$ 16.309</td>
+  <td class="num">R$ 22.575</td>
+  <td class="num cell-bad">72,2%</td>
+  <td class="num cell-bad">R$ -6.266</td>
+  <td class="num">R$ 19.858</td>
+  <td class="num cell-bad">-17,9%</td>
+  <td class="num">14</td>
+  <td class="num">R$ 1.165</td>
+  <td class="num">1,86</td>
+  <td class="num">26</td>
+  <td class="num">3.143</td>
+  <td class="num cell-amber">168 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE VILLA LOBOS CM</td>
+  <td class="num strong">R$ 15.917</td>
+  <td class="num">R$ 34.225</td>
+  <td class="num cell-bad">46,5%</td>
+  <td class="num cell-bad">R$ -18.308</td>
+  <td class="num">R$ 9.739</td>
+  <td class="num cell-good">63,4%</td>
+  <td class="num">14</td>
+  <td class="num">R$ 1.137</td>
+  <td class="num">1,57</td>
+  <td class="num">22</td>
+  <td class="num">2.400</td>
+  <td class="num cell-amber">168 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE ELDORADO CM</td>
+  <td class="num strong">R$ 15.494</td>
+  <td class="num">R$ 19.319</td>
+  <td class="num cell-neutral">80,2%</td>
+  <td class="num cell-neutral">R$ -3.825</td>
+  <td class="num">R$ 8.763</td>
+  <td class="num cell-good">76,8%</td>
+  <td class="num">14</td>
+  <td class="num">R$ 1.107</td>
+  <td class="num">1,86</td>
+  <td class="num">26</td>
+  <td class="num">2.132</td>
+  <td class="num cell-amber">175 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE FLORIANOPOLIS CM</td>
+  <td class="num strong">R$ 15.200</td>
+  <td class="num">R$ 46.636</td>
+  <td class="num cell-bad">32,6%</td>
+  <td class="num cell-bad">R$ -31.436</td>
+  <td class="num">R$ 36.087</td>
+  <td class="num cell-bad">-57,9%</td>
+  <td class="num">13</td>
+  <td class="num">R$ 1.169</td>
+  <td class="num">1,31</td>
+  <td class="num">17</td>
+  <td class="num">2.797</td>
+  <td class="num cell-amber">182 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE PLAZA CM</td>
+  <td class="num strong">R$ 15.104</td>
+  <td class="num">R$ 26.055</td>
+  <td class="num cell-bad">58,0%</td>
+  <td class="num cell-bad">R$ -10.950</td>
+  <td class="num">R$ 28.681</td>
+  <td class="num cell-bad">-47,3%</td>
+  <td class="num">7</td>
+  <td class="num">R$ 2.158</td>
+  <td class="num">2,71</td>
+  <td class="num">19</td>
+  <td class="num">2.290</td>
+  <td class="num cell-amber">208 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE LAGO SUL CM</td>
+  <td class="num strong">R$ 14.950</td>
+  <td class="num">R$ 24.023</td>
+  <td class="num cell-bad">62,2%</td>
+  <td class="num cell-bad">R$ -9.073</td>
+  <td class="num">R$ 22.507</td>
+  <td class="num cell-bad">-33,6%</td>
+  <td class="num">6</td>
+  <td class="num">R$ 2.492</td>
+  <td class="num">3,00</td>
+  <td class="num">18</td>
+  <td class="num">2.204</td>
+  <td class="num cell-amber">230 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE SAO CAETANO CM</td>
+  <td class="num strong">R$ 14.465</td>
+  <td class="num">R$ 21.158</td>
+  <td class="num cell-bad">68,4%</td>
+  <td class="num cell-bad">R$ -6.694</td>
+  <td class="num">R$ 6.456</td>
+  <td class="num cell-good">124,0%</td>
+  <td class="num">15</td>
+  <td class="num">R$ 964</td>
+  <td class="num">1,27</td>
+  <td class="num">19</td>
+  <td class="num">2.845</td>
+  <td class="num cell-amber">264 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE MUELLER CM</td>
+  <td class="num strong">R$ 13.784</td>
+  <td class="num">R$ 23.419</td>
+  <td class="num cell-bad">58,9%</td>
+  <td class="num cell-bad">R$ -9.635</td>
+  <td class="num">R$ 21.667</td>
+  <td class="num cell-bad">-36,4%</td>
+  <td class="num">14</td>
+  <td class="num">R$ 985</td>
+  <td class="num">1,64</td>
+  <td class="num">23</td>
+  <td class="num">2.035</td>
+  <td class="num cell-amber">200 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE BALNEARIO SHOP CM</td>
+  <td class="num strong">R$ 12.865</td>
+  <td class="num">R$ 21.234</td>
+  <td class="num cell-bad">60,6%</td>
+  <td class="num cell-bad">R$ -8.369</td>
+  <td class="num">R$ 8.850</td>
+  <td class="num cell-good">45,4%</td>
+  <td class="num">13</td>
+  <td class="num">R$ 990</td>
+  <td class="num">1,46</td>
+  <td class="num">19</td>
+  <td class="num">1.859</td>
+  <td class="num cell-good">144 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE ARACAJU CM</td>
+  <td class="num strong">R$ 12.610</td>
+  <td class="num">R$ 20.312</td>
+  <td class="num cell-bad">62,1%</td>
+  <td class="num cell-bad">R$ -7.702</td>
+  <td class="num">R$ 19.165</td>
+  <td class="num cell-bad">-34,2%</td>
+  <td class="num">7</td>
+  <td class="num">R$ 1.801</td>
+  <td class="num">2,43</td>
+  <td class="num">17</td>
+  <td class="num">1.684</td>
+  <td class="num cell-amber">201 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE ALPHAVILLE CM</td>
+  <td class="num strong">R$ 10.716</td>
+  <td class="num">R$ 17.691</td>
+  <td class="num cell-bad">60,6%</td>
+  <td class="num cell-bad">R$ -6.976</td>
+  <td class="num">R$ 35.645</td>
+  <td class="num cell-bad">-69,9%</td>
+  <td class="num">8</td>
+  <td class="num">R$ 1.339</td>
+  <td class="num">1,50</td>
+  <td class="num">12</td>
+  <td class="num">1.524</td>
+  <td class="num cell-good">118 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE SHOP TIJUCA CM</td>
+  <td class="num strong">R$ 9.180</td>
+  <td class="num">R$ 24.883</td>
+  <td class="num cell-bad">36,9%</td>
+  <td class="num cell-bad">R$ -15.703</td>
+  <td class="num">R$ 17.164</td>
+  <td class="num cell-bad">-46,5%</td>
+  <td class="num">11</td>
+  <td class="num">R$ 835</td>
+  <td class="num">1,45</td>
+  <td class="num">16</td>
+  <td class="num">2.642</td>
+  <td class="num cell-amber">188 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE FORTALEZA CM</td>
+  <td class="num strong">R$ 8.689</td>
+  <td class="num">R$ 16.568</td>
+  <td class="num cell-bad">52,4%</td>
+  <td class="num cell-bad">R$ -7.879</td>
+  <td class="num">R$ 11.849</td>
+  <td class="num cell-bad">-26,7%</td>
+  <td class="num">15</td>
+  <td class="num">R$ 579</td>
+  <td class="num">1,20</td>
+  <td class="num">18</td>
+  <td class="num">2.196</td>
+  <td class="num cell-amber">172 d</td>
+</tr>
+<tr>
+  <td class="store">BUZIOS CM</td>
+  <td class="num strong">R$ 8.451</td>
+  <td class="num">R$ 15.865</td>
+  <td class="num cell-bad">53,3%</td>
+  <td class="num cell-bad">R$ -7.414</td>
+  <td class="num">R$ 4.093</td>
+  <td class="num cell-good">106,5%</td>
+  <td class="num">14</td>
+  <td class="num">R$ 604</td>
+  <td class="num">1,07</td>
+  <td class="num">15</td>
+  <td class="num">2.068</td>
+  <td class="num cell-good">143 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE SHOP BRASILIA CM</td>
+  <td class="num strong">R$ 6.857</td>
+  <td class="num">R$ 25.829</td>
+  <td class="num cell-bad">26,5%</td>
+  <td class="num cell-bad">R$ -18.972</td>
+  <td class="num">R$ 8.814</td>
+  <td class="num cell-bad">-22,2%</td>
+  <td class="num">11</td>
+  <td class="num">R$ 623</td>
+  <td class="num">0,82</td>
+  <td class="num">9</td>
+  <td class="num">1.933</td>
+  <td class="num cell-amber">189 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE JOAO PESSOA CM</td>
+  <td class="num strong">R$ 5.631</td>
+  <td class="num">R$ 23.394</td>
+  <td class="num cell-bad">24,1%</td>
+  <td class="num cell-bad">R$ -17.763</td>
+  <td class="num">R$ 8.431</td>
+  <td class="num cell-bad">-33,2%</td>
+  <td class="num">14</td>
+  <td class="num">R$ 402</td>
+  <td class="num">1,57</td>
+  <td class="num">22</td>
+  <td class="num">1.911</td>
+  <td class="num cell-good">146 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE SALVADOR CM</td>
+  <td class="num strong">R$ 4.500</td>
+  <td class="num">R$ 40.773</td>
+  <td class="num cell-bad">11,0%</td>
+  <td class="num cell-bad">R$ -36.274</td>
+  <td class="num">R$ 37.913</td>
+  <td class="num cell-bad">-88,1%</td>
+  <td class="num">12</td>
+  <td class="num">R$ 375</td>
+  <td class="num">1,25</td>
+  <td class="num">15</td>
+  <td class="num">2.308</td>
+  <td class="num cell-good">129 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE LONDRINA CM</td>
+  <td class="num strong">R$ 3.592</td>
+  <td class="num">R$ 18.667</td>
+  <td class="num cell-bad">19,2%</td>
+  <td class="num cell-bad">R$ -15.075</td>
+  <td class="num">R$ 18.701</td>
+  <td class="num cell-bad">-80,8%</td>
+  <td class="num">5</td>
+  <td class="num">R$ 718</td>
+  <td class="num">1,00</td>
+  <td class="num">5</td>
+  <td class="num">2.198</td>
+  <td class="num cell-amber">178 d</td>
+</tr>
+<tr>
+  <td class="store">ANIMALE SAVASSI CM ⚠️</td>
+  <td class="num strong">R$ 0</td>
+  <td class="num"><span class="muted">n/d</span></td>
+  <td class="num cell-neutral muted">n/d</td>
+  <td class="num muted">n/d</td>
+  <td class="num">R$ 19.603</td>
+  <td class="num cell-bad">-100,0%</td>
+  <td class="num">0</td>
+  <td class="num">—</td>
+  <td class="num">—</td>
+  <td class="num">0</td>
+  <td class="num">1.003</td>
+  <td class="num cell-amber">10.030 d</td>
+</tr>
+</tbody>
+</table>
+<p class="notes">Linhas com ⚠️ = loja sem meta cadastrada (PREVISAO_VALOR=0); atingimento reportado como <em>n/d</em> conforme §12.4.
+Cobertura 🔶 = estoque atual / (peças vendidas nos últimos 30d ÷ 30) — estimativa simples sem ajuste sazonal.</p>
+
+<div class="section-grid">
+<div>
+<h2>Destaques</h2>
+<ul class="callouts">
+  <li class="good"><strong>Top 1 venda — JK SP</strong> liderou o dia com R$ 122.805 (143,9% da meta) e segue +132,6% vs LY 📈.</li>
+  <li class="good"><strong>Maior atingimento absoluto — Gal Campinas</strong>: 247,9% (R$ 84.270 contra meta R$ 33.987) — 3ª loja em volume do dia.</li>
+  <li class="good"><strong>Crescimento explosivo vs LY</strong>: Manauara <strong>+1.057%</strong>, SJ Rio Preto <strong>+886%</strong>, Iguatemi BSB <strong>+379%</strong> 📈 — sinaliza turnaround comercial ou expansão de coleção bem absorvida.</li>
+</ul>
+</div>
+<div>
+<h2>Alertas</h2>
+<ul class="callouts">
+  <li class="bad"><strong>Quedas severas vs LY</strong> 📈: Salvador <strong>−88%</strong> (R$4,5k vs R$37,9k), Campo Grande <strong>−75%</strong> (R$27k vs R$109k), Praia do Canto <strong>−71%</strong> (R$31k vs R$105k) — investigar mix, ruptura ou shopping issue local.</li>
+  <li class="bad"><strong>Pior atingimento (lojas com meta ≥ R$10k)</strong>: Salvador <strong>11%</strong>, Londrina <strong>19%</strong>, João Pessoa <strong>24%</strong>, Brasília Shop <strong>27%</strong> — gap agregado de R$ -69.112 só nessas 3.</li>
+  <li class="amber"><strong>Lojas sem meta cadastrada</strong> ⚠️: Ipanema (vendeu R$ 97.584, +430% LY 📈) e Savassi (zero venda, 1.003 unidades em estoque parado, −100% LY) — falha de planejamento, corrigir cota antes do próximo dashboard.</li>
+  <li class="amber"><strong>Excluídas por inatividade</strong> (sem venda nos últimos 30d): BH Shopping (190323, 2.525 un. em estoque) e Rio Sul (190059, 27 un.) — confirmar status operacional; estoque parado em BH é sinal vermelho.</li>
+</ul>
+</div>
+</div>
+
+<h2>Recomendações</h2>
+<ul class="callouts">
+  <li><strong>Tarefa de planejamento (urgente):</strong> abrir chamado para corrigir <code>PREVISAO_VALOR</code> de Ipanema, Savassi, BH Shop e Rio Sul em <code>LOJAS_PREVISAO_VENDAS</code>. Sem isso o atingimento da rede fica subestimado em ~5 p.p. (Ipanema sozinha contribuiu R$97,6k, ~5% da venda do dia, fora do denominador da meta).</li>
+  <li><strong>Investigação comercial — quedas estruturais:</strong> Praia do Canto, Campo Grande e Salvador caíram 70-90% vs LY com meta dia compatível. Cruzar com (a) ruptura de coleção verão/outono, (b) hash de promoção LY (24/04/2025 não foi feriado mas pode ter tido ação), (c) sell-through por categoria nessas 3 lojas nos últimos 7d.</li>
+  <li><strong>Validar metodologia LY:</strong> 24/04/2026 é sexta, 24/04/2025 foi quinta — sextas tipicamente vendem 5-15% mais que quintas em moda premium. O +2,9% agregado é provavelmente <em>flat ou levemente negativo</em> em base equivalente. Recomendo rodar comparativo "weekday-equivalent" (DATE_SUB INTERVAL 52 WEEK = 25/04/2025, sexta) para fechar o número antes de comunicar ao comercial.</li>
+</ul>
+
+<h2>SQLs principais</h2>
+<details><summary>Venda do dia (físico, RL_DESTINO=1)</summary><pre>SELECT
+  v.CODIGO_FILIAL_DESTINO, ANY_VALUE(v.FILIAL_DESTINO) AS filial_nome,
+  SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)) AS venda_liquida,
+  SUM(v.QTDE_PROD) AS pecas,
+  COUNT(DISTINCT COALESCE(NULLIF(v.PEDIDO_SITE,''),
+    CONCAT(FORMAT_DATE('%Y%m%d', v.DATA_VENDA), '|',
+           CAST(v.CODIGO_FILIAL_ORIGEM AS STRING), '|', v.TICKET))) AS atendimentos
+FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
+WHERE v.DATA_VENDA = DATE '2026-04-24'
+  AND CAST(v.RL_DESTINO AS STRING) = '1'
+  AND v.TIPO_VENDA = 'VENDA_LOJA'
+  AND CAST(v.CODIGO_FILIAL_DESTINO AS STRING) != '190454'
+GROUP BY 1 ORDER BY venda_liquida DESC</pre></details>
+<details><summary>Cota do dia (Animale)</summary><pre>SELECT pv.FILIAL, f.COD_FILIAL,
+  SUM(SAFE_CAST(pv.PREVISAO_VALOR AS NUMERIC)) AS meta_dia
+FROM `soma-pipeline-prd.silver_linx.LOJAS_PREVISAO_VENDAS` pv
+LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON pv.FILIAL = f.FILIAL
+WHERE pv.DATA_VENDA = DATE '2026-04-24'
+  AND f.REDE_LOJAS = '1'
+  AND CAST(f.COD_FILIAL AS STRING) != '190454'
+GROUP BY 1, 2 ORDER BY meta_dia DESC</pre></details>
+<details><summary>Venda LY 2025-04-24 (mesmo dia calendário, INTERVAL 1 YEAR)</summary><pre>SELECT v.CODIGO_FILIAL_DESTINO, ANY_VALUE(v.FILIAL_DESTINO) AS filial_nome,
+  SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)) AS venda_ly
+FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
+WHERE v.DATA_VENDA = DATE '2025-04-24'
+  AND CAST(v.RL_DESTINO AS STRING) = '1'
+  AND v.TIPO_VENDA = 'VENDA_LOJA'
+  AND CAST(v.CODIGO_FILIAL_DESTINO AS STRING) != '190454'
+GROUP BY 1</pre></details>
+<details><summary>Estoque foto 24/04/2026</summary><pre>SELECT e.FILIAL, f.COD_FILIAL, SUM(e.ESTOQUE) AS estoque_unidades
+FROM `soma-pipeline-prd.silver_linx.ANMN_ESTOQUE_HISTORICO_PROD` e
+LEFT JOIN `soma-pipeline-prd.silver_linx.FILIAIS` f ON e.FILIAL = f.FILIAL
+WHERE e.DATA = DATE '2026-04-24'
+  AND f.REDE_LOJAS = '1'
+  AND CAST(f.COD_FILIAL AS STRING) != '190454'
+GROUP BY 1, 2</pre></details>
+<details><summary>Velocidade 30d (peças, p/ cobertura)</summary><pre>SELECT v.CODIGO_FILIAL_DESTINO, SUM(v.QTDE_PROD) AS pecas_30d
+FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
+WHERE v.DATA_VENDA BETWEEN DATE '2026-03-26' AND DATE '2026-04-24'
+  AND CAST(v.RL_DESTINO AS STRING) = '1'
+  AND v.TIPO_VENDA = 'VENDA_LOJA'
+  AND CAST(v.CODIGO_FILIAL_DESTINO AS STRING) != '190454'
+GROUP BY 1</pre></details>
+
+<footer>
+Gerado em 25/04/2026 · Fonte: <code>soma-pipeline-prd.silver_linx.*</code> via MCP Azzas_MCP (vendas_linx) ·
+Conforme business-rules §1.1 (devoluções incluídas), §3 (chave_pedido), §6.1 (LY = INTERVAL 1 YEAR),
+§8.2 (Animale = RL_DESTINO=1, excluir 190454), §12.4 (meta=0 → atingimento n/d), §13.1 (loja ativa).
+</footer>
+
+</div>
+</body>
+</html>

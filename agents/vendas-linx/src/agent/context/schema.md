@@ -281,6 +281,25 @@ Colunas-chave:
 | `EMPRESA` | INTEGER | Empresa contábil |
 | `REGIME_TRIBUTACAO` / `TIPO_TRIBUTACAO` | INT/STR | Fiscal |
 
+**Valores de `TIPO_FILIAL`:**
+
+| Valor | Descrição |
+|---|---|
+| `LOJA VAREJO` | Loja física de varejo (principal para análise de venda/cobertura) |
+| `FRANQUIA` | Loja franqueada (pode ter tratamento separado em algumas análises) |
+| `MATRIZ` | Sede administrativa — nunca inclui em análise de loja |
+| `CDS` | Centro de Distribuição — exclui de análise de loja, inclui só em estoque geral |
+| `ATACADO` | Canal atacado — excluir de análises de varejo por padrão |
+| `ECOMMERCE` | Filial virtual do ecommerce — inclui em análise digital, não em análise de loja física |
+
+**Filtro canônico — lojas de varejo ativas:**
+```sql
+WHERE TIPO_FILIAL IN ('LOJA VAREJO', 'FRANQUIA')
+  AND DATA_FECHAMENTO IS NULL
+```
+
+> ⚠️ Sempre aplicar `DATA_FECHAMENTO IS NULL` para excluir lojas encerradas. Sem esse filtro, FILIAIS tem 2.157 linhas incluindo histórico de lojas fechadas.
+
 **🔴 PII — NÃO selecionar:**
 - `CGC_CPF`, `CPF_CONTA_STONE` — documentos
 - `NOME_RESPONSAVEL` — nome pessoal
@@ -352,11 +371,16 @@ SAFE_DIVIDE(SAFE_CAST(VENDA AS NUMERIC), SAFE_CAST(PREVISAO_VALOR AS NUMERIC)) A
 | `PRODUTO` | STRING | FK |
 | `COR_PRODUTO` | STRING | FK |
 | `FILIAL` | STRING | FK |
-| `ESTOQUE` | INTEGER | Estoque total |
-| `ESTOQUE_DISPONIVEL` | INTEGER | Disponível p/ venda |
+| `ESTOQUE` | INTEGER | Estoque total (inclui reservados) |
+| `ESTOQUE_DISPONIVEL` | INTEGER | Disponível p/ venda (= ESTOQUE menos reservas ativas) |
 | `ESTOQUE_EM_TRANSITO` | INTEGER | Em trânsito |
 | `ESTOQUE_VENDA_EXTERNA` | INTEGER | Reservado p/ venda externa |
 | `PRECO_VAREJO` | STRING | Preço referência (cast) |
+
+**`ESTOQUE` vs `ESTOQUE_DISPONIVEL`:**
+- `ESTOQUE` = total físico na loja incluindo peças com reserva ativa (em processo de checkout, separação, etc.).
+- `ESTOQUE_DISPONIVEL` = `ESTOQUE` menos reservas — o que pode ser vendido agora. **Use este para cobertura/giro.**
+- `ESTOQUE - ESTOQUE_DISPONIVEL` > 0 é normal e esperado (reservas de pedidos em andamento). Valores muito altos (ex: >30% do estoque reservado por >7 dias) podem indicar reservas presas — mas isso requer análise específica, não filtrar silenciosamente.
 
 ### 6.2 `ANMN_ESTOQUE_HISTORICO_PROD_GRADE` (prod-cor-tam-loja)
 

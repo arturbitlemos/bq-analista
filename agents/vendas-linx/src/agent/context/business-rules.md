@@ -76,6 +76,25 @@ END AS canal
 - **Métrica default: receita** (`SUM(VALOR_PAGO_PROD)`). Análises por volume de pedidos só se explicitamente solicitado.
 - O usuário pode pedir breakdowns alternativos (ex: ver omni separado) — nesses casos, use `TIPO_VENDA` cru ao invés do agrupamento canal.
 
+### 2.1 Escopo de canal default por tipo de análise
+
+| Tipo de análise | Filtro de canal padrão |
+|---|---|
+| "venda da marca X" / total da marca | Todos os canais (sem filtro em `TIPO_VENDA`) |
+| "venda por loja" / ranking de lojas | Somente `TIPO_VENDA = 'VENDA_LOJA'` |
+| "cobertura" / "giro" | Mesmo canal do estoque usado (ver §2.2) |
+| "venda online" / "ecommerce" | `TIPO_VENDA IN ('VENDA_ECOM','VENDA_OMNI','VENDA_VITRINE')` |
+
+Quando o pedido é ambíguo ("venda da Farm em abril"), usar todos os canais e informar o breakdown no resultado.
+
+### 2.2 Cobertura e giro — escopo de canal deve ser consistente
+
+O estoque em `ANMN_ESTOQUE_HISTORICO_PROD` é **físico** (apenas estoque de lojas e CDs).
+
+- Se o denominador de cobertura usa estoque físico → o numerador (venda projetada) **deve usar apenas `TIPO_VENDA = 'VENDA_LOJA'`**.
+- Misturar estoque físico com venda total (física + digital) superestima cobertura e subestima giro.
+- Só usar venda total no numerador se houver uma view de estoque consolidado (físico + virtual) explicitamente indicada.
+
 ---
 
 ## 3. Chave de pedido (atendimento) — validada empiricamente 2026-04-19
@@ -394,6 +413,42 @@ Para atingimento total (físico + digital combinados por marca):
 - Cota: somar todas as filiais da marca em `LOJAS_PREVISAO_VENDAS` (não filtrar por ecom)
 - Venda: somar todos os `TIPO_VENDA` com `RL_DESTINO = <código da marca>`
 - Agregar por `REDE_LOJAS` / marca
+
+---
+
+## 13. Lojas ativas — definição canônica
+
+**Loja ativa** = filial com `TIPO_FILIAL IN ('LOJA VAREJO', 'FRANQUIA')` e `DATA_FECHAMENTO IS NULL`.
+
+```sql
+-- Filtro canônico para análise de lojas ativas
+FROM `soma-pipeline-prd.silver_linx.FILIAIS`
+WHERE TIPO_FILIAL IN ('LOJA VAREJO', 'FRANQUIA')
+  AND DATA_FECHAMENTO IS NULL
+```
+
+**Escopo por marca:** combinar com `REDE_LOJAS = '<código>'` ou join com `LOJAS_REDE` para filtrar por marca.
+
+Usar este filtro como base ao calcular: ranking de lojas, share de loja, cobertura por loja, e qualquer análise que declare "todas as lojas da marca X".
+
+---
+
+## 14. Padrão de encerramento de análise
+
+Ao terminar qualquer análise ou resposta analítica, incluir **um próximo passo concreto**:
+
+- Se o resultado mostra anomalia ou oportunidade: sugerir drill-down ou confirmação.
+- Se a análise cobriu um período: sugerir comparação vs LY ou vs meta se ainda não feito.
+- Se há dado indisponível ou estimativa: indicar qual tabela/query resolveria a dúvida.
+
+Formato: uma linha ao final, precedida por `---`, e.g.:
+
+```
+---
+**Próximo passo sugerido:** comparar com mesmo período LY via `DATE_SUB(DATA_VENDA, INTERVAL 1 YEAR)` para quantificar o delta de crescimento.
+```
+
+Não inventar próximos passos genéricos. Deve ser específico ao resultado da análise.
 
 ---
 

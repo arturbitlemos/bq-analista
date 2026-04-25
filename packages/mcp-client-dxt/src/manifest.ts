@@ -1,8 +1,13 @@
+export interface ToolDef {
+  name: string;
+  inputSchema: Record<string, unknown>;
+}
+
 export interface Agent {
   name: string;
   label: string;
   url: string;
-  tools: string[];
+  tools: ToolDef[];
 }
 
 export interface Manifest {

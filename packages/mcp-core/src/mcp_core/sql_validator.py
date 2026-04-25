@@ -55,8 +55,10 @@ def _validate_ast(sql: str) -> None:
 
     root = real[0]
 
-    # Root must be a SELECT (WITH+SELECT also parses as Select in sqlglot)
-    if not isinstance(root, exp.Select):
+    # Root must be a read-only query form: Select, Union, Intersect, Except
+    # (all inherit from exp.Query). Write nodes — Insert/Update/Delete/Merge/
+    # Create/Drop/Alter — do not inherit from Query, so this rejects them.
+    if not isinstance(root, exp.Query):
         raise SqlValidationError(
             f"statement type not allowed: {type(root).__name__.upper()}"
         )

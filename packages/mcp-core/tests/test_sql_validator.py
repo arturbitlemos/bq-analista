@@ -43,6 +43,15 @@ def test_accepts_complex_analytics() -> None:
     )
 
 
+def test_accepts_set_operations() -> None:
+    """UNION / INTERSECT / EXCEPT are read-only and must be allowed."""
+    validate_readonly_sql("SELECT 1 UNION ALL SELECT 2")
+    validate_readonly_sql("SELECT col FROM `p.d.t1` UNION DISTINCT SELECT col FROM `p.d.t2`")
+    validate_readonly_sql("SELECT col FROM `p.d.t1` INTERSECT DISTINCT SELECT col FROM `p.d.t2`")
+    validate_readonly_sql("SELECT col FROM `p.d.t1` EXCEPT DISTINCT SELECT col FROM `p.d.t2`")
+    validate_readonly_sql("WITH a AS (SELECT 1) SELECT * FROM a UNION ALL SELECT 2")
+
+
 # ── Rejected: bare DML / DDL (token-level) ───────────────────────────────────
 
 def test_rejects_ddl() -> None:
@@ -117,4 +126,19 @@ def test_rejects_external_query_in_cte() -> None:
     with pytest.raises(SqlValidationError, match="function not allowed: EXTERNAL_QUERY"):
         validate_readonly_sql(
             "WITH x AS (SELECT * FROM EXTERNAL_QUERY('c', 'SELECT 1')) SELECT * FROM x"
+        )
+
+
+def test_rejects_dml_inside_union_branch() -> None:
+    """UNION roots must still have their branches walked for embedded writes."""
+    with pytest.raises(SqlValidationError, match="write operation"):
+        validate_readonly_sql(
+            "WITH x AS (INSERT INTO `p.d.t` SELECT 1) SELECT * FROM x UNION ALL SELECT 2"
+        )
+
+
+def test_rejects_external_query_inside_union_branch() -> None:
+    with pytest.raises(SqlValidationError, match="function not allowed: EXTERNAL_QUERY"):
+        validate_readonly_sql(
+            "SELECT 1 UNION ALL SELECT * FROM EXTERNAL_QUERY('c', 'q')"
         )

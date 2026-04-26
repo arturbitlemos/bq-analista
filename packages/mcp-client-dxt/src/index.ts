@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -9,6 +11,7 @@ import { resolveRoute, listPrefixedTools } from './router.js';
 import { forwardToolCall, ForwardError } from './forward.js';
 import { isStale } from './version.js';
 import { MSG } from './errors.js';
+import { mcpDir } from './paths.js';
 import { selfRegisterClaudeCode } from './claude-code-register.js';
 
 const PORTAL_URL = process.env.AZZAS_MCP_PORTAL_URL || 'https://bq-analista.vercel.app';
@@ -26,14 +29,29 @@ async function openBrowser(url: string): Promise<void> {
   } else {
     cmd = 'xdg-open'; args = [url];
   }
-  await new Promise<void>((resolve) => {
+  await new Promise<void>((resolve, reject) => {
     const child = spawn(cmd, args, { detached: true, stdio: 'ignore' });
     child.unref();
-    child.on('error', (err) => console.error('[azzas-mcp] openBrowser error:', err));
-    resolve();
+    let settled = false;
+    const settle = (err?: Error) => { if (settled) return; settled = true; err ? reject(err) : resolve(); };
+    child.on('spawn', () => settle());
+    child.on('error', (err) => settle(err));
+    setTimeout(() => settle(), 500); // fallback: assume success if no events in 500ms
   });
 }
-const DXT_VERSION = '1.0.9'; // sync com package.json e manifest.json
+const DXT_VERSION = '1.0.10'; // sync com package.json e manifest.json
+
+async function buildAuthResponse(baseMsg: string): Promise<{ content: { type: 'text'; text: string }[]; isError: true }> {
+  await new Promise(r => setTimeout(r, 700));
+  let text = baseMsg;
+  try {
+    const urlFile = path.join(mcpDir(), 'pending-login-url.txt');
+    const savedUrl = fs.readFileSync(urlFile, 'utf8').trim();
+    fs.unlinkSync(urlFile);
+    if (savedUrl) text += `\n\nO browser não abriu automaticamente. Copie e cole no seu browser:\n${savedUrl}`;
+  } catch { /* no file — browser presumably opened */ }
+  return { content: [{ type: 'text', text }], isError: true };
+}
 
 let cachedManifest: Manifest | null = null;
 
@@ -122,9 +140,12 @@ async function runAuthFlow(expectedNonce: string): Promise<void> {
     const loginUrl = startUrl.toString();
     try {
       await openBrowser(loginUrl);
-    } catch (err) {
-      console.error('[azzas-mcp] não consegui abrir o browser automaticamente:', err);
-      console.error('[azzas-mcp] abra manualmente:', loginUrl);
+    } catch {
+      try {
+        const dir = mcpDir();
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'pending-login-url.txt'), loginUrl, 'utf8');
+      } catch { /* ignore */ }
     }
 
     const params = await new Promise<Record<string, string>>((resolve, reject) => {
@@ -226,7 +247,7 @@ async function main() {
 
     const initial = await ensureAuth();
     if (initial === 'auth_needed') {
-      return { content: [{ type: 'text', text: MSG.authNeeded }], isError: true };
+      return buildAuthResponse(MSG.authNeeded);
     }
     // Mutable holder so a reactive refresh updates the token used by getAccessToken
     // without rebuilding the forward session.
@@ -265,7 +286,7 @@ async function main() {
         if (err.kind === 'auth_invalid') {
           clearCredentials();
           await authInteractive();
-          return { content: [{ type: 'text', text: MSG.authSessionInvalid }], isError: true };
+          return buildAuthResponse(MSG.authSessionInvalid);
         }
         if (err.kind === 'forbidden') {
           return { content: [{ type: 'text', text: MSG.agentForbidden(route.agent.name) }], isError: true };

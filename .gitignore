@@ -1,6 +1,7 @@
 .DS_Store
 .env
 .superpowers/
+.agents/
 node_modules/
 .worktrees/
 .vercel

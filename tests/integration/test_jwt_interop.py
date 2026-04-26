@@ -24,6 +24,11 @@ def _ts_mint() -> dict:
 
 
 def test_ts_mints_python_verifies():
+    """Portal/DXT mint access tokens that the mcp-core agents validate as Bearer
+    on every tool call. Refresh interop is intentionally not tested — DXT renews
+    via the portal's own /api/mcp/auth/refresh, never against mcp-core directly,
+    so externally-minted refresh tokens lack mcp-core's rotation claims (fid/jti)
+    by design."""
     pair = _ts_mint()
     issuer = TokenIssuer(secret=SECRET, issuer=ISSUER, access_ttl_s=1800, refresh_ttl_s=604800)
     access_claims = issuer.verify_access(pair["access"])
@@ -31,9 +36,6 @@ def test_ts_mints_python_verifies():
     assert access_claims["sub"] == EMAIL
     assert access_claims["iss"] == ISSUER
     assert access_claims["kind"] == "access"
-    new_access = issuer.refresh(pair["refresh"])
-    refreshed = issuer.verify_access(new_access)
-    assert refreshed["email"] == EMAIL
 
 
 def test_python_mints_ts_verifies(tmp_path):
@@ -87,9 +89,7 @@ console.log(JSON.stringify(pair));
     assert access_claims["email"] == EMAIL
     assert access_claims["kind"] == "access"
     assert access_claims["iss"] == ISSUER
-    # prova que refresh emitido pelo JS também valida no Python
-    new_access = issuer.refresh(pair["refresh"])
-    assert issuer.verify_access(new_access)["email"] == EMAIL
+    # Refresh interop intentionally not tested — see test_ts_mints_python_verifies.
 
 
 def test_python_mints_js_portal_verifies(tmp_path):

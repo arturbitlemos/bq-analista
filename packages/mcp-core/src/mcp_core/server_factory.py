@@ -425,6 +425,19 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
         )
         auth_app.mount("/", mcp.streamable_http_app())
         port = int(os.environ.get("PORT", settings.server.port))
-        uvicorn.run(auth_app, host=settings.server.host, port=port)
+        # In-memory state (refresh-token families in TokenIssuer, OAuth states
+        # in auth_routes._pending_states / _pending_exchanges) is per-process.
+        # Multi-worker deployments would let an attacker bypass refresh-token
+        # reuse detection by hitting a worker that hasn't seen the consumed jti.
+        # Fail loud if an operator tries to scale horizontally.
+        workers = int(os.environ.get("WEB_CONCURRENCY", "1"))
+        if workers > 1:
+            raise RuntimeError(
+                f"WEB_CONCURRENCY={workers} but mcp-core requires a single worker. "
+                "Refresh-token rotation, OAuth state, and exchange codes are kept "
+                "in-process; multi-worker would silently break their reuse detection. "
+                "Move to a shared store (Redis) before scaling."
+            )
+        uvicorn.run(auth_app, host=settings.server.host, port=port, workers=1)
 
     return mcp, main

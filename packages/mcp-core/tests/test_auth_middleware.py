@@ -137,6 +137,7 @@ def test_azure_rs256_signature_validated():
         {
             "iss": f"https://login.microsoftonline.com/{TENANT_ID}/v2.0",
             "aud": CLIENT_ID,
+            "tid": TENANT_ID,
             "preferred_username": "rsuser@soma.com.br",
             "exp": now + 3600,
             "iat": now,
@@ -155,3 +156,75 @@ def test_azure_rs256_signature_validated():
 
     payload = _validate_azure_signature(token, ctx)
     assert payload["preferred_username"] == "rsuser@soma.com.br"
+
+
+def test_azure_token_from_foreign_tenant_rejected():
+    """Token signed by Microsoft for a different tenant must not be accepted
+    (would have passed the substring routing check, fails issuer/tid pinning)."""
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.backends import default_backend
+    from mcp_core.auth_middleware import _validate_azure_signature
+
+    private_key = rsa.generate_private_key(
+        public_exponent=65537, key_size=2048, backend=default_backend()
+    )
+    now = int(time.time())
+    foreign_tid = "attacker-tenant"
+    token = pyjwt.encode(
+        {
+            "iss": f"https://login.microsoftonline.com/{foreign_tid}/v2.0",
+            "aud": CLIENT_ID,
+            "tid": foreign_tid,
+            "preferred_username": "ceo@azzas.com.br",
+            "exp": now + 3600,
+            "iat": now,
+        },
+        private_key,
+        algorithm="RS256",
+    )
+    mock_signing_key = MagicMock()
+    mock_signing_key.key = private_key.public_key()
+    mock_client = MagicMock()
+    mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
+
+    ctx = _make_ctx(["ceo@azzas.com.br"])
+    ctx._jwks_client = mock_client
+
+    # pyjwt's issuer= check fires first — foreign issuer rejected before tid is read
+    with pytest.raises(pyjwt.InvalidIssuerError):
+        _validate_azure_signature(token, ctx)
+
+
+def test_azure_token_with_mismatched_tid_rejected():
+    """Token whose iss matches expected tenant but tid claim is foreign must be rejected.
+    Defends against a hypothetical Azure misconfig where iss and tid disagree."""
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.backends import default_backend
+    from mcp_core.auth_middleware import _validate_azure_signature
+
+    private_key = rsa.generate_private_key(
+        public_exponent=65537, key_size=2048, backend=default_backend()
+    )
+    now = int(time.time())
+    token = pyjwt.encode(
+        {
+            "iss": f"https://login.microsoftonline.com/{TENANT_ID}/v2.0",
+            "aud": CLIENT_ID,
+            "tid": "attacker-tenant",  # disagrees with iss
+            "preferred_username": "ceo@azzas.com.br",
+            "exp": now + 3600,
+            "iat": now,
+        },
+        private_key,
+        algorithm="RS256",
+    )
+    mock_signing_key = MagicMock()
+    mock_signing_key.key = private_key.public_key()
+    mock_client = MagicMock()
+    mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
+
+    ctx = _make_ctx(["ceo@azzas.com.br"])
+    ctx._jwks_client = mock_client
+
+    with pytest.raises(AuthError, match="tid mismatch"):
+        _validate_azure_signature(token, ctx)

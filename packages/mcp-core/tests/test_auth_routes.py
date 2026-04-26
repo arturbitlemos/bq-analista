@@ -9,18 +9,41 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mcp_core.allowlist import Allowlist
-from mcp_core.auth_routes import _pending_states, build_auth_app
+from mcp_core.auth_routes import _pending_exchanges, _pending_states, build_auth_app
 from mcp_core.azure_auth import AzureTokenInfo
 from mcp_core.jwt_tokens import TokenIssuer
 
 
 @pytest.fixture(autouse=True)
 def _isolate_pending_states():
-    """The CSRF state store is module-level; clear before AND after each test
+    """Module-level state stores are cleared before AND after each test
     so leftover entries from one test never leak into another."""
     _pending_states.clear()
+    _pending_exchanges.clear()
     yield
     _pending_states.clear()
+    _pending_exchanges.clear()
+
+
+def _exchange_code_from_callback(client: TestClient, code: str, state: str) -> str:
+    """Drive /auth/callback and pull the exchange code out of the HTML page."""
+    import re
+
+    r = client.get(f"/auth/callback?code={code}&state={state}")
+    assert r.status_code == 200, r.text
+    assert "text/html" in r.headers["content-type"]
+    m = re.search(r"code=([A-Za-z0-9_-]+)", r.text)
+    assert m, f"exchange code not found in HTML: {r.text}"
+    return m.group(1)
+
+
+def _login(client: TestClient) -> dict:
+    """Full login flow: start → callback → token. Returns token JSON."""
+    state = _start_and_get_state(client)
+    exchange = _exchange_code_from_callback(client, "abc", state)
+    r = client.post("/auth/token", json={"code": exchange})
+    assert r.status_code == 200, r.text
+    return r.json()
 
 
 def _app(allowlist_emails: list[str]) -> TestClient:
@@ -69,13 +92,61 @@ def test_start_includes_state_in_redirect() -> None:
     assert len(qs["state"][0]) > 0
 
 
-def test_callback_returns_tokens_for_allowed_exec() -> None:
+def test_callback_returns_html_without_tokens() -> None:
+    """Tokens must not appear in the HTML response body — they live behind the
+    single-use exchange code that the OAuth client redeems via /auth/token."""
     c = _app(["exec@azzas.com.br"])
     state = _start_and_get_state(c)
     r = c.get(f"/auth/callback?code=abc&state={state}")
     assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    body = r.text
+    # No JWT-shaped substring in the HTML (would indicate a leak)
+    assert "access_token" not in body
+    assert "refresh_token" not in body
+    assert "eyJ" not in body  # JWT prefix
+
+
+def test_token_endpoint_redeems_exchange_code() -> None:
+    c = _app(["exec@azzas.com.br"])
+    tok = _login(c)
+    assert tok["access_token"]
+    assert tok["refresh_token"]
+    assert tok["email"] == "exec@azzas.com.br"
+    assert tok["token_type"] == "Bearer"
+
+
+def test_token_endpoint_accepts_form_encoded() -> None:
+    """OAuth 2.0 standard token endpoint uses application/x-www-form-urlencoded."""
+    c = _app(["exec@azzas.com.br"])
+    state = _start_and_get_state(c)
+    code = _exchange_code_from_callback(c, "abc", state)
+    r = c.post("/auth/token", data={"code": code})
+    assert r.status_code == 200
     assert r.json()["access_token"]
-    assert r.json()["refresh_token"]
+
+
+def test_exchange_code_is_single_use() -> None:
+    c = _app(["exec@azzas.com.br"])
+    state = _start_and_get_state(c)
+    code = _exchange_code_from_callback(c, "abc", state)
+    r1 = c.post("/auth/token", json={"code": code})
+    assert r1.status_code == 200
+    # Replaying the exchange code must fail
+    r2 = c.post("/auth/token", json={"code": code})
+    assert r2.status_code == 400
+
+
+def test_token_endpoint_rejects_unknown_code() -> None:
+    c = _app(["exec@azzas.com.br"])
+    r = c.post("/auth/token", json={"code": "not-a-real-code"})
+    assert r.status_code == 400
+
+
+def test_token_endpoint_missing_code_returns_422() -> None:
+    c = _app(["exec@azzas.com.br"])
+    r = c.post("/auth/token", json={"other": "field"})
+    assert r.status_code == 422
 
 
 def test_callback_rejects_unauthorized_exec() -> None:
@@ -85,14 +156,27 @@ def test_callback_rejects_unauthorized_exec() -> None:
     assert r.status_code == 403
 
 
-def test_refresh_returns_new_access() -> None:
+def test_refresh_returns_new_access_and_rotates() -> None:
     c = _app(["exec@azzas.com.br"])
-    state = _start_and_get_state(c)
-    r = c.get(f"/auth/callback?code=abc&state={state}")
-    refresh = r.json()["refresh_token"]
-    r2 = c.post("/auth/refresh", json={"refresh_token": refresh})
+    tok = _login(c)
+    r2 = c.post("/auth/refresh", json={"refresh_token": tok["refresh_token"]})
     assert r2.status_code == 200
     assert r2.json()["access_token"]
+    # Refresh token rotates: old token must no longer work
+    assert r2.json()["refresh_token"] != tok["refresh_token"]
+    r3 = c.post("/auth/refresh", json={"refresh_token": tok["refresh_token"]})
+    assert r3.status_code == 401  # reuse → family revoked
+
+
+def test_oauth_metadata_token_endpoint_points_to_token_route() -> None:
+    """Regression guard: the discovered token_endpoint must NOT be /auth/callback
+    (which is the browser-facing redirect handler, not a token endpoint)."""
+    c = _app(["exec@azzas.com.br"])
+    r = c.get("/.well-known/oauth-authorization-server")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["token_endpoint"].endswith("/auth/token")
+    assert not body["token_endpoint"].endswith("/auth/callback")
 
 
 def test_refresh_missing_token_returns_422() -> None:

@@ -35,8 +35,13 @@ def test_agent_has_base_tools():
 
 
 def test_agent_has_no_extra_tools_by_default():
-    """devolucoes has no domain-specific tools beyond the 4 base ones."""
+    """devolucoes registers exactly the mcp-core base tool set — no
+    domain-specific extras. Compares dynamically so adding a base tool in
+    mcp-core won't break this assertion."""
+    from mcp_core.server_factory import build_mcp_app
     with patch.dict(os.environ, ENV):
         m = _reload_server()
+        baseline_app, _ = build_mcp_app(agent_name="baseline")
     registered = set(m.app._tool_manager._tools.keys())
-    assert registered == {"get_context", "consultar_bq", "publicar_dashboard", "listar_analises"}
+    base = set(baseline_app._tool_manager._tools.keys())
+    assert registered == base

@@ -91,6 +91,28 @@ vercel dev                # http://localhost:3000
 
 O login MSAL precisa que `http://localhost:3000/` esteja registrado como redirect URI no App Registration do Azure (plataforma **Single-page application**).
 
+### Rodando os testes
+
+Cada workspace do monorepo tem sua própria suite — rodar `pytest` da raiz sem path cruza configs e quebra collection. Rode por workspace:
+
+```bash
+# Python — mcp-core
+uv run --directory packages/mcp-core pytest -q
+
+# Python — agents (integration tests pulam por padrão; use -m integration p/ rodar contra servidor local)
+uv run --directory agents/vendas-linx pytest -q
+uv run --directory agents/devolucoes pytest -q
+
+# Cross-language interop (mint TS/JS, valida Python)
+uv run pytest tests/integration/ -q
+
+# Portal JS
+cd portal && node --test api/mcp/__tests__/*.test.js
+
+# DXT TS
+cd packages/mcp-client-dxt && npm test
+```
+
 ---
 
 ## Arquitetura

@@ -91,6 +91,10 @@ Antes de executar qualquer query, classifique o pedido:
 5. **Execute** and interpret results in business context
 6. **Se relatório analítico**: Build HTML dashboard (mobile-first, dark green theme — see existing dashboards for reference) e renderize inline (Artifact / `present_files`). **Inline é o padrão — só rodar `publicar_dashboard` quando o usuário pedir explicitamente (ex.: "publica", "salva na biblioteca", "compartilha no portal").**
    - **Grão produto × cor → foto é OBRIGATÓRIA e deve ser a PRIMEIRA coluna da tabela.** Usar `https://images.somalabs.com.br/brands/{RL_DESTINO}/products/reference_id/{PRODUTO}_{COR_PRODUTO}/image` com `loading="lazy"` e `onerror="this.style.display='none'"`. Detalhes completos em `.claude/skills/product-photos/SKILL.md`. **Omitir a foto é erro de entrega — não fechar o HTML sem ela.**
+   - **Canal obrigatório no cabeçalho:** todo relatório deve exibir explicitamente o escopo de canal aplicado — ex.: "Todos os canais (Físico + Digital + Omni)", "Somente Físico", "Somente Digital (Ecom + Omni + Vitrine)". Nunca omitir.
+   - **Coluna de pedidos em relatório de produto:** quando o relatório incluir contagem de pedidos por produto, rotular como **"Pedidos"** (não "Atendimentos"). "Pedidos" = `COUNT(DISTINCT chave_pedido)` dos pedidos que continham aquele produto — é diferente de atendimentos totais da loja.
+   - **Share de produto:** calcular sempre como `venda_produto / total_marca * 100` — nunca relativo ao produto #1. Usar CTE ou subquery para obter o total da marca no período antes de calcular o share.
+   - **Cabeçalho de relatório de produto — não exibir card de Pedidos/Atendimentos por padrão.** O COUNT DISTINCT global requer query separada e ainda inclui devoluções, tornando o número ambíguo. Cabeçalho padrão: Venda Líquida · Peças Totais · Ticket Médio. Se o usuário solicitar explicitamente o total de pedidos, rodar query separada com `COUNT(DISTINCT chave_pedido)` sobre todos os produtos do relatório em conjunto — nunca somar as colunas das linhas.
 7. **After corrections** → update `schema.md` with what you learned
 
 ## Output Format
@@ -121,7 +125,10 @@ Quando o fluxo exigir um relatório analítico (ver Passo 0), **renderize o HTML
 
 ### Como entregar (ordem de preferência)
 
-1. **Artifact HTML** (preferido quando disponível): crie um artifact do tipo `text/html` com o relatório completo. O usuário vê o dashboard renderizado na hora, sem copy/paste.
+> ⚠️ **Relatórios com fotos de produto:** o artifact inline do Claude roda num sandbox com CSP restritivo que bloqueia `images.somalabs.com.br`. As fotos **não aparecem no artifact** — só aparecem ao abrir o HTML no navegador. Quando o relatório tiver fotos (grão produto × cor), **sempre oriente o usuário a abrir o HTML no navegador** e entregue como artifact avisando isso.
+
+1. **Artifact HTML** (preferido quando disponível): crie um artifact do tipo `text/html` com o relatório completo. Se o relatório contiver fotos de produto, adicione este aviso no chat logo após criar o artifact:
+   > "📂 As fotos aparecem ao abrir o HTML no navegador — no preview aqui do Claude elas não carregam por restrição de rede. Salve o artifact como `.html` e abra localmente."
 2. **File system tools** (quando o ambiente tem `create_file` + `present_files`, ex. claude.ai com analysis tools): rode `create_file` salvando em `/mnt/user-data/outputs/<nome>.html` e em seguida `present_files` com esse path. O relatório é exibido inline.
 3. **Fallback — só se nenhuma das duas acima estiver disponível**: avise o usuário que o ambiente atual não suporta renderização inline e pergunte se ele quer o HTML como bloco de código ou se prefere que você abra como artifact em outra sessão.
 

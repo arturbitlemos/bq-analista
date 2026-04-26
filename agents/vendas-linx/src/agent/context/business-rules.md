@@ -163,10 +163,12 @@ Quando o usuário pedir contagem de transações **sem especificar canal**:
 
 ```sql
 SELECT
-  SUM(v.VALOR_PAGO_PROD)              AS venda_liquida,
-  SUM(v.QTDE_PROD * p.PRECO_CUSTO)    AS cmv,
-  SUM(v.VALOR_PAGO_PROD)
-    / NULLIF(SUM(v.QTDE_PROD * p.PRECO_CUSTO), 0) AS markup
+  SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC))              AS venda_liquida,
+  SUM(v.QTDE_PROD * SAFE_CAST(p.PRECO1 AS NUMERIC))         AS cmv,
+  SAFE_DIVIDE(
+    SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)),
+    SUM(v.QTDE_PROD * SAFE_CAST(p.PRECO1 AS NUMERIC))
+  )                                                          AS markup
 FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
 LEFT JOIN `soma-pipeline-prd.silver_linx.PRODUTOS_PRECOS` p
   ON v.PRODUTO = p.PRODUTO
@@ -175,8 +177,9 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 ```
 
 **Regras:**
-- Sempre filtrar `CODIGO_TAB_PRECO = 'CT'` no join — essa é a tabela de custo.
-- CMV = `QTDE_PROD * PRECO_CUSTO` (custo unitário × quantidade). Se são 3 peças, o CMV é 3× o custo unitário.
+- Filtrar `CODIGO_TAB_PRECO = 'CT'` **no `ON` do join, não no `WHERE`** — garante que o LEFT JOIN preserve produtos sem custo cadastrado (retornam NULL) em vez de eliminá-los silenciosamente.
+- Coluna de custo unitário: **`PRECO1`** (STRING — requer `SAFE_CAST AS NUMERIC`). Não existe coluna `PRECO_CUSTO`.
+- CMV = `QTDE_PROD * PRECO1` (custo unitário × quantidade). Se são 3 peças, o CMV é 3× o custo unitário.
 - Em devoluções, `QTDE_PROD` é negativo → CMV fica negativo (correto, alinha o sinal da receita).
 
 ---
@@ -246,11 +249,19 @@ DATE_SUB(DATA_VENDA, INTERVAL 52 WEEK)
 | PA (Peças/Atendimento) | `SUM(QTDE_PROD) / COUNT(DISTINCT chave_pedido)` | 1,8–2,5 |
 | Taxa de Desconto | `SUM(-DESCONTO_PROD) / (SUM(VALOR_PAGO_PROD) + SUM(-DESCONTO_PROD))` | 15–25% saudável |
 | Markup | `SUM(VALOR_PAGO_PROD) / SUM(QTDE_PROD * PRECO_CUSTO)` | 2,5–4,0x |
-| Margem Bruta | `1 - SUM(QTDE_PROD * PRECO_CUSTO) / SUM(VALOR_PAGO_PROD)` | 55–70% |
+| Margem Bruta / MACO | `1 - SUM(QTDE_PROD * PRECO_CUSTO) / SUM(VALOR_PAGO_PROD)` | 55–70% |
 
 - **Sempre que usar markup/margem:** join com `PRODUTOS_PRECOS` (§4).
 - **Sempre que usar PA ou ticket:** usar `chave_pedido` via §3.
 - `DESCONTO_PROD` é negativo → inverter sinal (`-DESCONTO_PROD`) pra somar como valor positivo de desconto.
+
+### 7.1 Alias MACO — sempre explicitar ao usuário
+
+Internamente no grupo, **MACO = Margem Bruta** — mesma fórmula acima. Quando o usuário pedir "MACO", calcular como margem bruta e deixar explícito na resposta:
+
+> "MACO calculado como Margem Bruta: (Receita − CMV) / Receita."
+
+> ⚠️ **Existe internamente o conceito de "MACO Roots"**, que é uma variação desta métrica. Não calculá-lo por conta própria — se o usuário mencionar "MACO Roots" ou pedir uma quebra diferente, perguntar antes de rodar.
 
 ---
 
@@ -360,6 +371,17 @@ Quando o usuário pedir análise "de Animale" (ou qualquer marca), usar **exatam
 
 **Regra:** ao receber pedido "analise X" onde X é uma marca, filtrar `CAST(RL_DESTINO AS STRING) = '<código>'` — nunca assumir que múltiplos RL representam a mesma marca. Se o usuário quiser ver sub-redes (ex.: "MAS Animale separado"), ele deve pedir explicitamente.
 
+**Regra de escopo para exclusões de filial (ex.: 190454 da Animale):** a exclusão se aplica **apenas ao canal físico** (`TIPO_VENDA = 'VENDA_LOJA'`) — nunca ao `WHERE` global. Aplicar globalmente remove vendas digitais legítimas dessa filial.
+
+```sql
+-- ✅ Correto — exclui 190454 só do físico
+AND NOT (TIPO_VENDA = 'VENDA_LOJA'
+         AND CAST(CODIGO_FILIAL_DESTINO AS STRING) = '190454')
+
+-- ❌ Errado — remove a filial do digital também
+AND CAST(CODIGO_FILIAL_DESTINO AS STRING) != '190454'
+```
+
 ### 8.3 Formato de entrega padrão — HTML, não markdown
 
 > **Default de todo relatório é HTML inline.** Markdown só sob pedido explícito do usuário ("me dá em markdown", "exporta como .md", "só o texto").
@@ -377,7 +399,7 @@ Markdown = só se explicitamente pedido
 
 Quando o output for uma lista/tabela cujo grão é produto × cor, **incluir sempre** a foto usando:
 ```
-https://images.somalabs.com.br/query/{w}/{h}/{PRODUTO}/{COR_PRODUTO}
+https://images.somalabs.com.br/brands/{RL_DESTINO}/products/reference_id/{PRODUTO}_{COR_PRODUTO}/image
 ```
 Regras completas, exemplos SQL e dimensões recomendadas estão na seção `product-photos` do contexto (abaixo, carregada junto com este doc). Não é uma ferramenta MCP separada — é um padrão documental a ser aplicado inline na montagem do HTML/Markdown do relatório.
 
@@ -570,6 +592,57 @@ Formato: uma linha ao final, precedida por `---`, e.g.:
 ```
 
 Não inventar próximos passos genéricos. Deve ser específico ao resultado da análise.
+
+---
+
+## 15. Taxa de devolução — fórmula canônica (validada 2026-04-25)
+
+### 15.1 Defaults obrigatórios
+
+| Dimensão | Default | Sob pedido explícito |
+|---|---|---|
+| Métrica | **Receita** (`VALOR_PAGO_PROD`) | Peças (`QTDE_PROD`) |
+| Regime | **Faturamento** (data da devolução) | Competência (data da venda original) |
+
+### 15.2 Regime de faturamento (default)
+
+Conta a devolução no período em que foi processada — independente de quando a venda original ocorreu.
+
+```sql
+SELECT
+  CASE TIPO_VENDA WHEN 'VENDA_LOJA' THEN 'Físico' ELSE 'Digital' END AS canal,
+  SUM(CASE WHEN SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC) < 0
+           THEN ABS(SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC)) ELSE 0 END) AS receita_devolvida,
+  SUM(CASE WHEN SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC) > 0
+           THEN SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC) ELSE 0 END)      AS receita_bruta,
+  SAFE_DIVIDE(
+    SUM(CASE WHEN SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC) < 0
+             THEN ABS(SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC)) ELSE 0 END),
+    SUM(CASE WHEN SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC) > 0
+             THEN SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC) ELSE 0 END)
+  )                                                                     AS taxa_devolucao
+FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO`
+WHERE DATA_VENDA BETWEEN :start AND :end
+  AND CAST(RL_DESTINO AS STRING) = :rede
+GROUP BY 1
+```
+
+### 15.3 Regime de competência (sob pedido explícito)
+
+Matcheia cada devolução à sua venda original via `PEDIDO_SITE` (ecom/omni) ou `TICKET + FILIAL_ORIGEM` (físico). Requer self-join na tabela — query mais cara por ser EXTERNAL sem partição. Usar apenas quando o usuário pedir explicitamente ("taxa de devolução por coleção", "quanto voltou das vendas de fevereiro").
+
+### 15.4 Por peças (sob pedido explícito)
+
+Substituir `VALOR_PAGO_PROD` por `QTDE_PROD` na mesma estrutura do §15.2.
+
+### 15.5 Benchmarks
+
+| Canal | Referência saudável |
+|---|---|
+| Físico | < 10% |
+| Digital (moda premium) | 15–25% |
+
+> Se o usuário não especificar métrica nem regime, rodar §15.2 (receita, faturamento) e informar na resposta qual fórmula foi usada — taxa de devolução não tem denominador óbvio e o usuário precisa saber o que está lendo.
 
 ---
 

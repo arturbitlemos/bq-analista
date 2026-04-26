@@ -58,7 +58,12 @@ def _slugify(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60] or "analise"
 
 
-def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
+def build_mcp_app(
+    agent_name: str,
+    *,
+    instructions: str | None = None,
+    exemplos: str | None = None,
+) -> tuple[FastMCP, Callable]:
     """
     Build a FastMCP app with the 7 base tools registered.
 
@@ -66,11 +71,19 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
     - app:  FastMCP instance — use @app.tool() to add domain-specific tools
     - main: callable entrypoint — use as if __name__ == '__main__': main()
 
+    instructions: short text shown to the client during MCP `initialize`
+    handshake (treated by Claude as system context). Use it to introduce the
+    agent's domain and give 2–3 example questions on first connect.
+
+    exemplos: longer catalog of example questions returned by the optional
+    `exemplos` tool. Registered only when this argument is provided.
+
     All configuration is read from env vars and /app/config/settings.toml at runtime.
     """
     public_host = os.environ.get("MCP_PUBLIC_HOST", "localhost")
     mcp = FastMCP(
         agent_name,
+        instructions=instructions,
         transport_security=_TSS(
             enable_dns_rebinding_protection=True,
             allowed_hosts=[
@@ -211,6 +224,17 @@ def build_mcp_app(agent_name: str) -> tuple[FastMCP, Callable]:
             "billing_project": settings.bigquery.billing_project_id,
             "allowed_datasets": settings.bigquery.allowed_datasets,
         }
+
+    # ── Optional tool: exemplos (catalog of example questions) ─────────────
+    if exemplos is not None:
+        _exemplos_text = exemplos
+
+        @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
+        def exemplos_perguntas(ctx: Context) -> dict[str, object]:
+            """Catálogo de perguntas que este agente sabe responder, com formatos de saída esperados.
+            Chame quando o usuário perguntar 'o que você faz?' ou 'que tipo de pergunta posso fazer?'."""
+            _current_email(ctx)
+            return {"exemplos": _exemplos_text}
 
     # ── Base tool: consultar_bq ────────────────────────────────────────────
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})

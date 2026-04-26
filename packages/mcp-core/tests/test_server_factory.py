@@ -35,6 +35,33 @@ def test_build_mcp_app_registers_base_tools():
     assert {"get_context", "consultar_bq", "publicar_dashboard", "listar_analises"}.issubset(registered)
 
 
+def test_build_mcp_app_passes_instructions_to_fastmcp():
+    with patch.dict(os.environ, ENV):
+        from mcp_core.server_factory import build_mcp_app
+        app, _ = build_mcp_app(
+            agent_name="test-agent", instructions="hello world greeting"
+        )
+    assert app.instructions == "hello world greeting"
+
+
+def test_build_mcp_app_omits_exemplos_tool_by_default():
+    with patch.dict(os.environ, ENV):
+        from mcp_core.server_factory import build_mcp_app
+        app, _ = build_mcp_app(agent_name="test-agent")
+    registered = set(app._tool_manager._tools.keys())
+    assert "exemplos_perguntas" not in registered
+
+
+def test_build_mcp_app_registers_exemplos_tool_when_provided():
+    with patch.dict(os.environ, ENV):
+        from mcp_core.server_factory import build_mcp_app
+        app, _ = build_mcp_app(
+            agent_name="test-agent", exemplos="catálogo de perguntas..."
+        )
+    registered = set(app._tool_manager._tools.keys())
+    assert "exemplos_perguntas" in registered
+
+
 def test_build_mcp_app_raises_without_jwt_secret():
     env_no_secret = {k: v for k, v in ENV.items() if k != "MCP_JWT_SECRET"}
     # Also provide the settings env vars so load_settings() can build from env

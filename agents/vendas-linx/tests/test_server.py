@@ -41,7 +41,10 @@ def test_agent_has_no_extra_tools_by_default():
     from mcp_core.server_factory import build_mcp_app
     with patch.dict(os.environ, ENV):
         m = _reload_server()
-        baseline_app, _ = build_mcp_app(agent_name="baseline")
+        # Build baseline with the same optional features the agent uses, so
+        # the comparison checks for *domain* tools only — not opt-in extras
+        # provided by mcp-core itself.
+        baseline_app, _ = build_mcp_app(agent_name="baseline", exemplos="x")
     registered = set(m.app._tool_manager._tools.keys())
     base = set(baseline_app._tool_manager._tools.keys())
     assert registered == base

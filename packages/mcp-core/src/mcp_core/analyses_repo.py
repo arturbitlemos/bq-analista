@@ -158,5 +158,15 @@ async def search(
 
 async def try_acquire_refresh_lock(conn: asyncpg.Connection, analysis_id: str) -> bool:
     """pg_try_advisory_xact_lock — returns True if lock acquired in this transaction.
-    Lock auto-releases at COMMIT/ROLLBACK."""
-    return await conn.fetchval("SELECT pg_try_advisory_xact_lock(hashtext($1))", f"refresh:{analysis_id}")
+    Lock auto-releases at COMMIT/ROLLBACK.
+
+    Uses the two-arg int4 form (64-bit lock space) to make collisions between
+    distinct analysis_ids astronomically rare. The single-arg int8 form would
+    require a single hash that we don't have a stable Postgres function for;
+    the two-arg form derives the second key from a different prefix so we
+    effectively get two independent 32-bit hashes."""
+    return await conn.fetchval(
+        "SELECT pg_try_advisory_xact_lock(hashtext($1), hashtext($2))",
+        f"refresh:fwd:{analysis_id}",
+        f"refresh:rev:{analysis_id}",
+    )

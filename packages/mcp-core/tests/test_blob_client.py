@@ -11,7 +11,7 @@ _STUB_REQUEST = httpx.Request("PUT", "https://portal.test/api/internal/blob")
 
 @pytest.fixture
 def blob_client(monkeypatch):
-    monkeypatch.setenv("MCP_PROXY_SIGNING_KEY", "secret123")
+    monkeypatch.setenv("MCP_BLOB_SIGNING_KEY", "secret123")
     monkeypatch.setenv("PORTAL_BLOB_URL", "https://portal.test")
     return BlobClient()
 

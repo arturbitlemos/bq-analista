@@ -5,7 +5,12 @@ const jwt = require('jsonwebtoken')
 function verifyInternalJwt(authHeader) {
   if (!authHeader?.startsWith('Bearer ')) throw new Error('missing bearer')
   const token = authHeader.slice(7)
-  return jwt.verify(token, process.env.MCP_PROXY_SIGNING_KEY, {
+  // Distinct signing key from MCP_PROXY_SIGNING_KEY: a compromised Railway
+  // process must not be able to mint blob-internal tokens just by holding
+  // the proxy key. Split scope ⇒ split key.
+  const key = process.env.MCP_BLOB_SIGNING_KEY
+  if (!key) throw new Error('MCP_BLOB_SIGNING_KEY not configured')
+  return jwt.verify(token, key, {
     algorithms: ['HS256'],
     audience: 'blob-internal',
   })

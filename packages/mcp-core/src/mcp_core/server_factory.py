@@ -435,10 +435,16 @@ def build_mcp_app(
         else:  # "public": catalog excluding the user's own analyses
             filtered = [r for r in rows if r.author_email != exec_email]
 
+        # PRIVACY: author_email is only revealed when the analysis is public or
+        # the caller is the author. Recipients of a private-shared analysis
+        # don't get to see who shared it (matches portal /api/library behavior).
+        def _author(r):
+            return r.author_email if (r.author_email == exec_email or r.public) else None
+
         items = [
             {
                 "id": r.id, "title": r.title, "brand": r.brand, "period_label": r.period_label,
-                "description": r.description, "tags": r.tags, "author_email": r.author_email,
+                "description": r.description, "tags": r.tags, "author_email": _author(r),
                 "public": r.public,
                 "last_refreshed_at": r.last_refreshed_at.isoformat() if r.last_refreshed_at else None,
                 "has_refresh_spec": r.refresh_spec is not None,
@@ -491,11 +497,16 @@ def build_mcp_app(
                 agent=agent, brand=brand,
                 days_back=days_back, limit=min(int(limit), 25),
             )
+        # PRIVACY: same masking as listar_analises — recipients of a private
+        # share don't see the author's email.
+        def _author(r):
+            return r.author_email if (r.author_email == exec_email or r.public) else None
+
         return {
             "results": [
                 {
                     "id": r.id, "title": r.title, "description": r.description,
-                    "brand": r.brand, "author_email": r.author_email, "agent_slug": r.agent_slug,
+                    "brand": r.brand, "author_email": _author(r), "agent_slug": r.agent_slug,
                     "period_label": r.period_label, "tags": r.tags,
                     "last_refreshed_at": r.last_refreshed_at.isoformat() if r.last_refreshed_at else None,
                     "has_refresh_spec": r.refresh_spec is not None,
@@ -531,9 +542,12 @@ def build_mcp_app(
         )
         if not allowed:
             return {"error": "forbidden"}
+        author_visible = (row.author_email == exec_email) or row.public
         return {
             "id": row.id, "title": row.title, "description": row.description,
-            "brand": row.brand, "author_email": row.author_email, "agent_slug": row.agent_slug,
+            "brand": row.brand,
+            "author_email": row.author_email if author_visible else None,
+            "agent_slug": row.agent_slug,
             "period_label": row.period_label, "tags": row.tags,
             "refresh_spec": row.refresh_spec,
             "last_refreshed_at": row.last_refreshed_at.isoformat() if row.last_refreshed_at else None,

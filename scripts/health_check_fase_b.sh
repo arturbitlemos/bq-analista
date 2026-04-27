@@ -8,7 +8,7 @@
 #   PORTAL_URL          e.g. https://bq-analista.vercel.app
 #   SESSION_COOKIE      a valid HMAC session cookie from portal/api/auth.js
 #                       (mint locally with the SESSION_SECRET from prod env)
-#   MCP_PROXY_SIGNING_KEY  same value Vercel + Railway share
+#   MCP_BLOB_SIGNING_KEY   same value Vercel + Railway share for blob-internal JWTs
 #
 # Optional:
 #   AGENT                default vendas-linx
@@ -19,7 +19,7 @@ set -euo pipefail
 
 PORTAL_URL="${PORTAL_URL:?need PORTAL_URL e.g. https://bq-analista.vercel.app}"
 SESSION_COOKIE="${SESSION_COOKIE:?need SESSION_COOKIE for an authenticated test user}"
-MCP_PROXY_SIGNING_KEY="${MCP_PROXY_SIGNING_KEY:?need MCP_PROXY_SIGNING_KEY}"
+MCP_BLOB_SIGNING_KEY="${MCP_BLOB_SIGNING_KEY:?need MCP_BLOB_SIGNING_KEY}"
 AGENT="${AGENT:-vendas-linx}"
 VENDAS_LINX_HEALTHZ="${VENDAS_LINX_HEALTHZ:-https://bq-analista-production.up.railway.app/healthz}"
 DEVOLUCOES_HEALTHZ="${DEVOLUCOES_HEALTHZ:-https://analista-devolucoes-production.up.railway.app/healthz}"
@@ -37,7 +37,7 @@ echo "  → library returned $COUNT items"
 step "2/5" "Blob endpoint reachable (auth via blob-internal proxy JWT)"
 BLOB_TOKEN=$(node -e "
   const jwt = require('jsonwebtoken');
-  console.log(jwt.sign({aud:'blob-internal'}, process.env.MCP_PROXY_SIGNING_KEY, {algorithm:'HS256', expiresIn: 60}));
+  console.log(jwt.sign({aud:'blob-internal'}, process.env.MCP_BLOB_SIGNING_KEY, {algorithm:'HS256', expiresIn: 60}));
 ") || fail "could not mint blob-internal JWT (is jsonwebtoken installed locally?)"
 HEALTH_PATH="analyses/healthcheck/$(date +%s).html"
 curl -sS -f -X PUT "$PORTAL_URL/api/internal/blob?pathname=$HEALTH_PATH&content_type=text/html" \

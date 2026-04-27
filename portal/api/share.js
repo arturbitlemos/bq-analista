@@ -22,15 +22,21 @@ module.exports = async function handler(req, res) {
   }
 
   const sql = getSql()
-  const rows = await sql`SELECT author_email, public, shared_with FROM analyses WHERE id = ${id} LIMIT 1`
-  if (rows.length === 0) return res.status(404).json({ error: 'not found' })
-  const row = rows[0]
-  if (row.author_email !== email) return res.status(403).json({ error: 'only author can change acl' })
 
-  const before = { public: row.public, shared_with: row.shared_with || [] }
+  // Read current state for audit metadata diff. This SELECT can race with
+  // concurrent writes; we accept that for the audit log's added/removed
+  // accuracy. The actual write below is atomic and authorship-gated, which
+  // is what the security model requires.
+  const beforeRows = await sql`SELECT author_email, public, shared_with FROM analyses WHERE id = ${id} LIMIT 1`
+  if (beforeRows.length === 0) return res.status(404).json({ error: 'not found' })
+  const before = {
+    public: beforeRows[0].public,
+    shared_with: beforeRows[0].shared_with || [],
+  }
+  if (beforeRows[0].author_email !== email) return res.status(403).json({ error: 'only author can change acl' })
+
   const added = normalizedShared.filter(e => !before.shared_with.includes(e))
   const removed = before.shared_with.filter(e => !normalizedShared.includes(e))
-
   const metadata = JSON.stringify({
     before,
     after: { public: makePublic, shared_with: normalizedShared },
@@ -38,10 +44,27 @@ module.exports = async function handler(req, res) {
     removed,
   })
 
-  await sql.transaction([
-    sql`UPDATE analyses SET public = ${makePublic}, shared_with = ${normalizedShared}, updated_at = NOW() WHERE id = ${id}`,
-    sql`INSERT INTO audit_log (action, actor_email, analysis_id, metadata) VALUES ('share', ${email}, ${id}, ${metadata}::jsonb)`,
-  ])
+  // Atomic UPDATE+INSERT in a single statement, gated on author_email so
+  // a concurrent writer who isn't the author can't slip in between read
+  // and write. did_update tells us whether the guard matched.
+  const result = await sql`
+    WITH upd AS (
+      UPDATE analyses
+      SET public = ${makePublic}, shared_with = ${normalizedShared}, updated_at = NOW()
+      WHERE id = ${id} AND author_email = ${email}
+      RETURNING id
+    ),
+    aud AS (
+      INSERT INTO audit_log (action, actor_email, analysis_id, metadata)
+      SELECT 'share', ${email}, ${id}, ${metadata}::jsonb
+      WHERE EXISTS (SELECT 1 FROM upd)
+      RETURNING 1
+    )
+    SELECT EXISTS (SELECT 1 FROM upd) AS did_update
+  `
+  if (!result[0]?.did_update) {
+    return res.status(403).json({ error: 'only author can change acl' })
+  }
 
   return res.status(200).json({ ok: true, public: makePublic, shared_with: normalizedShared })
 }

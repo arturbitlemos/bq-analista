@@ -13,7 +13,10 @@ class BlobClient:
 
     def __init__(self, *, base_url: str | None = None, signing_key: str | None = None):
         self._base_url = (base_url or os.environ["PORTAL_BLOB_URL"]).rstrip("/")
-        self._signing_key = signing_key or os.environ["MCP_PROXY_SIGNING_KEY"]
+        # Distinct from MCP_PROXY_SIGNING_KEY (which signs portal→Railway proxy
+        # JWTs). Splitting the keys means a Railway compromise can't mint
+        # blob-internal tokens to read/delete arbitrary blobs.
+        self._signing_key = signing_key or os.environ["MCP_BLOB_SIGNING_KEY"]
 
     def _mint_token(self, ttl_seconds: int = 60) -> str:
         return pyjwt.encode(

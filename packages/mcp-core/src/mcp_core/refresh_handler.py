@@ -69,6 +69,14 @@ async def refresh_analysis(
     if start > end:
         raise RefreshError(400, "start must be <= end")
 
+    # Phase 1 — inside the DB transaction: validate, run queries, render new
+    # HTML, update DB metadata, write audit log. Crucially we do NOT touch the
+    # blob in here: if any DB statement after a blob.put failed, we'd end up
+    # with a blob containing fresh data while the DB still pointed to the old
+    # period, which is the bad failure mode. Phase 2 (the blob.put) happens
+    # after the transaction commits, so the worst case is "DB says new period
+    # but blob still has old HTML" — same content, just a stale render the
+    # user can fix by retrying the refresh (idempotent at same pathname).
     async with db.transaction() as conn:
         got_lock = await analyses_repo.try_acquire_refresh_lock(conn, analysis_id)
         if not got_lock:
@@ -104,15 +112,10 @@ async def refresh_analysis(
         except ValueError as e:
             raise RefreshError(500, f"html_swap_failed: {e}") from e
 
-        new_blob_url = await blob.put(row.blob_pathname, new_html.encode("utf-8"), content_type="text/html")
-
         await analyses_repo.update_refresh_state(
             conn, analysis_id,
             period_start=start, period_end=end, actor_email=actor_email,
         )
-        if new_blob_url and new_blob_url != row.blob_url:
-            await analyses_repo.update_blob_url(conn, analysis_id, blob_url=new_blob_url)
-
         await actions_audit.record(
             conn, action="refresh", actor_email=actor_email,
             analysis_id=analysis_id,
@@ -125,6 +128,19 @@ async def refresh_analysis(
 
         updated = await analyses_repo.get(conn, analysis_id)
         assert updated is not None and updated.last_refreshed_at is not None
+        blob_pathname = row.blob_pathname
+        old_blob_url = row.blob_url
+
+    # Phase 2 — DB has committed. Overwrite the blob at the same pathname.
+    # Failure here means the user sees stale HTML with a new period label
+    # until they retry; safer than the inverse (fresh HTML / old period).
+    new_blob_url = await blob.put(blob_pathname, new_html.encode("utf-8"), content_type="text/html")
+
+    # Phase 3 — if the URL host/suffix changed (shouldn't with a stable
+    # store + no random suffix, but defensive), record the new URL.
+    if new_blob_url and new_blob_url != old_blob_url:
+        async with db.transaction() as conn:
+            await analyses_repo.update_blob_url(conn, analysis_id, blob_url=new_blob_url)
 
     return RefreshResult(
         last_refreshed_at=updated.last_refreshed_at.isoformat(),

@@ -26,8 +26,14 @@ module.exports = async function handler(req, res) {
   if (!allowed) return res.status(403).end('forbidden')
   if (!row.blob_url) return res.status(500).end('blob_url not set (data integrity issue)')
 
-  // Cache-Control private — browser cache only, not shared CDN.
+  // Proxy the bytes server-side instead of redirecting to the public blob URL.
+  // The blob URL is in a public Vercel Blob store and would otherwise be cached
+  // in browser history / Referer / proxy logs, defeating the ACL above.
+  const dl = await fetch(row.blob_url)
+  if (!dl.ok) return res.status(502).end(`blob fetch failed: ${dl.status}`)
+
+  res.setHeader('content-type', 'text/html; charset=utf-8')
   res.setHeader('cache-control', 'private, no-store')
-  res.writeHead(302, { location: row.blob_url })
-  res.end()
+  res.setHeader('x-content-type-options', 'nosniff')
+  res.status(200).send(Buffer.from(await dl.arrayBuffer()))
 }

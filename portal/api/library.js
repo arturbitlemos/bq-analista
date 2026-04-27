@@ -30,10 +30,14 @@ module.exports = async function handler(req, res) {
     const sharedWith = isMine
       ? (r.shared_with || [])
       : (r.shared_with?.includes(email) ? [email] : [])
+    // PRIVACY: author_email is masked for recipients of a private share.
+    // Authors and viewers of public analyses see it normally.
+    const authorVisible = isMine || r.public
     const periodEnd = r.period_end ? new Date(r.period_end).toISOString().slice(0, 10) : null
     const createdDate = r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : null
     return {
       ...r,
+      author_email: authorVisible ? r.author_email : null,
       shared_with: sharedWith,
       // Backward-compat aliases used by Fase A frontend code (period filter, card meta):
       date: periodEnd || createdDate,

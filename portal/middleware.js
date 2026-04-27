@@ -37,51 +37,26 @@ async function verifySession(cookieValue, secret) {
 }
 
 export default async function middleware(request) {
-  const cookieHeader = request.headers.get('cookie')
-  const sessionCookie = parseCookie(cookieHeader, 'session')
   const url = new URL(request.url)
   const pathname = decodeURIComponent(url.pathname)
-  const isOnboarding = pathname === '/onboarding' || pathname === '/onboarding/'
+  // Only /onboarding still needs middleware-level auth — `/library/*` and
+  // `/analyses/*` static paths were retired with the Postgres+Blob migration
+  // (Phase B). The /api/* endpoints enforce ACL themselves on the data they
+  // serve, so middleware doesn't need to gate them.
+  if (pathname !== '/onboarding' && pathname !== '/onboarding/') return
 
-  const redirectToLogin = () => {
+  const cookie = parseCookie(request.headers.get('cookie'), 'session')
+  if (!cookie) {
     const loginUrl = new URL('/', url)
     loginUrl.searchParams.set('next', pathname)
     return Response.redirect(loginUrl.toString(), 302)
   }
-
-  if (!sessionCookie) {
-    if (isOnboarding) return redirectToLogin()
-    return new Response('Não autenticado', { status: 401 })
+  const identity = await verifySession(cookie, process.env.SESSION_SECRET)
+  if (!identity) {
+    const loginUrl = new URL('/', url)
+    loginUrl.searchParams.set('next', pathname)
+    return Response.redirect(loginUrl.toString(), 302)
   }
-
-  const sessionIdentity = await verifySession(sessionCookie, process.env.SESSION_SECRET)
-  if (!sessionIdentity) {
-    if (isOnboarding) return redirectToLogin()
-    return new Response('Sessão inválida ou expirada', { status: 401 })
-  }
-
-  if (isOnboarding) return;
-
-  // /library/{domain}/{filename}.json
-  if (pathname.startsWith('/library/')) {
-    const filename = pathname.split('/').pop() // e.g. "user@corp.com.json" or "public.json"
-    const fileIdentity = filename.replace(/\.json$/, '')
-    if (fileIdentity === 'public') return // qualquer autenticado: deixa passar
-    if (fileIdentity !== sessionIdentity) return new Response('Acesso negado', { status: 403 })
-    return // identidade bate: deixa passar
-  }
-
-  // /analyses/* — aceita legado (3 seg) e novo (4 seg):
-  //   legado:  /analyses/{public|identity}/{filename}            → identity em parts[1]
-  //   novo:    /analyses/{domain}/{public|identity}/{filename}   → identity em parts[2]
-  const parts = pathname.split('/').filter(Boolean)
-  let identitySegment
-  if (parts.length === 3) identitySegment = parts[1]
-  else if (parts.length === 4) identitySegment = parts[2]
-  else return new Response('Not Found', { status: 404 })
-
-  if (identitySegment === 'public') return
-  if (identitySegment !== sessionIdentity) return new Response('Acesso negado', { status: 403 })
 }
 
-export const config = { matcher: ['/analyses/:path*', '/library/:path*', '/onboarding'] }
+export const config = { matcher: ['/onboarding'] }

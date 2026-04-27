@@ -441,8 +441,13 @@ def build_mcp_app(
 
         @contextlib.asynccontextmanager
         async def lifespan(app):
-            async with mcp.session_manager.run():
-                yield
+            from mcp_core import db as _db
+            await _db.init_pool()
+            try:
+                async with mcp.session_manager.run():
+                    yield
+            finally:
+                await _db.close_pool()
 
         auth_app = build_auth_app(
             azure=azure, issuer=issuer, allowlist=allowlist, lifespan=lifespan

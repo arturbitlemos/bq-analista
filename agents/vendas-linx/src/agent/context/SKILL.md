@@ -19,6 +19,14 @@ If this fails, run `gcloud auth application-default login` first.
 > 2. Informe ao usuário: `⚠️ Estimativa: ~X GB → ~US$ X.XX (teto: 15 GB)`
 > 3. **Aguarde confirmação explícita ("sim") antes de executar.** Nunca execute sem resposta do usuário.
 
+```bash
+# 1. Dry-run — confirma custo antes de executar
+bq query --use_legacy_sql=false --dry_run '<SQL>'
+
+# 2. Executa só após confirmação do usuário
+bq query --use_legacy_sql=false --format=prettyjson '<SQL>'
+```
+
 Referência de custo: US$ 5,00 por TB = US$ 0,005 por GB.
 Teto configurado: **15 GB por query**. Queries que estimativamente ultrapassem esse limite devem ser divididas ou reescritas antes de executar.
 

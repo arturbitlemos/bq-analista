@@ -1,6 +1,5 @@
 {
   "name": "bq-analista",
-  "type": "module",
   "version": "1.0.0",
   "main": "middleware.js",
   "scripts": {

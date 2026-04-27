@@ -1,6 +1,6 @@
-import test from 'node:test'
-import assert from 'node:assert/strict'
-import { normalizeEmail } from '../email.js'
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const { normalizeEmail } = require('../email')
 
 test('lowercase', () => {
   assert.equal(normalizeEmail('Maria.Filo@Soma.com.br'), 'maria.filo@soma.com.br')

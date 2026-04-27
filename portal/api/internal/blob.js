@@ -1,6 +1,6 @@
 // portal/api/internal/blob.js
-import { put, head, del } from '@vercel/blob'
-import jwt from 'jsonwebtoken'
+const { put, head, del } = require('@vercel/blob')
+const jwt = require('jsonwebtoken')
 
 function verifyInternalJwt(authHeader) {
   if (!authHeader?.startsWith('Bearer ')) throw new Error('missing bearer')
@@ -11,7 +11,7 @@ function verifyInternalJwt(authHeader) {
   })
 }
 
-export const config = { api: { bodyParser: false } }
+const config = { api: { bodyParser: false } }
 
 async function readBody(req) {
   // Production path: stream is intact (bodyParser:false honored).
@@ -30,7 +30,7 @@ async function readBody(req) {
   return Buffer.from(JSON.stringify(b), 'utf8')
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
     verifyInternalJwt(req.headers.authorization)
   } catch (e) {
@@ -72,3 +72,7 @@ export default async function handler(req, res) {
 
   return res.status(405).json({ error: 'method not allowed' })
 }
+
+module.exports = handler
+module.exports.config = config
+module.exports.default = handler

@@ -32,11 +32,30 @@ def register_api_routes(
     bq_factory,
     blob_factory,
 ) -> None:
-    """Register refresh route on the given FastAPI app.
+    """Register refresh route + /healthz on the given FastAPI app.
 
     `bq_factory` is called with no args, returns a BqClient instance.
     `blob_factory` is called with no args, returns a BlobClient instance.
     Both are factories so handlers get fresh instances per request (cheap)."""
+
+    @app.get("/healthz")
+    async def healthz():
+        """Liveness/readiness probe. Pings the DB pool with SELECT 1.
+
+        Used by post-deploy health check (scripts/health_check_fase_b.sh) and
+        any uptime monitor wired to Railway. Returns 503 on DB failure so
+        Railway/k8s can route traffic away.
+        """
+        try:
+            async with db.transaction() as conn:
+                ok = await conn.fetchval("SELECT 1")
+            if ok != 1:
+                raise HTTPException(503, "db_unhealthy: select 1 returned unexpected value")
+            return {"ok": True}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(503, f"db_unhealthy: {e}")
 
     @app.post("/api/refresh/{analysis_id}")
     async def refresh(analysis_id: str, body: _RefreshBody, request: Request,

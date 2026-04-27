@@ -484,6 +484,24 @@ def build_mcp_app(
         auth_app = build_auth_app(
             azure=azure, issuer=issuer, allowlist=allowlist, lifespan=lifespan
         )
+
+        # Register portal-driven REST endpoints (e.g. /api/refresh/{id}).
+        # Mount BEFORE the catch-all /mcp app so /api/* paths are matched first.
+        from mcp_core.api_routes import register_api_routes
+        from mcp_core.auth_middleware import AuthContext
+        from mcp_core.blob_client import BlobClient
+        api_auth_ctx = AuthContext(
+            issuer=issuer, allowlist=allowlist,
+            azure_tenant_id=os.environ["MCP_AZURE_TENANT_ID"],
+            azure_client_id=os.environ["MCP_AZURE_CLIENT_ID"],
+        )
+        register_api_routes(
+            auth_app,
+            auth_ctx=api_auth_ctx,
+            bq_factory=lambda: _load_cached_state().bq_client,
+            blob_factory=lambda: BlobClient(),
+        )
+
         auth_app.mount("/", mcp.streamable_http_app())
         port = int(os.environ.get("PORT", settings.server.port))
         # In-memory state (refresh-token families in TokenIssuer, OAuth states

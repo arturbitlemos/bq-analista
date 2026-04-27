@@ -138,6 +138,26 @@ def test_dry_run_blocks_cross_project_access():
     assert mock_bq.query.call_count == 1
 
 
+def test_dry_run_allows_cross_project_qualified_entry():
+    """'project.dataset' entry in allowed_datasets permits access to that cross-project dataset."""
+    mock_bq = MagicMock()
+    dry_job = MagicMock()
+    dry_job.referenced_tables = [_table_ref("soma_online_refined", project="soma-dl-refined-online")]
+    real_job = MagicMock()
+    real_job.result.return_value = iter([])
+    real_job.total_bytes_billed = 0
+    real_job.total_bytes_processed = 0
+    mock_bq.query.side_effect = [dry_job, real_job]
+
+    client = BqClient(
+        settings=_settings_allowed(["silver_linx", "soma-dl-refined-online.soma_online_refined"]),
+        bq=mock_bq,
+    )
+    result = client.run_query("SELECT 1", exec_email="user@soma.com.br")
+    assert result.row_count == 0
+    assert mock_bq.query.call_count == 2
+
+
 def test_dry_run_query_without_tables_is_allowed():
     # SELECT 1 has no referenced tables — allowed regardless of allowed_datasets
     mock_bq = MagicMock()

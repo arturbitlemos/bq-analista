@@ -279,8 +279,11 @@ def build_mcp_app(
         title: str, brand: str, period: str,
         description: str, html_content: str,
         tags: list[str], ctx: Context,
+        refresh_spec: dict | None = None,
+        public: bool = False,
+        shared_with: list[str] | None = None,
     ) -> dict[str, object]:
-        """Publish an HTML dashboard to the public library and return the URL.
+        """Publish an HTML dashboard to the analysis catalog (Postgres + Vercel Blob).
 
         Only call when the user explicitly asks to publish/share/save. Default
         flow is to render the HTML inline in the chat.
@@ -296,14 +299,33 @@ def build_mcp_app(
                 tags=["farm", "produtividade", "lojas"],
             )
 
-        Using PT aliases (titulo/marca/periodo/descricao) will fail with
-        `Field required`.
+        Optional `refresh_spec` (dict) makes the analysis refreshable later via
+        the portal "Atualizar período" UI:
+            {
+              "queries": [{"id": "<query_id>", "sql": "SELECT ... '{{start_date}}' ... '{{end_date}}' ..."}, ...],
+              "data_blocks": [{"block_id": "data_<id>", "query_id": "<query_id>"}, ...],
+              "original_period": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}
+            }
+        Each `data_blocks[i].block_id` MUST correspond to a
+        `<script id="<block_id>" type="application/json">…</script>` in
+        `html_content` (use the `html_data_block` tool to emit canonical form).
+        Validation rejects mismatches.
+
+        `public` — if True, anyone in the tenant can see the analysis.
+        `shared_with` — explicit recipients (lowercased emails) granted read access
+        even when public=False. Defaults to empty.
 
         After publishing, share the returned `url` so the user can open the
-        report at https://analysis-lib.vercel.app/."""
-        exec_email = _current_email(ctx)
+        report. Using PT aliases (titulo/marca/periodo/descricao) will fail with
+        `Field required`."""
+        from mcp_core.refresh_spec import RefreshSpec
+        from mcp_core.html_swap import validate_blocks_present
+        from mcp_core.email_norm import normalize_email
+        from mcp_core import db as _db, analyses_repo, actions_audit
+        from mcp_core.blob_client import BlobClient
+
+        exec_email = normalize_email(_current_email(ctx))
         settings = _load_cached_state().settings
-        repo_root = _repo_root()
         domain = settings.server.domain
 
         today = datetime.now(timezone.utc).date().isoformat()
@@ -311,32 +333,25 @@ def build_mcp_app(
             f"{exec_email}{title}{datetime.now(timezone.utc).isoformat()}".encode()
         ).hexdigest()[:8]
         slug = _slugify(title)
-        filename = f"{slug}-{today}-{short_hash}.html"
+        analysis_id = f"{slug}-{short_hash}"
+        blob_pathname = f"analyses/{domain}/{analysis_id}.html"
 
-        # Temporary: while Azure auth is not ready, force all publishes to public
-        # so collaborators testing with a shared email can read each other's reports.
-        force_public = os.environ.get("MCP_FORCE_PUBLIC", "0") == "1"
+        # Validate refresh_spec if provided
+        spec_obj = None
+        period_start_d = None
+        period_end_d = None
+        if refresh_spec is not None:
+            try:
+                spec_obj = RefreshSpec.model_validate(refresh_spec)
+                block_ids = [b.block_id for b in spec_obj.data_blocks]
+                validate_blocks_present(html_content, block_ids)
+            except Exception as e:
+                return {"error": f"refresh_spec_invalid: {e}"}
+            period_start_d = spec_obj.original_period.start
+            period_end_d = spec_obj.original_period.end
 
-        portal_root = repo_root / "portal"
-        try:
-            if force_public:
-                email_slug = re.sub(r"[^a-z0-9]+", "-", exec_email.lower()).strip("-")[:24] or "user"
-                public_filename = f"{email_slug}-{filename}"
-                analysis_path = public_analysis_path(portal_root, domain, public_filename)
-                library_path = public_library_path(portal_root, domain)
-                link = f"/analyses/{domain}/public/{public_filename}"
-            else:
-                analysis_path = exec_analysis_path(portal_root, domain, exec_email, filename)
-                library_path = exec_library_path(portal_root, domain, exec_email)
-                link = f"/analyses/{domain}/{exec_email}/{filename}"
-        except PathSandboxError as e:
-            return {"error": f"path_sandbox: {e}"}
-
-        await ctx.report_progress(progress=0.0, total=1.0, message="rendering dashboard...")
-        analysis_path.parent.mkdir(parents=True, exist_ok=True)
-        # Inject CSP to block credential exfiltration from the portal origin.
-        # Scripts and inline styles are allowed (needed for chart libraries), but
-        # network access and form submissions are restricted to same-origin only.
+        await ctx.report_progress(progress=0.1, total=1.0, message="injecting CSP...")
+        # CSP same as before — restrict network/form to same-origin (defense in depth)
         _csp = (
             "<meta http-equiv=\"Content-Security-Policy\" content=\""
             "default-src 'self' data: blob:; "
@@ -348,52 +363,61 @@ def build_mcp_app(
             "form-action 'none';"
             "\">"
         )
-        # Use a callable replacement so backslash sequences in _csp are never
-        # interpreted as re.sub back-references (defensive against future edits).
         safe_html, n = re.subn(
             r"(?i)<head([^>]*)>",
             lambda m: f"<head{m.group(1)}>{_csp}",
             html_content, count=1,
         )
-        if n == 0:  # no <head> tag — prepend to document
+        if n == 0:
             safe_html = _csp + html_content
-        analysis_path.write_text(safe_html)
 
-        entry_id = f"{slug}-{short_hash}"
-        entry_filename = analysis_path.name
-        library_path.parent.mkdir(parents=True, exist_ok=True)
-        prepend_entry(
-            library_path,
-            LibraryEntry(
-                id=entry_id, title=title, brand=brand, date=today,
-                link=link, description=description, tags=tags, filename=entry_filename,
-                author_email=exec_email,
-            ),
-        )
-
-        await ctx.report_progress(progress=0.5, total=1.0, message="publishing to git...")
-        git = GitOps(
-            repo_path=repo_root,
-            author_name=settings.github.author_name,
-            author_email=settings.github.author_email,
-            branch=settings.github.branch,
-            push=os.environ.get("MCP_GIT_PUSH", "0") == "1",
-            github_app_id=os.environ.get("GITHUB_APP_ID"),
-            github_app_private_key=os.environ.get("GITHUB_APP_PRIVATE_KEY"),
-        )
+        await ctx.report_progress(progress=0.4, total=1.0, message="uploading to blob storage...")
         try:
-            sha = git.commit_paths(
-                paths=[analysis_path, library_path],
-                message=f"análise dispatched para {exec_email}: {title}",
-            )
-        except subprocess.CalledProcessError as e:
-            output = e.output.decode(errors="replace") if e.output else str(e)
-            return {"error": f"git_commit: {output.strip()}"}
+            blob = BlobClient()
+            blob_url = await blob.put(blob_pathname, safe_html.encode("utf-8"), content_type="text/html")
+        except Exception as e:
+            return {"error": f"blob_upload: {e}"}
 
-        portal_base = os.environ.get("MCP_PORTAL_URL", "https://analysis-lib.vercel.app").rstrip("/")
+        await ctx.report_progress(progress=0.8, total=1.0, message="indexing analysis...")
+        try:
+            async with _db.transaction() as conn:
+                await analyses_repo.insert(conn, analyses_repo.AnalysisRow(
+                    id=analysis_id,
+                    agent_slug=domain,
+                    author_email=exec_email,
+                    title=title,
+                    brand=brand,
+                    period_label=period,
+                    period_start=period_start_d,
+                    period_end=period_end_d,
+                    description=description,
+                    tags=tags,
+                    public=public,
+                    shared_with=[normalize_email(e) for e in (shared_with or [])],
+                    archived_by=[],
+                    blob_pathname=blob_pathname,
+                    blob_url=blob_url,
+                    refresh_spec=spec_obj.model_dump(mode="json") if spec_obj else None,
+                ))
+                await actions_audit.record(
+                    conn, action="publish", actor_email=exec_email,
+                    analysis_id=analysis_id,
+                    metadata={"public": public, "shared_with_count": len(shared_with or [])},
+                )
+        except Exception as e:
+            # Blob is already uploaded but DB insert failed — orphan blob.
+            # Cleanup attempt (best-effort).
+            try:
+                await blob.delete(blob_pathname)
+            except Exception:
+                pass
+            return {"error": f"db_insert: {e}"}
+
+        portal_base = os.environ.get("MCP_PORTAL_URL", "https://bq-analista.vercel.app").rstrip("/")
+        link = f"/api/analysis/{analysis_id}"
         url = f"{portal_base}{link}"
         await ctx.report_progress(progress=1.0, total=1.0, message="dashboard published")
-        return {"id": entry_id, "link": link, "url": url, "published_at": today, "commit_sha": sha}
+        return {"id": analysis_id, "link": link, "url": url, "published_at": today}
 
     # ── Base tool: listar_analises ─────────────────────────────────────────
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})

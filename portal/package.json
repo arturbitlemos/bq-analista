@@ -1,5 +1,6 @@
 {
   "name": "bq-analista",
+  "type": "module",
   "version": "1.0.0",
   "main": "middleware.js",
   "scripts": {
@@ -7,6 +8,7 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^5.7.0",
+    "@neondatabase/serverless": "^1.1.0",
     "@vercel/blob": "^2.3.3",
     "jsonwebtoken": "^9.0.3"
   }

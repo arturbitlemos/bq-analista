@@ -447,6 +447,98 @@ def build_mcp_app(
         ]
         return {"items": items, "total": len(filtered), "limit": capped_limit}
 
+    # ── Helper tool: html_data_block ───────────────────────────────────────
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
+    async def html_data_block(block_id: str, payload: list | dict) -> str:
+        """Build the canonical <script id="..." type="application/json">…</script>
+        block expected by the refresh swap regex. Use this whenever you embed
+        query results in an HTML you'll publish via `publicar_dashboard` with
+        a `refresh_spec` — handcrafted tags with different attribute order
+        will break refresh.
+
+        Example: html_data_block('data_top_lojas', [{'filial': 'X', 'venda': 100}])
+        → '<script id="data_top_lojas" type="application/json">[{"filial":"X","venda":100}]</script>'"""
+        from mcp_core.html_swap import make_data_block
+        return make_data_block(block_id, payload)
+
+    # ── Catalog tools: buscar_analises + obter_analise ─────────────────────
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
+    async def buscar_analises(
+        query: str,
+        ctx: Context,
+        brand: str | None = None,
+        agent: str | None = None,
+        days_back: int = 90,
+        limit: int = 10,
+    ) -> dict[str, object]:
+        """Full-text search of previously published analyses (your own + public + shared with you).
+
+        Use BEFORE generating a new non-trivial analysis to detect recent similar
+        work — if a match exists from the last 30 days with the same brand/theme,
+        suggest the user click "Atualizar período" on the existing card instead
+        of recreating from scratch. For larger reuse, follow up with `obter_analise`
+        to fetch the SQLs of the closest match and adapt them.
+
+        Returns up to `limit` (capped at 25) entries ranked by Postgres FTS
+        relevance × recency."""
+        from mcp_core.email_norm import normalize_email
+        from mcp_core import db as _db, analyses_repo
+
+        exec_email = normalize_email(_current_email(ctx))
+        async with _db.get_pool().acquire() as conn:
+            rows = await analyses_repo.search(
+                conn, query=query, email=exec_email,
+                agent=agent, brand=brand,
+                days_back=days_back, limit=min(int(limit), 25),
+            )
+        return {
+            "results": [
+                {
+                    "id": r.id, "title": r.title, "description": r.description,
+                    "brand": r.brand, "author_email": r.author_email, "agent_slug": r.agent_slug,
+                    "period_label": r.period_label, "tags": r.tags,
+                    "last_refreshed_at": r.last_refreshed_at.isoformat() if r.last_refreshed_at else None,
+                    "has_refresh_spec": r.refresh_spec is not None,
+                }
+                for r in rows
+            ],
+        }
+
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
+    async def obter_analise(id: str, ctx: Context) -> dict[str, object]:
+        """Fetch full metadata + refresh_spec (with SQLs) for one analysis.
+
+        Use after `buscar_analises` when one of the results looks reusable —
+        gives you the original SQLs (with `{{start_date}}`/`{{end_date}}`
+        placeholders) so you can adapt them for the current request. ACL is
+        enforced — returns `{"error": "forbidden"}` if you can't see the
+        analysis, `{"error": "not_found"}` if the id doesn't exist.
+
+        Does NOT return the rendered HTML (too large for context). If you
+        actually need the HTML, ask the user to open the link directly."""
+        from mcp_core.email_norm import normalize_email
+        from mcp_core import db as _db, analyses_repo
+
+        exec_email = normalize_email(_current_email(ctx))
+        async with _db.get_pool().acquire() as conn:
+            row = await analyses_repo.get(conn, id)
+        if row is None:
+            return {"error": "not_found"}
+        allowed = (
+            row.author_email == exec_email
+            or row.public
+            or (exec_email in (row.shared_with or []))
+        )
+        if not allowed:
+            return {"error": "forbidden"}
+        return {
+            "id": row.id, "title": row.title, "description": row.description,
+            "brand": row.brand, "author_email": row.author_email, "agent_slug": row.agent_slug,
+            "period_label": row.period_label, "tags": row.tags,
+            "refresh_spec": row.refresh_spec,
+            "last_refreshed_at": row.last_refreshed_at.isoformat() if row.last_refreshed_at else None,
+        }
+
     # ── main() entrypoint ──────────────────────────────────────────────────
     def main() -> None:
         _load_cached_state()  # validate credentials and load context files at startup

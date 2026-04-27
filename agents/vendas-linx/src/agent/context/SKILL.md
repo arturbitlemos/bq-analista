@@ -13,15 +13,23 @@ bq ls
 If this fails, run `gcloud auth application-default login` first.
 
 ## Query Pattern (always use this)
-```bash
-# 1. Dry-run first — estimate cost
-bq query --use_legacy_sql=false --dry_run '<SQL>'
 
-# 2. Execute only after dry-run confirms cost is acceptable
-bq query --use_legacy_sql=false --format=prettyjson '<SQL>'
-```
+> 🚨 **OBRIGATÓRIO — gate antes de qualquer execução:**
+> 1. Estime o custo com base no período, tabelas envolvidas e joins.
+> 2. Informe ao usuário: `⚠️ Estimativa: ~X GB → ~US$ X.XX (teto: 15 GB)`
+> 3. **Aguarde confirmação explícita ("sim") antes de executar.** Nunca execute sem resposta do usuário.
 
-> ⚠️ Never execute a query without dry-run first on unknown tables.
+Referência de custo: US$ 5,00 por TB = US$ 0,005 por GB.
+Teto configurado: **15 GB por query**. Queries que estimativamente ultrapassem esse limite devem ser divididas ou reescritas antes de executar.
+
+Tabelas de referência para estimativa:
+| Tabela | Custo estimado por mês de dados |
+|---|---|
+| `TB_WANMTP_VENDAS_LOJA_CAPTADO` | ~2–4 GB |
+| `ANMN_ESTOQUE_HISTORICO_PROD` | ~3–8 GB por data única (foto) |
+| `ANMN_ESTOQUE_HISTORICO_PROD_GRADE` | ~5–15 GB por data única |
+| `PRODUTOS_PRECOS` (join) | ~0,1 GB adicional |
+| `LOJAS_PREVISAO_VENDAS` | ~0,5 GB por mês |
 
 ## Schema Discovery
 ```bash

@@ -15,10 +15,10 @@ domain = "vendas-linx"
 
 [bigquery]
 project_id = "soma-pipeline-prd"
-max_bytes_billed = 5000000000
+max_bytes_billed = 15000000000
 query_timeout_s = 60
 max_rows = 100000
-allowed_datasets = ["silver_linx"]
+allowed_datasets = ["silver_linx", "soma-dl-refined-online.soma_online_refined"]
 
 [github]
 repo_path = "/app/repo"

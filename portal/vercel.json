@@ -23,7 +23,7 @@
       ]
     },
     {
-      "source": "/analyses/(.*)",
+      "source": "/api/analysis/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "private, no-store" },
         {
@@ -31,10 +31,6 @@
           "value": "sandbox allow-scripts allow-popups allow-modals allow-forms"
         }
       ]
-    },
-    {
-      "source": "/library/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "private, no-store" }]
     }
   ]
 }

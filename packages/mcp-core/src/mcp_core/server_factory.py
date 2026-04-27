@@ -24,16 +24,7 @@ from mcp_core.auth_routes import build_auth_app
 from mcp_core.azure_auth import AzureAuth
 from mcp_core.bq_client import BqClient, DatasetNotAllowedError
 from mcp_core.context_loader import ExecContext, extract_table_section, load_exec_context, parse_table_index
-from mcp_core.git_ops import GitOps
 from mcp_core.jwt_tokens import TokenIssuer
-from mcp_core.library import LibraryEntry, prepend_entry
-from mcp_core.sandbox import (
-    PathSandboxError,
-    exec_analysis_path,
-    exec_library_path,
-    public_analysis_path,
-    public_library_path,
-)
 from mcp_core.settings import Settings, load_settings
 from mcp_core.sql_validator import SqlValidationError, validate_readonly_sql
 
@@ -422,22 +413,39 @@ def build_mcp_app(
     # ── Base tool: listar_analises ─────────────────────────────────────────
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
     async def listar_analises(escopo: Literal["mine", "public"], ctx: Context, limit: int = 20) -> dict[str, object]:
-        """List analyses. escopo: 'mine' (own sandbox) or 'public' (shared library). limit: max items returned (default 20)."""
-        exec_email = _current_email(ctx)
+        """List analyses. escopo: 'mine' (own authorship) or 'public' (catalog
+        excluding own). limit: max items returned (default 20, capped at 100).
+
+        Reads from the Postgres analyses table. ACL is applied automatically:
+        you only see analyses you own, public ones, or ones explicitly shared
+        with you. For richer search use `buscar_analises`."""
+        from mcp_core.email_norm import normalize_email
+        from mcp_core import db as _db, analyses_repo
+
+        exec_email = normalize_email(_current_email(ctx))
         settings = _load_cached_state().settings
-        repo_root = _repo_root()
         domain = settings.server.domain
-        email_key = exec_email if escopo == "mine" else "public"
-        lib = repo_root / "portal" / "library" / domain / f"{email_key}.json"
-        if not lib.exists():
-            return {"items": [], "total": 0, "limit": limit}
-        try:
-            data = json.loads(lib.read_text() or "[]")
-        except json.JSONDecodeError as e:
-            return {"error": f"library_parse: {e}"}
-        total = len(data)
-        items = data[:limit]
-        return {"items": items, "total": total, "limit": limit}
+        capped_limit = max(1, min(int(limit), 100))
+
+        async with _db.get_pool().acquire() as conn:
+            rows = await analyses_repo.list_for_user(conn, agent_slug=domain, email=exec_email)
+
+        if escopo == "mine":
+            filtered = [r for r in rows if r.author_email == exec_email]
+        else:  # "public": catalog excluding the user's own analyses
+            filtered = [r for r in rows if r.author_email != exec_email]
+
+        items = [
+            {
+                "id": r.id, "title": r.title, "brand": r.brand, "period_label": r.period_label,
+                "description": r.description, "tags": r.tags, "author_email": r.author_email,
+                "public": r.public,
+                "last_refreshed_at": r.last_refreshed_at.isoformat() if r.last_refreshed_at else None,
+                "has_refresh_spec": r.refresh_spec is not None,
+            }
+            for r in filtered[:capped_limit]
+        ]
+        return {"items": items, "total": len(filtered), "limit": capped_limit}
 
     # ── main() entrypoint ──────────────────────────────────────────────────
     def main() -> None:

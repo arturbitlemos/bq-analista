@@ -1,8 +1,8 @@
 const crypto = require('crypto');
-const { verifyState } = require('../_helpers/state');
-const { issueTokens } = require('../_helpers/jwt');
-const { parseCookie } = require('../../_helpers/cookie');
-const { b64urlToString } = require('../../_helpers/b64url');
+const { verifyState } = require('../../_helpers/state');
+const { issueTokens } = require('../../_helpers/jwt');
+const { parseCookie } = require('../../../_helpers/cookie');
+const { b64urlToString } = require('../../../_helpers/b64url');
 
 const ACCESS_TTL_S = 1800;
 const REFRESH_TTL_S = 604800;

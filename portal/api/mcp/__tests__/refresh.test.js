@@ -5,7 +5,7 @@ process.env.MCP_JWT_SECRET = 'x'.repeat(32);
 process.env.MCP_JWT_ISSUER = 'mcp-exec-azzas';
 
 const { issueTokens, decodeToken } = require('../_helpers/jwt');
-const handler = require('../auth/refresh');
+const handler = require('../auth/_handlers/refresh');
 
 function mockRes() {
   const r = { statusCode: 200, headers: {}, body: null };

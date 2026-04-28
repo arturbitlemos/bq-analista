@@ -118,3 +118,33 @@ def test_validate_object_missing_field_fails():
 def test_validate_with_none_schema_returns_payload_unchanged():
     payload = [{"anything": 1}]
     assert validate_payload_schema("data_x", payload, None) == payload
+
+
+def test_swap_validates_array_schema_and_passes():
+    schema = DataBlockSchema(shape="array", fields=["x"])
+    html = '<script id="data_q1" type="application/json">[]</script>'
+    out = swap_data_blocks(html, {"data_q1": [{"x": 1}]}, schemas={"data_q1": schema})
+    assert '"x":1' in out
+
+
+def test_swap_unwraps_object_payload_before_writing():
+    schema = DataBlockSchema(shape="object", fields=["total"])
+    html = '<script id="data_summary" type="application/json">{}</script>'
+    out = swap_data_blocks(html, {"data_summary": [{"total": 42}]}, schemas={"data_summary": schema})
+    # Object form, not array
+    assert '{"total":42}' in out
+    assert '[{"total"' not in out
+
+
+def test_swap_raises_schema_error_when_field_missing():
+    schema = DataBlockSchema(shape="array", fields=["loja", "venda"])
+    html = '<script id="data_q1" type="application/json">[]</script>'
+    with pytest.raises(SchemaError, match="data_q1.*missing.*venda"):
+        swap_data_blocks(html, {"data_q1": [{"loja": "A"}]}, schemas={"data_q1": schema})
+
+
+def test_swap_without_schemas_dict_works_unchanged():
+    """Backward compat: callers that don't pass `schemas` get the legacy behavior."""
+    html = '<script id="data_q1" type="application/json">[]</script>'
+    out = swap_data_blocks(html, {"data_q1": [{"x": 1}]})
+    assert '"x":1' in out

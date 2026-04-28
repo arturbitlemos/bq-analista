@@ -54,8 +54,17 @@ def validate_blocks_present(html: str, block_ids: list[str]) -> None:
         raise ValueError(f"HTML missing required <script id=...> blocks: {missing}")
 
 
-def swap_data_blocks(html: str, payloads: dict[str, Any]) -> str:
+def swap_data_blocks(
+    html: str,
+    payloads: dict[str, Any],
+    schemas: "dict[str, DataBlockSchema | None] | None" = None,
+) -> str:
     """Replace each <script id="<block_id>" type="application/json"> body with JSON of payloads[block_id].
+
+    If `schemas` is provided, each payload is validated and (for shape=object)
+    unwrapped to a single dict before being encoded. Validation failure raises
+    SchemaError — which the caller (refresh_handler / publicar_dashboard) maps
+    to a user-visible 500.
 
     Raises ValueError if a block_id is not found, or if the resulting HTML lost the CSP meta tag
     (defensive — should never happen since we never touch <head>)."""
@@ -67,7 +76,9 @@ def swap_data_blocks(html: str, payloads: dict[str, Any]) -> str:
         match = pattern.search(out)
         if not match:
             raise ValueError(f"block_id {block_id!r} not found in HTML")
-        encoded = encode_for_script_tag(payload)
+        schema = (schemas or {}).get(block_id)
+        prepared = validate_payload_schema(block_id, payload, schema)
+        encoded = encode_for_script_tag(prepared)
         out = pattern.sub(lambda m: m.group(1) + encoded + m.group(3), out, count=1)
 
     if csp_before and "Content-Security-Policy" not in out:

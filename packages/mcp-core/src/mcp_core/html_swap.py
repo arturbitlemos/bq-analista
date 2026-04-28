@@ -2,7 +2,10 @@ from __future__ import annotations
 import json
 import re
 from decimal import Decimal
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mcp_core.refresh_spec import DataBlockSchema
 
 
 class _SafeEncoder(json.JSONEncoder):
@@ -71,3 +74,46 @@ def swap_data_blocks(html: str, payloads: dict[str, Any]) -> str:
         raise ValueError("CSP meta tag was lost during swap (should never happen)")
 
     return out
+
+
+class SchemaError(ValueError):
+    """Raised when a refreshed payload doesn't match its declared DataBlockSchema."""
+
+
+def validate_payload_schema(
+    block_id: str,
+    payload: Any,
+    schema: "DataBlockSchema | None",
+) -> Any:
+    """Validate `payload` (BQ rows: list[dict]) against `schema`. Returns the
+    payload prepared for swap: unchanged for `array`, unwrapped (the single
+    row) for `object`. Raises SchemaError with a clear message on mismatch.
+
+    schema=None is a no-op — used for legacy specs that pre-date schema
+    contracts. New analyses should always declare a schema."""
+    if schema is None:
+        return payload
+
+    if schema.shape == "array":
+        if not isinstance(payload, list):
+            raise SchemaError(f"{block_id}: expected array, got {type(payload).__name__}")
+        for i, row in enumerate(payload):
+            if not isinstance(row, dict):
+                raise SchemaError(f"{block_id}: row {i} is not an object")
+            missing = [f for f in schema.fields if f not in row]
+            if missing:
+                raise SchemaError(f"{block_id}: row {i} missing fields: {missing}")
+        return payload
+
+    # shape == "object"
+    if not isinstance(payload, list):
+        raise SchemaError(f"{block_id}: expected list of 1 row, got {type(payload).__name__}")
+    if len(payload) != 1:
+        raise SchemaError(f"{block_id}: object shape expects 1 row, got {len(payload)}")
+    row = payload[0]
+    if not isinstance(row, dict):
+        raise SchemaError(f"{block_id}: single row is not an object")
+    missing = [f for f in schema.fields if f not in row]
+    if missing:
+        raise SchemaError(f"{block_id}: missing fields: {missing}")
+    return row

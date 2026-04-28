@@ -62,3 +62,59 @@ def test_make_data_block_roundtrips_through_swap():
     html = f"<html>{block}</html>"
     result = swap_data_blocks(html, {"data_q1": [{"x": 2}]})
     assert '"x":2' in result.replace(" ", "")
+
+
+from mcp_core.html_swap import validate_payload_schema, SchemaError
+from mcp_core.refresh_spec import DataBlockSchema
+
+
+def test_validate_array_payload_passes():
+    schema = DataBlockSchema(shape="array", fields=["loja", "venda"])
+    payload = [{"loja": "A", "venda": 10.0}, {"loja": "B", "venda": 20.0}]
+    out = validate_payload_schema("data_x", payload, schema)
+    assert out == payload  # array passes through unchanged
+
+
+def test_validate_array_payload_missing_field_fails():
+    schema = DataBlockSchema(shape="array", fields=["loja", "venda"])
+    payload = [{"loja": "A"}]
+    with pytest.raises(SchemaError, match="data_x.*row 0.*missing.*venda"):
+        validate_payload_schema("data_x", payload, schema)
+
+
+def test_validate_array_rejects_non_list():
+    schema = DataBlockSchema(shape="array", fields=["x"])
+    with pytest.raises(SchemaError, match="data_x.*expected array"):
+        validate_payload_schema("data_x", {"x": 1}, schema)
+
+
+def test_validate_object_payload_unwraps_single_row():
+    schema = DataBlockSchema(shape="object", fields=["total_cy", "total_ly"])
+    payload = [{"total_cy": 100.0, "total_ly": 90.0}]
+    out = validate_payload_schema("data_summary", payload, schema)
+    assert out == {"total_cy": 100.0, "total_ly": 90.0}
+
+
+def test_validate_object_rejects_multi_row():
+    schema = DataBlockSchema(shape="object", fields=["x"])
+    payload = [{"x": 1}, {"x": 2}]
+    with pytest.raises(SchemaError, match="data_x.*object shape expects 1 row.*got 2"):
+        validate_payload_schema("data_x", payload, schema)
+
+
+def test_validate_object_rejects_zero_rows():
+    schema = DataBlockSchema(shape="object", fields=["x"])
+    with pytest.raises(SchemaError, match="data_x.*object shape expects 1 row.*got 0"):
+        validate_payload_schema("data_x", [], schema)
+
+
+def test_validate_object_missing_field_fails():
+    schema = DataBlockSchema(shape="object", fields=["total_cy", "total_ly"])
+    payload = [{"total_cy": 100.0}]
+    with pytest.raises(SchemaError, match="data_summary.*missing.*total_ly"):
+        validate_payload_schema("data_summary", payload, schema)
+
+
+def test_validate_with_none_schema_returns_payload_unchanged():
+    payload = [{"anything": 1}]
+    assert validate_payload_schema("data_x", payload, None) == payload

@@ -63,7 +63,12 @@ class BqClient:
             )
 
     def _check_allowed_datasets(self, sql: str) -> None:
-        """Run BQ dry-run to extract referenced datasets; raise if any is not allowed."""
+        """Run BQ dry-run to extract referenced datasets; raise if any is not allowed.
+
+        allowed_datasets entries can be:
+          - "dataset_name"           → allowed only under settings.project_id
+          - "other-project.dataset"  → allowed under the specified project
+        """
         cfg = bigquery.QueryJobConfig(
             dry_run=True,
             use_query_cache=False,
@@ -72,12 +77,16 @@ class BqClient:
         job = self.bq.query(sql, job_config=cfg)
         # job.result() is not needed for dry-run; referenced_tables is populated immediately
         for table_ref in job.referenced_tables:
-            if (
-                table_ref.project != self.settings.project_id
-                or table_ref.dataset_id not in self.settings.allowed_datasets
-            ):
+            qualified = f"{table_ref.project}.{table_ref.dataset_id}"
+            allowed = any(
+                (entry == table_ref.dataset_id and table_ref.project == self.settings.project_id)
+                if "." not in entry
+                else entry == qualified
+                for entry in self.settings.allowed_datasets
+            )
+            if not allowed:
                 raise DatasetNotAllowedError(
-                    f"'{table_ref.project}.{table_ref.dataset_id}' not in allowed scope "
+                    f"'{qualified}' not in allowed scope "
                     f"(project={self.settings.project_id}, datasets={self.settings.allowed_datasets})"
                 )
 

@@ -157,29 +157,37 @@ Quando o usuário pedir contagem de transações **sem especificar canal**:
 
 ## 4. CMV e margem
 
-**CMV não existe como coluna** em `TB_WANMTP_VENDAS_LOJA_CAPTADO`. Para margem/markup, joinar com `PRODUTOS_PRECOS` (tabela CT) e calcular.
+**CMV não existe como coluna** em `TB_WANMTP_VENDAS_LOJA_CAPTADO`. Para margem/markup, joinar com `PRODUTOS_PRECOS` (tabelas CT e C0) e calcular.
 
-**Padrão validado:**
+**Padrão validado (2026-04-27):**
 
 ```sql
 SELECT
   SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC))              AS venda_liquida,
-  SUM(v.QTDE_PROD * SAFE_CAST(p.PRECO1 AS NUMERIC))         AS cmv,
+  SUM(
+    (v.QTDE_PROD - v.QTDE_TROCA_PROD)
+    * COALESCE(SAFE_CAST(ct.PRECO1 AS NUMERIC), SAFE_CAST(c0.PRECO1 AS NUMERIC))
+  )                                                          AS cmv,
   SAFE_DIVIDE(
-    SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC)),
-    SUM(v.QTDE_PROD * SAFE_CAST(p.PRECO1 AS NUMERIC))
-  )                                                          AS markup
+    SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC))
+      - SUM((v.QTDE_PROD - v.QTDE_TROCA_PROD)
+            * COALESCE(SAFE_CAST(ct.PRECO1 AS NUMERIC), SAFE_CAST(c0.PRECO1 AS NUMERIC))),
+    SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC))
+  )                                                          AS maco
 FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
-LEFT JOIN `soma-pipeline-prd.silver_linx.PRODUTOS_PRECOS` p
-  ON v.PRODUTO = p.PRODUTO
- AND p.CODIGO_TAB_PRECO = 'CT'
+LEFT JOIN `soma-pipeline-prd.silver_linx.PRODUTOS_PRECOS` ct
+  ON ct.PRODUTO = v.PRODUTO AND ct.CODIGO_TAB_PRECO = 'CT'
+LEFT JOIN `soma-pipeline-prd.silver_linx.PRODUTOS_PRECOS` c0
+  ON c0.PRODUTO = v.PRODUTO AND c0.CODIGO_TAB_PRECO = 'C0'
 WHERE v.DATA_VENDA BETWEEN :start AND :end
 ```
 
 **Regras:**
-- Filtrar `CODIGO_TAB_PRECO = 'CT'` **no `ON` do join, não no `WHERE`** — garante que o LEFT JOIN preserve produtos sem custo cadastrado (retornam NULL) em vez de eliminá-los silenciosamente.
+- **Quantidade:** usar `QTDE_PROD - QTDE_TROCA_PROD` — deduz unidades de troca recebidas do cliente. Usar `QTDE_PROD` puro superestima o CMV (validado 2026-04-27: diferença de ~14–19% dependendo da marca).
+- **Preço de custo:** `COALESCE(CT.PRECO1, C0.PRECO1)` — tenta a tabela `CT` primeiro; se NULL, usa `C0`. Alguns produtos antigos têm custo cadastrado em `C0` em vez de `CT`.
+- Filtrar `CODIGO_TAB_PRECO` **no `ON` do join, nunca no `WHERE`** — garante que o LEFT JOIN preserve produtos sem custo (retornam NULL) em vez de eliminá-los silenciosamente.
 - Coluna de custo unitário: **`PRECO1`** (STRING — requer `SAFE_CAST AS NUMERIC`). Não existe coluna `PRECO_CUSTO`.
-- CMV = `QTDE_PROD * PRECO1` (custo unitário × quantidade). Se são 3 peças, o CMV é 3× o custo unitário.
+- `QTDE_TROCA_PROD` é sempre ≥ 0 (validado em produção) — nunca causa CMV negativo por si só.
 - Em devoluções, `QTDE_PROD` é negativo → CMV fica negativo (correto, alinha o sinal da receita).
 
 ---
@@ -193,7 +201,7 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 | Desconto | `DESCONTO_PROD` | Gravado como **NEGATIVO** (validado 2026-04-18) |
 | Peças | `QTDE_PROD` | Pode ser negativo em devolução/troca |
 | Troca | `QTDE_TROCA_PROD` | Unidades de troca |
-| CMV | `PRODUTOS_PRECOS.PRECO_CUSTO` via join | Ver §4 |
+| CMV | `(QTDE_PROD - QTDE_TROCA_PROD) * COALESCE(CT.PRECO1, C0.PRECO1)` via join | Ver §4 |
 
 **Regra de ouro:** se o usuário não especifica, **venda líquida (`VALOR_PAGO_PROD`)** — `SUM` direto, sem filtrar por sinal. Devoluções entram com valor negativo e **devem** ser somadas para o líquido refletir a realidade. Só filtrar `> 0` sob pedido explícito (ver §1.1).
 
@@ -248,10 +256,10 @@ DATE_SUB(DATA_VENDA, INTERVAL 52 WEEK)
 | Ticket Médio | `SUM(VALOR_PAGO_PROD) / COUNT(DISTINCT chave_pedido)` | varia por posicionamento |
 | PA (Peças/Atendimento) | `SUM(QTDE_PROD) / COUNT(DISTINCT chave_pedido)` | 1,8–2,5 |
 | Taxa de Desconto | `SUM(-DESCONTO_PROD) / (SUM(VALOR_PAGO_PROD) + SUM(-DESCONTO_PROD))` | 15–25% saudável |
-| Markup | `SUM(VALOR_PAGO_PROD) / SUM(QTDE_PROD * PRECO_CUSTO)` | 2,5–4,0x |
-| Margem Bruta / MACO | `1 - SUM(QTDE_PROD * PRECO_CUSTO) / SUM(VALOR_PAGO_PROD)` | 55–70% |
+| Markup | `SUM(VALOR_PAGO_PROD) / SUM((QTDE_PROD - QTDE_TROCA_PROD) * COALESCE(CT.PRECO1, C0.PRECO1))` | 2,5–4,0x |
+| Margem Bruta / MACO | `1 - SUM((QTDE_PROD - QTDE_TROCA_PROD) * COALESCE(CT.PRECO1, C0.PRECO1)) / SUM(VALOR_PAGO_PROD)` | 55–70% |
 
-- **Sempre que usar markup/margem:** join com `PRODUTOS_PRECOS` (§4).
+- **Sempre que usar markup/margem:** dois joins com `PRODUTOS_PRECOS` (CT e C0) — ver §4.
 - **Sempre que usar PA ou ticket:** usar `chave_pedido` via §3.
 - `DESCONTO_PROD` é negativo → inverter sinal (`-DESCONTO_PROD`) pra somar como valor positivo de desconto.
 
@@ -259,7 +267,16 @@ DATE_SUB(DATA_VENDA, INTERVAL 52 WEEK)
 
 Internamente no grupo, **MACO = Margem Bruta** — mesma fórmula acima. Quando o usuário pedir "MACO", calcular como margem bruta e deixar explícito na resposta:
 
-> "MACO calculado como Margem Bruta: (Receita − CMV) / Receita."
+> "MACO calculado como Margem Bruta (≠ MACO Roots): (Receita − CMV) / Receita."
+
+**Formato de entrega obrigatório — sempre trazer MACO em duas formas:**
+
+| Coluna | Fórmula |
+|---|---|
+| `maco_rs` | `SUM(VALOR_PAGO_PROD) - SUM((QTDE_PROD - QTDE_TROCA_PROD) * COALESCE(CT.PRECO1, C0.PRECO1))` |
+| `maco_pct` | `maco_rs / SUM(VALOR_PAGO_PROD)` |
+
+Nunca entregar só o percentual — o valor absoluto (R$) é obrigatório em toda resposta que envolva MACO.
 
 > ⚠️ **Existe internamente o conceito de "MACO Roots"**, que é uma variação desta métrica. Não calculá-lo por conta própria — se o usuário mencionar "MACO Roots" ou pedir uma quebra diferente, perguntar antes de rodar.
 
@@ -655,3 +672,4 @@ Substituir `VALOR_PAGO_PROD` por `QTDE_PROD` na mesma estrutura do §15.2.
 | 2026-04-19 | Adicionado §8.1 — grão default "por produto" = `PRODUTO + COR_PRODUTO` (agregar tamanho, não agregar cor). |
 | 2026-04-21 | Adicionado §12 — regras canônicas venda vs cota; `LOJAS_PREVISAO_VENDAS.VENDA` documentada como não confiável; mapeamento de filiais ecommerce validado (§11 em schema.md). |
 | 2026-04-22 | **Troca do default de filial/rede: ORIGEM → DESTINO.** `RL_DESTINO` + `CODIGO_FILIAL_DESTINO` passam a ser o contexto padrão em §8, §10, §12 e nos exemplos SQL de schema.md §6/§8/§11. `RL_DESTINO` é INTEGER → requer `CAST(... AS STRING)` no join com `LOJAS_REDE`. §3 (chave_pedido) mantém `CODIGO_FILIAL_ORIGEM` — é chave técnica validada empiricamente, não default analítico. |
+| 2026-04-27 | **Correção da fórmula de CMV/MACO (§4, §5, §7).** Quantidade correta: `QTDE_PROD - QTDE_TROCA_PROD` (não `QTDE_PROD` puro). Preço de custo: `COALESCE(CT.PRECO1, C0.PRECO1)` com dois joins em `PRODUTOS_PRECOS`. Validado em Maria Filó mar/26 e Animale fev/26 — reduz desvio vs gabarito de ~19% para ~1,3%. |

@@ -144,7 +144,7 @@
     @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
     /* Modais (<dialog>) — share + refresh */
-    dialog.az-modal { padding: 0; border: none; border-radius: 10px; box-shadow: 0 24px 60px rgba(0,0,0,0.18); width: min(520px, 92vw); max-height: 92vh; overflow: hidden; background: var(--surface); color: var(--ink); }
+    dialog.az-modal { padding: 0; border: none; border-radius: 10px; box-shadow: 0 24px 60px rgba(0,0,0,0.18); width: min(520px, 92vw); max-height: 92vh; overflow: hidden; background: var(--surface); color: var(--ink); position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0; }
     dialog.az-modal::backdrop { background: rgba(0,0,0,0.42); }
     .modal-header { padding: 1.1rem 1.4rem 0.6rem; border-bottom: 1px solid var(--surface-warm); }
     .modal-title { font-family: var(--font-editorial); font-size: 1.15rem; color: var(--navy); margin-bottom: 0.15rem; }
@@ -211,6 +211,8 @@
         position: fixed;
         inset: auto 0 0 0;
         top: auto;
+        left: 0;
+        transform: none;
         max-height: 88vh;
       }
       .modal-header { padding: 1rem 1.15rem 0.55rem; }

@@ -1,7 +1,15 @@
 from __future__ import annotations
 import json
 import re
+from decimal import Decimal
 from typing import Any
+
+
+class _SafeEncoder(json.JSONEncoder):
+    def default(self, o: Any) -> Any:
+        if isinstance(o, Decimal):
+            return float(o)
+        return super().default(o)
 
 # Translate table for JSON output going inside <script type="application/json">.
 # Prevents content from breaking out of the script tag (XSS) or breaking JSON parsing
@@ -17,7 +25,7 @@ _HTML_SCRIPT_ESCAPES = str.maketrans({
 
 def encode_for_script_tag(value: Any) -> str:
     """JSON-encode safely for embedding inside <script type=application/json>."""
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).translate(_HTML_SCRIPT_ESCAPES)
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), cls=_SafeEncoder).translate(_HTML_SCRIPT_ESCAPES)
 
 
 def make_data_block(block_id: str, payload: Any) -> str:

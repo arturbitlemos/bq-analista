@@ -30,7 +30,10 @@ class BlobClient:
 
     async def put(self, pathname: str, body: bytes, *, content_type: str = "text/html") -> str:
         token = self._mint_token()
-        async with httpx.AsyncClient(timeout=30) as client:
+        # 90s — large dashboards with embedded charts can push past 30s
+        # over slower connections; happy path is sub-second so the higher
+        # ceiling has no practical cost.
+        async with httpx.AsyncClient(timeout=90) as client:
             resp = await client.put(
                 self._endpoint,
                 params={"pathname": pathname, "content_type": content_type},
@@ -48,7 +51,7 @@ class BlobClient:
 
     async def get(self, pathname: str) -> bytes:
         token = self._mint_token()
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=90) as client:
             resp = await client.get(
                 self._endpoint,
                 params={"pathname": pathname},

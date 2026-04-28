@@ -39,7 +39,7 @@ beforeEach(() => {
 
 test('callback com tid correto redireciona loopback com tokens e nonce', async () => {
   stubFetch(mockIdToken({}));
-  const handler = require('../auth/callback');
+  const handler = require('../auth/_handlers/callback');
   const req = {
     method: 'GET',
     query: { code: 'az-code', state: STATE },
@@ -59,7 +59,7 @@ test('callback com tid correto redireciona loopback com tokens e nonce', async (
 
 test('callback com tid errado redireciona loopback com error=wrong_tenant', async () => {
   stubFetch(mockIdToken({ tid: 'tenant-errado' }));
-  const handler = require('../auth/callback');
+  const handler = require('../auth/_handlers/callback');
   const req = {
     method: 'GET',
     query: { code: 'az-code', state: STATE },
@@ -74,7 +74,7 @@ test('callback com tid errado redireciona loopback com error=wrong_tenant', asyn
 });
 
 test('callback sem cookie rejeita 400', async () => {
-  const handler = require('../auth/callback');
+  const handler = require('../auth/_handlers/callback');
   const req = {
     method: 'GET',
     query: { code: 'az-code', state: STATE },
@@ -86,7 +86,7 @@ test('callback sem cookie rejeita 400', async () => {
 });
 
 test('callback com cookie adulterado rejeita 400', async () => {
-  const handler = require('../auth/callback');
+  const handler = require('../auth/_handlers/callback');
   const req = {
     method: 'GET',
     query: { code: 'az-code', state: STATE },
@@ -98,7 +98,7 @@ test('callback com cookie adulterado rejeita 400', async () => {
 });
 
 test('callback com query.state ausente rejeita 400', async () => {
-  const handler = require('../auth/callback');
+  const handler = require('../auth/_handlers/callback');
   const req = {
     method: 'GET',
     query: { code: 'az-code' },
@@ -110,7 +110,7 @@ test('callback com query.state ausente rejeita 400', async () => {
 });
 
 test('callback com query.state diferente do cookie rejeita 400', async () => {
-  const handler = require('../auth/callback');
+  const handler = require('../auth/_handlers/callback');
   const DIFFERENT_STATE = signState(REDIRECT, NONCE, process.env.SESSION_SECRET);
   const req = {
     method: 'GET',
@@ -123,7 +123,7 @@ test('callback com query.state diferente do cookie rejeita 400', async () => {
 });
 
 test('callback com query.state literal placeholder rejeita 400', async () => {
-  const handler = require('../auth/callback');
+  const handler = require('../auth/_handlers/callback');
   const req = {
     method: 'GET',
     query: { code: 'az-code', state: 'placeholder' },
@@ -136,7 +136,7 @@ test('callback com query.state literal placeholder rejeita 400', async () => {
 
 test('callback com code exchange falhando redireciona com error=invalid_code', async () => {
   global.fetch = async () => ({ ok: false, status: 400, json: async () => ({ error: 'invalid_grant' }) });
-  const handler = require('../auth/callback');
+  const handler = require('../auth/_handlers/callback');
   const req = {
     method: 'GET',
     query: { code: 'bad-code', state: STATE },
@@ -150,7 +150,7 @@ test('callback com code exchange falhando redireciona com error=invalid_code', a
 });
 
 test('callback 405 em method errado', async () => {
-  const handler = require('../auth/callback');
+  const handler = require('../auth/_handlers/callback');
   const res = mockRes();
   await handler({ method: 'POST', query: {}, headers: {} }, res);
   assert.equal(res.statusCode, 405);

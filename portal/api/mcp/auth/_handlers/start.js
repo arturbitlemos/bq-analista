@@ -1,4 +1,4 @@
-const { signState } = require('../_helpers/state');
+const { signState } = require('../../_helpers/state');
 
 const PORT_MIN = 8765;
 const PORT_MAX = 8799;

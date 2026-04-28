@@ -5,7 +5,7 @@ process.env.AZURE_CLIENT_ID = 'test-client-id';
 process.env.AZURE_TENANT_ID = 'test-tenant-id';
 process.env.SESSION_SECRET = 'z'.repeat(32);
 
-const handler = require('../auth/start');
+const handler = require('../auth/_handlers/start');
 
 function mockRes() {
   const r = { statusCode: 200, headers: {}, body: null };

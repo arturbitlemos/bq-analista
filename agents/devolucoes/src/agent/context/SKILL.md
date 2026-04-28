@@ -169,8 +169,61 @@ No MVP, este agent não:
 
 ---
 
+## Antes de gerar uma análise nova: buscar histórico
+
+Sempre que o usuário pedir uma análise não-trivial:
+
+1. Chame `buscar_analises(query=<resumo da pergunta>, brand=<marca se houver>, agent="devolucoes")`.
+2. Se houver match recente (últimos 30 dias) com mesma marca + tema:
+   - Mostre pro usuário: *"Já existe uma análise parecida: '<título>' (publicada há N dias). Quer atualizar com o novo período em vez de criar uma nova?"*
+   - Se sim → instrua: *"abre o portal, clica nos 3 pontinhos do card '<título>' e escolhe 'Atualizar período'."* Não tente fazer o refresh por chat.
+   - Se não → siga gerando a análise nova.
+3. Para análises não-triviais, antes de escrever SQL do zero, chame `obter_analise(id=<id da mais relevante>)` em 1-2 análises e use as SQLs do `refresh_spec.queries[].sql` como **ponto de partida** (sempre adaptando — período, filtros, dimensões podem ter mudado).
+4. Inclua uma linha no rascunho: *"reaproveitando estrutura de '<título da análise prévia>'"*.
+
+## Como gerar análise atualizável (refresh_spec)
+
+Quando publicar, **passe `refresh_spec` no `publicar_dashboard`** sempre que possível. Sem isso, o usuário não consegue clicar "Atualizar período" no portal.
+
+Convenções obrigatórias:
+- SQL com placeholders fixos `'{{start_date}}'` e `'{{end_date}}'` (com aspas simples — são strings ISO YYYY-MM-DD substituídas literalmente).
+- Cada query tem `id` único dentro da análise.
+- Para cada query cujos resultados você usa no HTML, declare um `data_blocks[i]` apontando pro `<script id="data_<query_id>" type="application/json">…</script>` que você embute no HTML.
+- **Use sempre a tool `html_data_block(block_id, payload)`** pra gerar a tag canônica — evita variações de espaço/atributo que quebram o swap do refresh.
+- O HTML deve ler dados via `JSON.parse(document.getElementById('<block_id>').textContent)` em vez de hardcodar valores na marcação.
+
+Exemplo:
+
+```json
+{
+  "queries": [
+    { "id": "motivos", "sql": "SELECT motivo_devolucao, COUNT(*) c FROM t WHERE data BETWEEN '{{start_date}}' AND '{{end_date}}' GROUP BY 1" }
+  ],
+  "data_blocks": [{ "block_id": "data_motivos", "query_id": "motivos" }],
+  "original_period": { "start": "2026-04-01", "end": "2026-04-23" }
+}
+```
+
+Use `html_data_block(block_id, payload)` pra emitir cada bloco no HTML — variações de atributo/espaço quebram o swap do refresh.
+
+Se a análise retornar 0 linhas em algum período, o HTML deve mostrar "sem dados no período" sem quebrar.
+
+## Convenções de tags
+
+Use uma ou mais das tags canônicas pra que `buscar_analises` consiga ranquear bem:
+
+- Recorte temporal: `mtd`, `ytd`, `7d`, `30d`, `90d`
+- Tipo: `ranking`, `comparativo`, `tendencia`, `auditoria`
+- Dimensão: `produto`, `loja`, `marca`, `canal`, `motivo`, `colecao`
+- Métrica em destaque: `taxa-devolucao`, `valor-devolvido`
+
+Tags em slug-case (lowercase, sem acento, separado por hífen). Não invente sinônimos — se faltar uma tag canônica pra teu caso, use a que mais aproxima.
+
+---
+
 ## Histórico
 
 | Data | Mudança |
 |---|---|
 | 2026-04-21 | Criação do SKILL.md do MVP conversacional. |
+| 2026-04-27 | Adicionadas seções de Phase B (buscar_analises, obter_analise, refresh_spec, html_data_block, convenções de tags). |

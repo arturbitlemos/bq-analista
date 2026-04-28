@@ -177,3 +177,68 @@ A tool `publicar_dashboard` aceita **exatamente** estes args, em inglês — **n
 ```
 
 Nunca usar `titulo`, `marca`, `periodo`, `descricao` — a tool rejeita com `Field required`.
+
+---
+
+## Antes de gerar uma análise nova: buscar histórico
+
+Sempre que o usuário pedir uma análise não-trivial:
+
+1. Chame `buscar_analises(query=<resumo da pergunta>, brand=<marca se houver>, agent="vendas-linx")`.
+2. Se houver match recente (últimos 30 dias) com mesma marca + tema:
+   - Mostre pro usuário: *"Já existe uma análise parecida: '<título>' (publicada há N dias). Quer atualizar com o novo período em vez de criar uma nova?"*
+   - Se sim → instrua: *"abre o portal, clica nos 3 pontinhos do card '<título>' e escolhe 'Atualizar período'."* Não tente fazer o refresh por chat.
+   - Se não → siga gerando a análise nova.
+3. Para análises não-triviais, antes de escrever SQL do zero, chame `obter_analise(id=<id da mais relevante>)` em 1-2 análises e use as SQLs do `refresh_spec.queries[].sql` como **ponto de partida** (sempre adaptando — período, filtros, dimensões podem ter mudado).
+4. Inclua uma linha no rascunho: *"reaproveitando estrutura de '<título da análise prévia>'"*.
+
+## Como gerar análise atualizável (refresh_spec)
+
+Quando publicar, **passe `refresh_spec` no `publicar_dashboard`** sempre que possível. Sem isso, o usuário não consegue clicar "Atualizar período" no portal.
+
+Convenções obrigatórias:
+- SQL com placeholders fixos `'{{start_date}}'` e `'{{end_date}}'` (com aspas simples — são strings ISO YYYY-MM-DD substituídas literalmente).
+- Cada query tem `id` único dentro da análise.
+- Para cada query cujos resultados você usa no HTML, declare um `data_blocks[i]` apontando pro `<script id="data_<query_id>" type="application/json">…</script>` que você embute no HTML.
+- **Use sempre a tool `html_data_block(block_id, payload)`** pra gerar a tag canônica — evita variações de espaço/atributo que quebram o swap do refresh.
+- O HTML deve ler dados via `JSON.parse(document.getElementById('<block_id>').textContent)` em vez de hardcodar valores na marcação.
+
+Exemplo de `refresh_spec`:
+
+```json
+{
+  "queries": [
+    { "id": "top_lojas", "sql": "SELECT filial, SUM(valor_pago_produto) v FROM t WHERE data BETWEEN '{{start_date}}' AND '{{end_date}}' GROUP BY 1" }
+  ],
+  "data_blocks": [
+    { "block_id": "data_top_lojas", "query_id": "top_lojas" }
+  ],
+  "original_period": { "start": "2026-04-01", "end": "2026-04-23" }
+}
+```
+
+E no HTML você obtém o bloco via:
+```python
+data_block_html = await html_data_block("data_top_lojas", query_results)
+```
+
+Embute o `data_block_html` retornado dentro do HTML e use JS pra ler:
+```html
+<script>
+  const dados = JSON.parse(document.getElementById('data_top_lojas').textContent);
+  // renderizar tabela/gráfico a partir de `dados`
+</script>
+```
+
+Se a análise retornar 0 linhas em algum período (filial fechada etc.), o HTML deve mostrar uma mensagem "sem dados no período" sem quebrar.
+
+## Convenções de tags
+
+Use uma ou mais das tags canônicas pra que `buscar_analises` consiga ranquear bem:
+
+- Recorte temporal: `mtd`, `ytd`, `7d`, `30d`, `90d`
+- Tipo: `ranking`, `comparativo`, `tendencia`, `auditoria`
+- Dimensão: `produto`, `loja`, `marca`, `canal`, `colecao`, `vendedor`
+- Métrica em destaque: `markup`, `giro`, `cobertura`, `pa`, `ticket-medio`
+
+Tags em slug-case (lowercase, sem acento, separado por hífen). Não invente sinônimos — se faltar uma tag canônica pra teu caso, use a que mais aproxima.

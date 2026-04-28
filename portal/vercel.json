@@ -4,10 +4,12 @@
   "functions": {
     "api/auth.js": { "maxDuration": 10 },
     "api/share.js": { "maxDuration": 30 },
-    "api/mcp/auth/callback.js": { "maxDuration": 15 }
+    "api/mcp/auth/[action].js": { "maxDuration": 15 }
   },
   "rewrites": [
-    { "source": "/onboarding", "destination": "/onboarding.html" }
+    { "source": "/onboarding", "destination": "/onboarding.html" },
+    { "source": "/api/download-dxt", "destination": "/api/download?type=dxt" },
+    { "source": "/api/download-skill", "destination": "/api/download?type=skill" }
   ],
   "headers": [
     {
@@ -23,7 +25,7 @@
       ]
     },
     {
-      "source": "/analyses/(.*)",
+      "source": "/api/analysis/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "private, no-store" },
         {
@@ -31,10 +33,6 @@
           "value": "sandbox allow-scripts allow-popups allow-modals allow-forms"
         }
       ]
-    },
-    {
-      "source": "/library/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "private, no-store" }]
     }
   ]
 }

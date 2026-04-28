@@ -172,11 +172,14 @@ A tool `publicar_dashboard` aceita **exatamente** estes args, em inglês — **n
   "period": "2026-04-01 a 2026-04-23",
   "description": "Comparativo de venda líquida e PA por filial vs LY.",
   "html_content": "<!doctype html>...",
-  "tags": ["farm", "produtividade", "lojas"]
+  "tags": ["farm", "produtividade", "lojas"],
+  "refresh_spec": { ... }
 }
 ```
 
 Nunca usar `titulo`, `marca`, `periodo`, `descricao` — a tool rejeita com `Field required`.
+
+**`refresh_spec` é OBRIGATÓRIO.** A tool rejeita publicação sem ele com `refresh_spec_required`. Veja "Como gerar análise atualizável (refresh_spec)" mais abaixo — o HTML precisa ser construído com data islands desde o início, então pense no `refresh_spec` antes de escrever a primeira `consultar_bq`, não depois.
 
 ---
 
@@ -194,7 +197,7 @@ Sempre que o usuário pedir uma análise não-trivial:
 
 ## Como gerar análise atualizável (refresh_spec)
 
-Quando publicar, **passe `refresh_spec` no `publicar_dashboard`** sempre que possível. Sem isso, o usuário não consegue clicar "Atualizar período" no portal.
+**`refresh_spec` é obrigatório em toda chamada de `publicar_dashboard`.** Sem ele a tool rejeita a publicação — o usuário precisa poder clicar "Atualizar período" no portal e ver a mesma análise com data range novo. Se você não conseguir gerar um `refresh_spec` que cubra os números do HTML, não publique: avise o usuário.
 
 Convenções obrigatórias:
 - SQL com placeholders fixos `'{{start_date}}'` e `'{{end_date}}'` (com aspas simples — são strings ISO YYYY-MM-DD substituídas literalmente).

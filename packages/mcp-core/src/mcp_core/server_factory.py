@@ -269,8 +269,9 @@ def build_mcp_app(
     async def publicar_dashboard(
         title: str, brand: str, period: str,
         description: str, html_content: str,
-        tags: list[str], ctx: Context,
-        refresh_spec: dict | None = None,
+        tags: list[str],
+        refresh_spec: dict,
+        ctx: Context,
         public: bool = False,
         shared_with: list[str] | None = None,
     ) -> dict[str, object]:
@@ -288,19 +289,27 @@ def build_mcp_app(
                 description="Comparativo de venda líquida e PA por filial vs LY.",
                 html_content="<!doctype html>...",
                 tags=["farm", "produtividade", "lojas"],
+                refresh_spec={...},   # REQUIRED — see below
             )
 
-        Optional `refresh_spec` (dict) makes the analysis refreshable later via
-        the portal "Atualizar período" UI:
+        REQUIRED `refresh_spec` (dict) — every published analysis MUST be
+        refreshable. The user expects to click "Atualizar período" in the
+        portal and get the same analysis with a new date range. Without
+        `refresh_spec` we don't know which SQLs to re-run, so the publish
+        is rejected. Shape:
+
             {
               "queries": [{"id": "<query_id>", "sql": "SELECT ... '{{start_date}}' ... '{{end_date}}' ..."}, ...],
               "data_blocks": [{"block_id": "data_<id>", "query_id": "<query_id>"}, ...],
               "original_period": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}
             }
-        Each `data_blocks[i].block_id` MUST correspond to a
-        `<script id="<block_id>" type="application/json">…</script>` in
-        `html_content` (use the `html_data_block` tool to emit canonical form).
-        Validation rejects mismatches.
+
+        Build the HTML so every chart/number reads from a `<script id="data_X"
+        type="application/json">…</script>` block — use the `html_data_block`
+        tool to emit the canonical form. Each `data_blocks[i].block_id` MUST
+        match a script tag id in `html_content`; validation rejects mismatches.
+        SQLs use the literal placeholders `'{{start_date}}'` / `'{{end_date}}'`
+        (with single quotes — they're substituted as ISO date strings).
 
         `public` — if True, anyone in the tenant can see the analysis.
         `shared_with` — explicit recipients (lowercased emails) granted read access
@@ -327,19 +336,29 @@ def build_mcp_app(
         analysis_id = f"{slug}-{short_hash}"
         blob_pathname = f"analyses/{domain}/{analysis_id}.html"
 
-        # Validate refresh_spec if provided
-        spec_obj = None
-        period_start_d = None
-        period_end_d = None
-        if refresh_spec is not None:
-            try:
-                spec_obj = RefreshSpec.model_validate(refresh_spec)
-                block_ids = [b.block_id for b in spec_obj.data_blocks]
-                validate_blocks_present(html_content, block_ids)
-            except Exception as e:
-                return {"error": f"refresh_spec_invalid: {e}"}
-            period_start_d = spec_obj.original_period.start
-            period_end_d = spec_obj.original_period.end
+        # refresh_spec is REQUIRED — analyses without one can't be refreshed
+        # via the portal, which defeats the catalog's main value prop. Reject
+        # with a message that tells the model exactly how to fix the call.
+        if not refresh_spec or not isinstance(refresh_spec, dict):
+            return {
+                "error": (
+                    "refresh_spec_required: every published analysis must be "
+                    "refreshable. Build the HTML so each chart/number reads from a "
+                    "<script id=\"data_X\" type=\"application/json\"> block (use "
+                    "html_data_block to emit canonical form), then pass "
+                    "refresh_spec={'queries':[{'id':'X','sql':\"SELECT ... '{{start_date}}' ... '{{end_date}}' ...\"}], "
+                    "'data_blocks':[{'block_id':'data_X','query_id':'X'}], "
+                    "'original_period':{'start':'YYYY-MM-DD','end':'YYYY-MM-DD'}}."
+                )
+            }
+        try:
+            spec_obj = RefreshSpec.model_validate(refresh_spec)
+            block_ids = [b.block_id for b in spec_obj.data_blocks]
+            validate_blocks_present(html_content, block_ids)
+        except Exception as e:
+            return {"error": f"refresh_spec_invalid: {e}"}
+        period_start_d = spec_obj.original_period.start
+        period_end_d = spec_obj.original_period.end
 
         await ctx.report_progress(progress=0.1, total=1.0, message="injecting CSP...")
         # CSP same as before — restrict network/form to same-origin (defense in depth)

@@ -159,7 +159,7 @@ Ou em lista:
 
 No MVP, este agent não:
 
-- ❌ Publica dashboards sem pedido explícito do usuário — inline é o default. Quando pedido, usar `publicar_dashboard` com args **em inglês**: `title`, `brand`, `period`, `description`, `html_content`, `tags`. Nunca traduzir (`titulo`/`marca`/`periodo` → rejeitado com `Field required`).
+- ❌ Publica dashboards sem pedido explícito do usuário — inline é o default. Quando pedido, usar `publicar_dashboard` com args **em inglês**: `title`, `brand`, `period`, `description`, `html_content`, `tags`, `refresh_spec`. `refresh_spec` é **obrigatório** (sem ele a tool rejeita com `refresh_spec_required`). Nunca traduzir (`titulo`/`marca`/`periodo` → rejeitado com `Field required`).
 - ❌ Envia emails, mensagens Slack, ou qualquer comunicação externa
 - ❌ Escreve em nenhuma tabela — apenas leitura (`SELECT` / `WITH`)
 - ❌ Consulta outras tabelas além de `trusted_troque_devolucao`
@@ -183,7 +183,7 @@ Sempre que o usuário pedir uma análise não-trivial:
 
 ## Como gerar análise atualizável (refresh_spec)
 
-Quando publicar, **passe `refresh_spec` no `publicar_dashboard`** sempre que possível. Sem isso, o usuário não consegue clicar "Atualizar período" no portal.
+**`refresh_spec` é obrigatório em toda chamada de `publicar_dashboard`.** Sem ele a tool rejeita a publicação — o usuário precisa poder clicar "Atualizar período" no portal e ver a mesma análise com data range novo. Se você não conseguir gerar um `refresh_spec` que cubra os números do HTML, não publique: avise o usuário.
 
 Convenções obrigatórias:
 - SQL com placeholders fixos `'{{start_date}}'` e `'{{end_date}}'` (com aspas simples — são strings ISO YYYY-MM-DD substituídas literalmente).

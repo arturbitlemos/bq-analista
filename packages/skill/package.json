@@ -1,6 +1,6 @@
 {
   "name": "@azzas/skill",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Azzas analyst skill for Claude Desktop — composed from shared/context sources",
   "type": "module",

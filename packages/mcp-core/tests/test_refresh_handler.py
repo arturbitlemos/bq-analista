@@ -176,3 +176,61 @@ async def test_400_on_inverted_dates(db_pool):
             bq=_bq_ok([]), blob=_blob_ok(),
         )
     assert exc.value.status == 400
+
+
+@pytest.mark.asyncio
+async def test_refresh_fails_loud_on_schema_mismatch(db_pool):
+    spec = {
+        "queries": [{"id": "q1", "sql": "SELECT 1 WHERE d BETWEEN '{{start_date}}' AND '{{end_date}}'"}],
+        "data_blocks": [{
+            "block_id": "data_q1", "query_id": "q1",
+            "schema": {"shape": "array", "fields": ["loja", "venda"]},
+        }],
+        "original_period": {"start": "2026-04-01", "end": "2026-04-23"},
+    }
+    await _seed(refresh_spec=spec, id="t_schema_bad")
+
+    # BQ returns rows missing the required `venda` field
+    bq = _bq_ok([{"loja": "A"}])
+    blob = _blob_ok()
+
+    with pytest.raises(RefreshError) as exc:
+        await refresh_analysis(
+            analysis_id="t_schema_bad", actor_email="author@x.com",
+            start=date(2026, 5, 1), end=date(2026, 5, 7),
+            bq=bq, blob=blob,
+        )
+    assert exc.value.status == 500
+    assert "data_q1" in exc.value.message
+    assert "venda" in exc.value.message
+
+    # Blob was NOT overwritten
+    blob.put.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_refresh_object_shape_unwraps_single_row(db_pool):
+    spec = {
+        "queries": [{"id": "qsum", "sql": "SELECT 1 WHERE d BETWEEN '{{start_date}}' AND '{{end_date}}'"}],
+        "data_blocks": [{
+            "block_id": "data_summary", "query_id": "qsum",
+            "schema": {"shape": "object", "fields": ["total_cy"]},
+        }],
+        "original_period": {"start": "2026-04-01", "end": "2026-04-23"},
+    }
+    await _seed(refresh_spec=spec, id="t_obj")
+
+    bq = _bq_ok([{"total_cy": 1234.5}])
+    blob = MagicMock()
+    blob.get = AsyncMock(return_value=b'<script id="data_summary" type="application/json">{}</script>')
+    blob.put = AsyncMock(return_value="https://blob.x/new.html")
+
+    await refresh_analysis(
+        analysis_id="t_obj", actor_email="author@x.com",
+        start=date(2026, 5, 1), end=date(2026, 5, 7),
+        bq=bq, blob=blob,
+    )
+    new_body = blob.put.call_args.args[1]
+    # Object form, not [{...}]
+    assert b'{"total_cy":1234.5}' in new_body
+    assert b'[{"total_cy"' not in new_body

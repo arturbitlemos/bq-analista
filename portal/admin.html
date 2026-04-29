@@ -85,7 +85,7 @@
 
     const [analyticsResult, bqResult] = await Promise.allSettled([
       fetchJson('/api/admin/analytics'),
-      fetchJson('/api/admin/bq-stats-proxy'),
+      fetchJson('/api/admin/bq-stats'),
     ])
 
     if (analyticsResult.status === 'rejected') {

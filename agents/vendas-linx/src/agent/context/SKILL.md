@@ -179,7 +179,7 @@ A tool `publicar_dashboard` aceita **exatamente** estes args, em inglês — **n
 
 Nunca usar `titulo`, `marca`, `periodo`, `descricao` — a tool rejeita com `Field required`.
 
-**`refresh_spec` é OBRIGATÓRIO.** A tool rejeita publicação sem ele com `refresh_spec_required`. Veja "Como gerar análise atualizável (refresh_spec)" mais abaixo — o HTML precisa ser construído com data islands desde o início, então pense no `refresh_spec` antes de escrever a primeira `consultar_bq`, não depois.
+**`refresh_spec` é OBRIGATÓRIO.** A tool rejeita publicação sem ele com `refresh_spec_required`. Veja "Publicação com refresh garantido — contrato do data block" mais abaixo — o HTML precisa ser construído com data islands desde o início, então pense no `refresh_spec` antes de escrever a primeira `consultar_bq`, não depois.
 
 ---
 
@@ -195,45 +195,63 @@ Sempre que o usuário pedir uma análise não-trivial:
 3. Para análises não-triviais, antes de escrever SQL do zero, chame `obter_analise(id=<id da mais relevante>)` em 1-2 análises e use as SQLs do `refresh_spec.queries[].sql` como **ponto de partida** (sempre adaptando — período, filtros, dimensões podem ter mudado).
 4. Inclua uma linha no rascunho: *"reaproveitando estrutura de '<título da análise prévia>'"*.
 
-## Como gerar análise atualizável (refresh_spec)
+## Publicação com refresh garantido — contrato do data block
 
-**`refresh_spec` é obrigatório em toda chamada de `publicar_dashboard`.** Sem ele a tool rejeita a publicação — o usuário precisa poder clicar "Atualizar período" no portal e ver a mesma análise com data range novo. Se você não conseguir gerar um `refresh_spec` que cubra os números do HTML, não publique: avise o usuário.
+Toda análise publicada deve atender este contrato:
 
-Convenções obrigatórias:
-- SQL com placeholders fixos `'{{start_date}}'` e `'{{end_date}}'` (com aspas simples — são strings ISO YYYY-MM-DD substituídas literalmente).
-- Cada query tem `id` único dentro da análise.
-- Para cada query cujos resultados você usa no HTML, declare um `data_blocks[i]` apontando pro `<script id="data_<query_id>" type="application/json">…</script>` que você embute no HTML.
-- **Use sempre a tool `html_data_block(block_id, payload)`** pra gerar a tag canônica — evita variações de espaço/atributo que quebram o swap do refresh.
-- O HTML deve ler dados via `JSON.parse(document.getElementById('<block_id>').textContent)` em vez de hardcodar valores na marcação.
+> **SQL é a única camada de transformação. JS só renderiza. Cada data block tem uma query que retorna EXATAMENTE a forma que o JS lê.**
 
-Exemplo de `refresh_spec`:
+Isso significa:
 
-```json
+- Não pré-agregue, não pré-junte e não calcule deltas em Python antes de embutir no HTML. Faça tudo em SQL (window functions, STRUCT, ARRAY_AGG, self-join CY/LY).
+- Cada `<script id="data_X" type="application/json">` recebe o resultado da query `X`. Sem reuso (não mapeie 2 blocks pra mesma query a menos que ambos consumam o resultado idêntico).
+- O JS no HTML faz `JSON.parse(...)` e renderiza. Sem agregação no browser.
+
+### Como declarar o schema
+
+No `refresh_spec`, cada `data_block` deve ter `schema = {shape, fields}`:
+
+```jsonc
 {
   "queries": [
-    { "id": "top_lojas", "sql": "SELECT filial, SUM(valor_pago_produto) v FROM t WHERE data BETWEEN '{{start_date}}' AND '{{end_date}}' GROUP BY 1" }
+    { "id": "summary", "sql": "SELECT total_cy, total_ly, ... FROM (...)" },
+    { "id": "stores",  "sql": "SELECT n, cy, ly, v, c FROM (...) ORDER BY cy DESC" }
   ],
   "data_blocks": [
-    { "block_id": "data_top_lojas", "query_id": "top_lojas" }
+    { "block_id": "data_summary", "query_id": "summary",
+      "schema": { "shape": "object", "fields": ["total_cy", "total_ly", "var_pct", "lojas"] } },
+    { "block_id": "data_stores",  "query_id": "stores",
+      "schema": { "shape": "array",  "fields": ["n", "cy", "ly", "v", "c"] } }
   ],
-  "original_period": { "start": "2026-04-01", "end": "2026-04-23" }
+  "original_period": { "start": "2026-01-01", "end": "2026-04-27" }
 }
 ```
 
-E no HTML você obtém o bloco via:
-```python
-data_block_html = await html_data_block("data_top_lojas", query_results)
+- `shape: "array"` — bloco recebe a lista de rows como veio do BQ. JS faz `JSON.parse` e itera.
+- `shape: "object"` — query DEVE retornar exatamente 1 row. O servidor desembrulha pra `{...}` antes de gravar. JS lê como objeto.
+- `fields` — lista de campos obrigatórios em cada row. Validação roda em publish E em refresh; mismatch falha alta com nome do campo faltante.
+
+### Comparativo CY vs LY — fazer em SQL
+
+A regra "comparação sempre vs LY" continua. A diferença: o cálculo do delta vai pra dentro do SQL. Padrão:
+
+```sql
+WITH cy AS (SELECT ..., SUM(...) AS cy_val FROM ... WHERE data BETWEEN '{{start_date}}' AND '{{end_date}}' GROUP BY ...),
+     ly AS (SELECT ..., SUM(...) AS ly_val FROM ... WHERE data BETWEEN DATE_SUB(DATE '{{start_date}}', INTERVAL 1 YEAR)
+                                                                    AND DATE_SUB(DATE '{{end_date}}',   INTERVAL 1 YEAR) GROUP BY ...)
+SELECT cy.dim, cy.cy_val AS cy, ly.ly_val AS ly, SAFE_DIVIDE(cy.cy_val - ly.ly_val, ly.ly_val) * 100 AS v
+FROM cy LEFT JOIN ly USING (dim)
+ORDER BY cy DESC
 ```
 
-Embute o `data_block_html` retornado dentro do HTML e use JS pra ler:
-```html
-<script>
-  const dados = JSON.parse(document.getElementById('data_top_lojas').textContent);
-  // renderizar tabela/gráfico a partir de `dados`
-</script>
-```
+O placeholder `'{{start_date}}'` / `'{{end_date}}'` é substituído com a string ISO; LY se calcula com `DATE_SUB(..., INTERVAL 1 YEAR)` direto na query.
 
-Se a análise retornar 0 linhas em algum período (filial fechada etc.), o HTML deve mostrar uma mensagem "sem dados no período" sem quebrar.
+### Anti-padrões (vão quebrar refresh)
+
+- ❌ Agregar em Python e jogar dict pronto no HTML sem schema correspondente.
+- ❌ Mesma query mapeada pra 2 blocks com shapes diferentes.
+- ❌ JS que faz `data.reduce(...)` pra calcular total — total deve vir da SQL.
+- ❌ Schema declarado com campo `venda` mas SQL retornando `venda_liquida`.
 
 ## Convenções de tags
 

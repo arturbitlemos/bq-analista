@@ -5,10 +5,13 @@ because these are application-level (analysis lifecycle) and don't share state
 with the OAuth flow."""
 from __future__ import annotations
 from datetime import date
+import logging
 import sqlite3
 import time
 
 from fastapi import FastAPI, Header, HTTPException, Request
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 
 from mcp_core import db, analyses_repo, actions_audit
@@ -86,6 +89,7 @@ def register_api_routes(
                 "period_end": result.period_end.isoformat(),
             }
         except _BqError as e:
+            logger.error("refresh bq_error analysis_id=%s actor=%s error=%s", analysis_id, email, e.message)
             # Outer transaction has rolled back. Record the error in a fresh tx
             # so the user sees `last_refresh_error` even though period stays old.
             try:
@@ -97,7 +101,6 @@ def register_api_routes(
                         metadata={"error": e.message},
                     )
             except Exception:
-                # Best-effort logging — don't mask the original BQ error
                 pass
             raise HTTPException(502, f"bigquery: {e.message}")
         except RefreshError as e:

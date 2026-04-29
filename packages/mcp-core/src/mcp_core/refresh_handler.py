@@ -17,6 +17,7 @@ calling analyses_repo.set_refresh_error.
 """
 from __future__ import annotations
 import asyncio
+import time
 from dataclasses import dataclass
 from datetime import date
 
@@ -77,6 +78,7 @@ async def refresh_analysis(
     # after the transaction commits, so the worst case is "DB says new period
     # but blob still has old HTML" — same content, just a stale render the
     # user can fix by retrying the refresh (idempotent at same pathname).
+    _t0 = time.monotonic()
     async with db.transaction() as conn:
         got_lock = await analyses_repo.try_acquire_refresh_lock(conn, analysis_id)
         if not got_lock:
@@ -133,6 +135,7 @@ async def refresh_analysis(
                 "period_start": start.isoformat(),
                 "period_end": end.isoformat(),
                 "queries_run": len(spec.queries),
+                "duration_ms": round((time.monotonic() - _t0) * 1000),
             },
         )
 

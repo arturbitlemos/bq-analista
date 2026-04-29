@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin · Azzas 2154</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f4f5; color: #18181b; min-height: 100vh; }
+    header { background: #18181b; color: #fff; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 1rem; font-weight: 600; letter-spacing: .02em; }
+    .back { color: #a1a1aa; font-size: .875rem; text-decoration: none; }
+    .back:hover { color: #fff; }
+    main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+    .section-title { font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #71717a; margin: 32px 0 12px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 4px; }
+    .card { background: #fff; border-radius: 8px; padding: 20px 16px; border: 1px solid #e4e4e7; }
+    .card .label { font-size: .75rem; color: #71717a; margin-bottom: 8px; }
+    .card .value { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .card .value.warn { color: #b91c1c; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #e4e4e7; }
+    th, td { text-align: left; padding: 10px 14px; font-size: .875rem; }
+    th { background: #fafafa; font-weight: 600; color: #52525b; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+    tr:not(:last-child) td { border-bottom: 1px solid #f4f4f5; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 500; }
+    .badge.publish { background: #dcfce7; color: #15803d; }
+    .badge.refresh { background: #dbeafe; color: #1d4ed8; }
+    .badge.share { background: #fef9c3; color: #a16207; }
+    .badge.archive { background: #f4f4f5; color: #52525b; }
+    .badge.login_failed { background: #fee2e2; color: #b91c1c; }
+    .err-text { color: #b91c1c; font-size: .8rem; }
+    .msg { padding: 32px; text-align: center; color: #71717a; }
+    .msg.error { color: #b91c1c; }
+    code { font-family: ui-monospace, monospace; font-size: .8rem; background: #f4f4f5; padding: 1px 4px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<header>
+  <a href="/" class="back">← Portal</a>
+  <h1>Admin · Analytics de Uso</h1>
+</header>
+<main><div id="root"><p class="msg">Carregando…</p></div></main>
+<script type="module">
+  function escHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  }
+
+  function fmt(n) { return Number(n ?? 0).toLocaleString('pt-BR') }
+
+  function fmtBytes(b) {
+    b = Number(b ?? 0)
+    if (b >= 1e12) return (b / 1e12).toFixed(1) + ' TB'
+    if (b >= 1e9)  return (b / 1e9).toFixed(1) + ' GB'
+    if (b >= 1e6)  return (b / 1e6).toFixed(1) + ' MB'
+    return (b / 1e3).toFixed(1) + ' KB'
+  }
+
+  function fmtDate(ts) {
+    const d = new Date(typeof ts === 'number' ? ts * 1000 : ts)
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) +
+      ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  function badge(action) {
+    const safe = escHtml(action)
+    const cls = ['publish','refresh','share','archive','login_failed'].includes(action) ? action : ''
+    return `<span class="badge ${cls}">${safe}</span>`
+  }
+
+  async function fetchJson(url) {
+    const res = await fetch(url, { credentials: 'include' })
+    if (res.status === 401) { location.href = '/'; throw new Error('unauthorized') }
+    if (res.status === 403) throw new Error('forbidden')
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return res.json()
+  }
+
+  async function render() {
+    const root = document.getElementById('root')
+
+    const [analyticsResult, bqResult] = await Promise.allSettled([
+      fetchJson('/api/admin/analytics'),
+      fetchJson('/api/admin/bq-stats-proxy'),
+    ])
+
+    if (analyticsResult.status === 'rejected') {
+      const msg = analyticsResult.reason.message
+      if (msg === 'unauthorized') return
+      if (msg === 'forbidden') {
+        root.innerHTML = '<p class="msg error">⛔ Acesso restrito.</p>'
+        return
+      }
+      root.innerHTML = `<p class="msg error">Erro ao carregar analytics: ${escHtml(msg)}</p>`
+      return
+    }
+
+    const a = analyticsResult.value
+    const bq = bqResult.status === 'fulfilled' ? bqResult.value : null
+    let html = ''
+
+    if (a.summary) {
+      const s = a.summary
+      html += `<p class="section-title">Últimos 30 dias — Portal</p><div class="cards">
+        <div class="card"><div class="label">Publicações</div><div class="value">${fmt(s.total_publishes)}</div></div>
+        <div class="card"><div class="label">Refreshes</div><div class="value">${fmt(s.total_refreshes)}</div></div>
+        <div class="card"><div class="label">Compartilhamentos</div><div class="value">${fmt(s.total_shares)}</div></div>
+        <div class="card"><div class="label">Arquivamentos</div><div class="value">${fmt(s.total_archives)}</div></div>
+        <div class="card"><div class="label">Usuários únicos</div><div class="value">${fmt(s.distinct_users)}</div></div>
+        <div class="card"><div class="label">Logins falhos</div>
+          <div class="value${Number(s.total_login_failures) > 0 ? ' warn' : ''}">${fmt(s.total_login_failures)}</div>
+        </div>
+      </div>`
+    }
+
+    if (a.by_action_by_day?.length) {
+      const days = {}
+      for (const row of a.by_action_by_day) {
+        const day = row.day
+        if (!days[day]) days[day] = { publish: 0, refresh: 0, share: 0, archive: 0 }
+        days[day][row.action] = Number(row.n)
+      }
+      html += `<p class="section-title">Tendência — últimos 14 dias</p>
+      <table><thead><tr>
+        <th>Dia</th><th>Publicações</th><th>Refreshes</th><th>Compartilhamentos</th><th>Arquivamentos</th>
+      </tr></thead><tbody>`
+      for (const [day, counts] of Object.entries(days).sort().reverse()) {
+        html += `<tr>
+          <td>${escHtml(day)}</td>
+          <td>${fmt(counts.publish)}</td>
+          <td>${fmt(counts.refresh)}</td>
+          <td>${fmt(counts.share)}</td>
+          <td>${fmt(counts.archive)}</td>
+        </tr>`
+      }
+      html += `</tbody></table>`
+    }
+
+    if (bq?.totals && Object.keys(bq.totals).length) {
+      const t = bq.totals
+      html += `<p class="section-title">Últimos 30 dias — Queries BigQuery</p><div class="cards">
+        <div class="card"><div class="label">Total de queries</div><div class="value">${fmt(t.total_calls)}</div></div>
+        <div class="card"><div class="label">Erros</div>
+          <div class="value${Number(t.total_errors) > 0 ? ' warn' : ''}">${fmt(t.total_errors)}</div>
+        </div>
+        <div class="card"><div class="label">Bytes escaneados</div>
+          <div class="value" style="font-size:1.25rem">${fmtBytes(t.total_bytes_scanned)}</div>
+        </div>
+        <div class="card"><div class="label">Usuários ativos</div><div class="value">${fmt(t.distinct_users)}</div></div>
+      </div>`
+    } else if (bqResult.status === 'rejected') {
+      html += `<p class="section-title">Queries BigQuery</p>
+        <p class="msg" style="background:#fff;border-radius:8px;border:1px solid #e4e4e7">
+          Stats do BigQuery indisponíveis: ${escHtml(bqResult.reason?.message ?? 'erro desconhecido')}
+        </p>`
+    }
+
+    if (a.top_users?.length) {
+      html += `<p class="section-title">Usuários mais ativos (portal, 30d)</p>
+      <table><thead><tr><th>Email</th><th>Ações</th></tr></thead><tbody>`
+      for (const u of a.top_users) {
+        html += `<tr><td>${escHtml(u.actor_email)}</td><td>${fmt(u.n)}</td></tr>`
+      }
+      html += `</tbody></table>`
+    }
+
+    if (bq?.by_user?.length) {
+      html += `<p class="section-title">Usuários com mais queries (BigQuery, 30d)</p>
+      <table><thead><tr><th>Email</th><th>Queries</th><th>Erros</th><th>Bytes</th><th>Avg ms</th></tr></thead><tbody>`
+      for (const u of bq.by_user) {
+        html += `<tr>
+          <td>${escHtml(u.exec_email)}</td>
+          <td>${fmt(u.total_calls)}</td>
+          <td class="${u.errors > 0 ? 'err-text' : ''}">${fmt(u.errors)}</td>
+          <td>${fmtBytes(u.total_bytes)}</td>
+          <td>${fmt(u.avg_duration_ms)}</td>
+        </tr>`
+      }
+      html += `</tbody></table>`
+    }
+
+    if (a.top_analyses?.length) {
+      html += `<p class="section-title">Análises mais acessadas (refresh + share, 30d)</p>
+      <table><thead><tr><th>Título</th><th>ID</th><th>Acessos</th></tr></thead><tbody>`
+      for (const r of a.top_analyses) {
+        html += `<tr>
+          <td>${escHtml(r.title ?? '—')}</td>
+          <td><code>${escHtml(r.analysis_id)}</code></td>
+          <td>${fmt(r.n)}</td>
+        </tr>`
+      }
+      html += `</tbody></table>`
+    }
+
+    if (bq?.recent_errors?.length) {
+      html += `<p class="section-title">Erros recentes de query (BigQuery)</p>
+      <table><thead><tr><th>Quando</th><th>Usuário</th><th>Erro</th></tr></thead><tbody>`
+      for (const e of bq.recent_errors) {
+        html += `<tr>
+          <td>${escHtml(fmtDate(e.ts))}</td>
+          <td>${escHtml(e.exec_email)}</td>
+          <td class="err-text">${escHtml(e.error ?? '—')}</td>
+        </tr>`
+      }
+      html += `</tbody></table>`
+    }
+
+    if (a.recent_activity?.length) {
+      html += `<p class="section-title">Atividade recente</p>
+      <table><thead><tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Analysis ID</th></tr></thead><tbody>`
+      for (const ev of a.recent_activity) {
+        html += `<tr>
+          <td>${escHtml(fmtDate(ev.occurred_at))}</td>
+          <td>${escHtml(ev.actor_email)}</td>
+          <td>${badge(ev.action)}</td>
+          <td><code>${escHtml(ev.analysis_id ?? '—')}</code></td>
+        </tr>`
+      }
+      html += `</tbody></table>`
+    }
+
+    root.innerHTML = html || '<p class="msg">Nenhum dado disponível.</p>'
+  }
+
+  render()
+</script>
+</body>
+</html>

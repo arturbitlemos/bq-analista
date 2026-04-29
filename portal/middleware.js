@@ -60,4 +60,4 @@ export default async function middleware(request) {
   }
 }
 
-export const config = { matcher: ['/onboarding', '/admin'] }
+export const config = { matcher: ['/onboarding', '/onboarding/', '/admin', '/admin/'] }

@@ -160,8 +160,8 @@ def register_api_routes(
                         (since,),
                     )
                 ]
-        except sqlite3.OperationalError:
-            # Table doesn't exist yet (empty DB) — return zeros rather than 500
+        except sqlite3.Error:
+            # DB missing, empty, or corrupted — return zeros rather than 500
             return {"by_user": [], "totals": {}, "recent_errors": []}
 
         return {

@@ -107,7 +107,7 @@ def register_api_routes(
     async def bq_stats(authorization: str | None = Header(None)):
         token = _bearer_token(authorization)
         try:
-            await extract_exec_email(token, auth_ctx)
+            extract_exec_email(token, auth_ctx)
         except AuthError as e:
             raise HTTPException(401, str(e))
 

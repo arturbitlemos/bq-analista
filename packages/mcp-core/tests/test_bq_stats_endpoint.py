@@ -142,3 +142,24 @@ def test_bq_stats_missing_audit_db_path():
     assert data["by_user"] == []
     assert data["totals"] == {}
     assert data["recent_errors"] == []
+
+
+def test_bq_stats_returns_401_on_invalid_token():
+    """Endpoint must return 401 when extract_exec_email raises AuthError."""
+    from mcp_core.auth_middleware import AuthError
+    app = FastAPI()
+    auth_ctx = MagicMock(spec=AuthContext)
+    with patch(
+        "mcp_core.api_routes.extract_exec_email",
+        side_effect=AuthError("invalid token"),
+    ):
+        register_api_routes(
+            app,
+            auth_ctx=auth_ctx,
+            bq_factory=MagicMock(),
+            blob_factory=MagicMock(),
+            audit_db_path=None,
+        )
+        client = TestClient(app)
+        resp = client.get("/api/admin/bq-stats", headers={"Authorization": "Bearer bad"})
+    assert resp.status_code == 401

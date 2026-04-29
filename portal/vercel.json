@@ -10,6 +10,7 @@
   },
   "rewrites": [
     { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/admin/", "destination": "/admin.html" },
     { "source": "/onboarding", "destination": "/onboarding.html" },
     { "source": "/api/download-dxt", "destination": "/api/download?type=dxt" },
     { "source": "/api/download-skill", "destination": "/api/download?type=skill" }

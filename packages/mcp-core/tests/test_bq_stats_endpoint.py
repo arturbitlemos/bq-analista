@@ -3,7 +3,7 @@ import tempfile
 import time
 import os
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import patch, MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -59,7 +59,7 @@ def test_bq_stats_returns_aggregates():
         db_path = f.name
     try:
         _seed_db(db_path)
-        with patch("mcp_core.api_routes.extract_exec_email", new_callable=AsyncMock, return_value="user@soma.com"):
+        with patch("mcp_core.api_routes.extract_exec_email", return_value="user@soma.com"):
             client = _make_client(db_path)
             resp = client.get("/api/admin/bq-stats", headers={"Authorization": "Bearer fake"})
         assert resp.status_code == 200
@@ -79,7 +79,7 @@ def test_bq_stats_by_user_sorted_desc():
         db_path = f.name
     try:
         _seed_db(db_path)
-        with patch("mcp_core.api_routes.extract_exec_email", new_callable=AsyncMock, return_value="user@soma.com"):
+        with patch("mcp_core.api_routes.extract_exec_email", return_value="user@soma.com"):
             client = _make_client(db_path)
             resp = client.get("/api/admin/bq-stats", headers={"Authorization": "Bearer fake"})
         users = resp.json()["by_user"]
@@ -96,7 +96,7 @@ def test_bq_stats_recent_errors_populated():
         db_path = f.name
     try:
         _seed_db(db_path)
-        with patch("mcp_core.api_routes.extract_exec_email", new_callable=AsyncMock, return_value="user@soma.com"):
+        with patch("mcp_core.api_routes.extract_exec_email", return_value="user@soma.com"):
             client = _make_client(db_path)
             resp = client.get("/api/admin/bq-stats", headers={"Authorization": "Bearer fake"})
         errors = resp.json()["recent_errors"]
@@ -112,7 +112,7 @@ def test_bq_stats_empty_db():
         db_path = f.name
     try:
         # Empty DB file — no table, no data
-        with patch("mcp_core.api_routes.extract_exec_email", new_callable=AsyncMock, return_value="user@soma.com"):
+        with patch("mcp_core.api_routes.extract_exec_email", return_value="user@soma.com"):
             client = _make_client(db_path)
             resp = client.get("/api/admin/bq-stats", headers={"Authorization": "Bearer fake"})
         assert resp.status_code == 200
@@ -127,7 +127,7 @@ def test_bq_stats_missing_audit_db_path():
     """When audit_db_path=None, endpoint returns 200 with empty data."""
     app = FastAPI()
     auth_ctx = MagicMock(spec=AuthContext)
-    with patch("mcp_core.api_routes.extract_exec_email", new_callable=AsyncMock, return_value="user@soma.com"):
+    with patch("mcp_core.api_routes.extract_exec_email", return_value="user@soma.com"):
         register_api_routes(
             app,
             auth_ctx=auth_ctx,

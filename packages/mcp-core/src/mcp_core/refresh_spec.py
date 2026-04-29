@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import date
-from pydantic import BaseModel, model_validator, Field
+from typing import Literal
+from pydantic import BaseModel, Field, model_validator
 
 
 class RefreshQuery(BaseModel):
@@ -11,9 +12,36 @@ class RefreshQuery(BaseModel):
         return self.sql.replace("{{start_date}}", start.isoformat()).replace("{{end_date}}", end.isoformat())
 
 
+class DataBlockSchema(BaseModel):
+    """Declares the shape a refreshed payload must have before being written
+    into a `<script id=...>` block. `shape="array"` means the BQ rows go in
+    as-is; `shape="object"` means the query MUST return exactly one row, and
+    that row is unwrapped (so the JS sees an object, not a 1-element array).
+
+    The fields list is bounded — publicar_dashboard accepts user-supplied JSON
+    and the spec persists into Postgres jsonb, so unbounded sizes would let a
+    buggy or malicious caller bloat the row indefinitely. 200 fields × 200
+    chars is far above any realistic dashboard."""
+    shape: Literal["array", "object"] = "array"
+    fields: list[str] = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def _validate_field_lengths(self) -> "DataBlockSchema":
+        for f in self.fields:
+            if len(f) > 200:
+                raise ValueError(f"field name too long ({len(f)} chars, max 200): {f[:50]!r}…")
+        return self
+
+
 class DataBlockRef(BaseModel):
     block_id: str = Field(min_length=1)
     query_id: str = Field(min_length=1)
+    # Aliased to `schema` in the JSON because Pydantic's `BaseModel.schema`
+    # method shadows attribute access. Using `schema_` avoids the collision
+    # while keeping the wire format intuitive.
+    schema_: DataBlockSchema | None = Field(default=None, alias="schema")
+
+    model_config = {"populate_by_name": True}
 
 
 class PeriodRange(BaseModel):
@@ -28,20 +56,17 @@ class RefreshSpec(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self) -> "RefreshSpec":
-        # Unique query ids
         ids = [q.id for q in self.queries]
         if len(ids) != len(set(ids)):
             raise ValueError("duplicate query id in queries[]")
 
-        # Each query SQL must have both placeholders
         for q in self.queries:
             if "{{start_date}}" not in q.sql or "{{end_date}}" not in q.sql:
                 raise ValueError(f"query {q.id!r}: missing placeholder {{start_date}} or {{end_date}}")
 
-        # Each data_block.query_id must reference an existing query
         valid_ids = set(ids)
-        for db in self.data_blocks:
-            if db.query_id not in valid_ids:
-                raise ValueError(f"data_block {db.block_id!r} references unknown query_id {db.query_id!r}")
+        for db_ref in self.data_blocks:
+            if db_ref.query_id not in valid_ids:
+                raise ValueError(f"data_block {db_ref.block_id!r} references unknown query_id {db_ref.query_id!r}")
 
         return self

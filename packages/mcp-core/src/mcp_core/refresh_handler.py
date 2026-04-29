@@ -105,11 +105,18 @@ async def refresh_analysis(
             results[q.id] = list(bq_result.rows)
 
         payloads = {ref.block_id: results[ref.query_id] for ref in spec.data_blocks}
+        schemas = {ref.block_id: ref.schema_ for ref in spec.data_blocks}
 
         current_html_bytes = await blob.get(row.blob_pathname)
         try:
-            new_html = swap_data_blocks(current_html_bytes.decode("utf-8"), payloads)
+            new_html = swap_data_blocks(
+                current_html_bytes.decode("utf-8"),
+                payloads,
+                schemas=schemas,
+            )
         except ValueError as e:
+            # Covers SchemaError (subclass of ValueError) and missing-block ValueError.
+            # Both surface as 500 — the API layer will roll back the DB tx.
             raise RefreshError(500, f"html_swap_failed: {e}") from e
 
         await analyses_repo.update_refresh_state(

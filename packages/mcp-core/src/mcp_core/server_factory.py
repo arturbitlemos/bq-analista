@@ -319,7 +319,7 @@ def build_mcp_app(
         report. Using PT aliases (titulo/marca/periodo/descricao) will fail with
         `Field required`."""
         from mcp_core.refresh_spec import RefreshSpec
-        from mcp_core.html_swap import validate_blocks_present
+        from mcp_core.html_swap import validate_blocks_present, validate_html_against_spec, SchemaError
         from mcp_core.email_norm import normalize_email
         from mcp_core import db as _db, analyses_repo, actions_audit
         from mcp_core.blob_client import BlobClient
@@ -351,11 +351,18 @@ def build_mcp_app(
                     "'original_period':{'start':'YYYY-MM-DD','end':'YYYY-MM-DD'}}."
                 )
             }
+        # Catch only contract-violation errors here (Pydantic ValidationError
+        # subclasses ValueError). Other exceptions — ImportError, asyncpg
+        # connection failures, coding bugs — propagate to FastMCP's framework
+        # 500 so Railway logs surface them instead of masking them as
+        # "refresh_spec_invalid". SchemaError extends ValueError, so the
+        # single except clause covers it too.
         try:
             spec_obj = RefreshSpec.model_validate(refresh_spec)
             block_ids = [b.block_id for b in spec_obj.data_blocks]
             validate_blocks_present(html_content, block_ids)
-        except Exception as e:
+            validate_html_against_spec(html_content, spec_obj)
+        except ValueError as e:
             return {"error": f"refresh_spec_invalid: {e}"}
         period_start_d = spec_obj.original_period.start
         period_end_d = spec_obj.original_period.end
@@ -407,7 +414,7 @@ def build_mcp_app(
                     archived_by=[],
                     blob_pathname=blob_pathname,
                     blob_url=blob_url,
-                    refresh_spec=spec_obj.model_dump(mode="json") if spec_obj else None,
+                    refresh_spec=spec_obj.model_dump(mode="json", by_alias=True) if spec_obj else None,
                 ))
                 await actions_audit.record(
                     conn, action="publish", actor_email=exec_email,

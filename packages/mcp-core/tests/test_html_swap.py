@@ -148,3 +148,79 @@ def test_swap_without_schemas_dict_works_unchanged():
     html = '<script id="data_q1" type="application/json">[]</script>'
     out = swap_data_blocks(html, {"data_q1": [{"x": 1}]})
     assert '"x":1' in out
+
+
+from mcp_core.html_swap import extract_block_payload
+
+
+def test_extract_block_payload_returns_parsed_json_array():
+    html = '<script id="data_q1" type="application/json">[{"x":1}]</script>'
+    assert extract_block_payload(html, "data_q1") == [{"x": 1}]
+
+
+def test_extract_block_payload_returns_parsed_json_object():
+    html = '<script id="data_summary" type="application/json">{"total":42}</script>'
+    assert extract_block_payload(html, "data_summary") == {"total": 42}
+
+
+def test_extract_block_payload_raises_when_block_missing():
+    with pytest.raises(ValueError, match="block_id.*data_q1.*not found"):
+        extract_block_payload("<html></html>", "data_q1")
+
+
+def test_extract_block_payload_raises_on_invalid_json():
+    html = '<script id="data_q1" type="application/json">not json</script>'
+    with pytest.raises(ValueError, match="data_q1.*invalid JSON"):
+        extract_block_payload(html, "data_q1")
+
+
+from mcp_core.html_swap import validate_html_against_spec
+from mcp_core.refresh_spec import RefreshSpec
+
+
+def _spec_with_schema(shape="array", fields=None):
+    return RefreshSpec.model_validate({
+        "queries": [{"id": "q1", "sql": "SELECT 1 WHERE d BETWEEN '{{start_date}}' AND '{{end_date}}'"}],
+        "data_blocks": [{
+            "block_id": "data_q1", "query_id": "q1",
+            "schema": {"shape": shape, "fields": fields or ["x"]},
+        }],
+        "original_period": {"start": "2026-04-01", "end": "2026-04-23"},
+    })
+
+
+def test_validate_html_against_spec_passes_for_matching_array():
+    html = '<script id="data_q1" type="application/json">[{"x":1}]</script>'
+    spec = _spec_with_schema(shape="array", fields=["x"])
+    validate_html_against_spec(html, spec)  # no raise
+
+
+def test_validate_html_against_spec_passes_for_matching_object():
+    html = '<script id="data_q1" type="application/json">{"total":42}</script>'
+    spec = _spec_with_schema(shape="object", fields=["total"])
+    validate_html_against_spec(html, spec)  # no raise
+
+
+def test_validate_html_against_spec_rejects_array_with_missing_field():
+    html = '<script id="data_q1" type="application/json">[{"loja":"A"}]</script>'
+    spec = _spec_with_schema(shape="array", fields=["loja", "venda"])
+    with pytest.raises(SchemaError, match="data_q1.*missing.*venda"):
+        validate_html_against_spec(html, spec)
+
+
+def test_validate_html_against_spec_rejects_object_with_wrong_shape():
+    html = '<script id="data_q1" type="application/json">[{"x":1},{"x":2}]</script>'
+    spec = _spec_with_schema(shape="object", fields=["x"])
+    with pytest.raises(SchemaError, match="data_q1.*object shape expects 1 row.*got 2"):
+        validate_html_against_spec(html, spec)
+
+
+def test_validate_html_against_spec_skips_blocks_without_schema():
+    """Legacy specs (no per-block schema) skip payload validation entirely."""
+    html = '<script id="data_q1" type="application/json">[{"anything":1}]</script>'
+    spec = RefreshSpec.model_validate({
+        "queries": [{"id": "q1", "sql": "SELECT 1 WHERE d BETWEEN '{{start_date}}' AND '{{end_date}}'"}],
+        "data_blocks": [{"block_id": "data_q1", "query_id": "q1"}],  # no schema
+        "original_period": {"start": "2026-04-01", "end": "2026-04-23"},
+    })
+    validate_html_against_spec(html, spec)  # no raise

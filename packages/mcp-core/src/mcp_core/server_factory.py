@@ -319,7 +319,7 @@ def build_mcp_app(
         report. Using PT aliases (titulo/marca/periodo/descricao) will fail with
         `Field required`."""
         from mcp_core.refresh_spec import RefreshSpec
-        from mcp_core.html_swap import validate_blocks_present
+        from mcp_core.html_swap import validate_blocks_present, validate_html_against_spec, SchemaError
         from mcp_core.email_norm import normalize_email
         from mcp_core import db as _db, analyses_repo, actions_audit
         from mcp_core.blob_client import BlobClient
@@ -355,6 +355,9 @@ def build_mcp_app(
             spec_obj = RefreshSpec.model_validate(refresh_spec)
             block_ids = [b.block_id for b in spec_obj.data_blocks]
             validate_blocks_present(html_content, block_ids)
+            validate_html_against_spec(html_content, spec_obj)
+        except SchemaError as e:
+            return {"error": f"refresh_spec_invalid: {e}"}
         except Exception as e:
             return {"error": f"refresh_spec_invalid: {e}"}
         period_start_d = spec_obj.original_period.start

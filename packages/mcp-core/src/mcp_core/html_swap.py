@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mcp_core.refresh_spec import DataBlockSchema
+    from mcp_core.refresh_spec import DataBlockSchema, RefreshSpec
 
 
 class _SafeEncoder(json.JSONEncoder):
@@ -128,3 +128,44 @@ def validate_payload_schema(
     if missing:
         raise SchemaError(f"{block_id}: missing fields: {missing}")
     return row
+
+
+def extract_block_payload(html: str, block_id: str) -> Any:
+    """Parse the JSON inside `<script id="<block_id>" type="application/json">...</script>`.
+    Used at publish time to validate the embedded payload against the declared schema —
+    same contract the refresh handler enforces. Raises ValueError if the block is
+    missing or the body isn't valid JSON."""
+    pattern = _block_pattern(block_id)
+    match = pattern.search(html)
+    if not match:
+        raise ValueError(f"block_id {block_id!r} not found in HTML")
+    body = match.group(2)
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"{block_id}: invalid JSON inside <script> body: {e}") from e
+
+
+def validate_html_against_spec(html: str, spec: "RefreshSpec") -> None:
+    """Verify each data block's embedded JSON matches its declared schema.
+    Raises SchemaError on the first mismatch with a message naming the block
+    and the offending field. Used by publicar_dashboard at publish time —
+    same contract the refresh handler enforces.
+
+    Blocks without a declared schema are skipped (legacy compatibility)."""
+    for ref in spec.data_blocks:
+        if ref.schema_ is None:
+            continue
+        payload = extract_block_payload(html, ref.block_id)
+        # Object-shape blocks are stored as `{...}` directly in the HTML; wrap
+        # the dict to a 1-element list so validate_payload_schema's uniform
+        # list-of-rows interface can validate it. If the HTML embeds a list
+        # when object was declared (i.e. the agent shipped the wrong shape),
+        # leave it as-is so the validator reports the accurate "expected 1
+        # row, got N" message instead of the misleading "single row is not
+        # an object".
+        if ref.schema_.shape == "object" and not isinstance(payload, list):
+            normalized = [payload]
+        else:
+            normalized = payload
+        validate_payload_schema(ref.block_id, normalized, ref.schema_)

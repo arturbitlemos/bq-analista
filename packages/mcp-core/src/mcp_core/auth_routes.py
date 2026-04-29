@@ -103,22 +103,40 @@ def build_auth_app(
 
     @app.post("/auth/token")
     async def token_endpoint(req: Request) -> JSONResponse:
-        """Back-channel exchange of the single-use code for the actual tokens.
+        """OAuth 2.0 token endpoint — handles authorization_code and refresh_token grants.
 
-        Accepts both `application/json` (`{"code": "..."}`) and the OAuth 2.0
-        standard `application/x-www-form-urlencoded` body.
+        Accepts both `application/json` and `application/x-www-form-urlencoded`.
         """
         ct = req.headers.get("content-type", "")
-        code: object = None
         try:
             if "application/json" in ct:
-                body = await req.json()
-                code = body.get("code") if isinstance(body, dict) else None
+                body: dict[str, object] = await req.json()
             else:
                 form = await req.form()
-                code = form.get("code")
+                body = dict(form)
         except Exception:
-            raise HTTPException(status_code=422, detail="code required")
+            raise HTTPException(status_code=422, detail="invalid request body")
+
+        grant_type = body.get("grant_type", "authorization_code")
+
+        if grant_type == "refresh_token":
+            refresh_token = body.get("refresh_token")
+            if not isinstance(refresh_token, str) or not refresh_token:
+                raise HTTPException(status_code=422, detail="refresh_token required")
+            try:
+                pair = issuer.refresh(refresh_token, allowlist=allowlist)
+            except TokenError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            return JSONResponse({
+                "access_token": pair.access_token,
+                "refresh_token": pair.refresh_token,
+                "expires_at": pair.expires_at,
+                "expires_in": pair.expires_at - int(time.time()),
+                "token_type": "Bearer",
+            })
+
+        # authorization_code grant — exchange single-use code for tokens
+        code = body.get("code")
         if not isinstance(code, str) or not code:
             raise HTTPException(status_code=422, detail="code required")
 
@@ -133,6 +151,7 @@ def build_auth_app(
             "access_token": pair.access_token,
             "refresh_token": pair.refresh_token,
             "expires_at": pair.expires_at,
+            "expires_in": pair.expires_at - int(time.time()),
             "email": email,
             "token_type": "Bearer",
         })
@@ -194,7 +213,7 @@ def build_auth_app(
             "authorization_endpoint": f"{base_url}/auth/start",
             "token_endpoint": f"{base_url}/auth/token",
             "response_types_supported": ["code"],
-            "grant_types_supported": ["authorization_code"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
             "token_endpoint_auth_methods_supported": ["none"],
             "revocation_endpoint_supported": False,
             "introspection_endpoint_supported": False,

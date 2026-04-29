@@ -177,6 +177,33 @@ def test_oauth_metadata_token_endpoint_points_to_token_route() -> None:
     body = r.json()
     assert body["token_endpoint"].endswith("/auth/token")
     assert not body["token_endpoint"].endswith("/auth/callback")
+    assert "refresh_token" in body["grant_types_supported"]
+
+
+def test_token_endpoint_accepts_refresh_token_grant() -> None:
+    """POST /auth/token with grant_type=refresh_token should rotate and return new tokens."""
+    c = _app(["exec@azzas.com.br"])
+    tok = _login(c)
+    r = c.post("/auth/token", json={"grant_type": "refresh_token", "refresh_token": tok["refresh_token"]})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["access_token"]
+    assert body["refresh_token"] != tok["refresh_token"]
+    assert "expires_in" in body
+
+
+def test_token_endpoint_refresh_grant_form_encoded() -> None:
+    c = _app(["exec@azzas.com.br"])
+    tok = _login(c)
+    r = c.post("/auth/token", data={"grant_type": "refresh_token", "refresh_token": tok["refresh_token"]})
+    assert r.status_code == 200
+    assert r.json()["access_token"]
+
+
+def test_token_endpoint_refresh_grant_invalid_token() -> None:
+    c = _app(["exec@azzas.com.br"])
+    r = c.post("/auth/token", json={"grant_type": "refresh_token", "refresh_token": "invalid"})
+    assert r.status_code == 400
 
 
 def test_refresh_missing_token_returns_422() -> None:

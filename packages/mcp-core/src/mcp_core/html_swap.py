@@ -1,11 +1,20 @@
 from __future__ import annotations
 import json
 import re
+from datetime import date
 from decimal import Decimal
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from mcp_core.refresh_spec import DataBlockSchema, RefreshSpec
+
+
+PERIOD_BLOCK_ID = "__period__"
+"""Reserved block_id auto-injected by the refresh handler with the new period.
+Reports opt in by including a `<script id="__period__" type="application/json">`
++ a JS reader that populates `[data-period="..."]` elements (see vendas-linx
+SKILL.md). The double-underscore prefix is reserved — agents must not use it
+for their own data blocks."""
 
 
 class _SafeEncoder(json.JSONEncoder):
@@ -144,6 +153,73 @@ def extract_block_payload(html: str, block_id: str) -> Any:
         return json.loads(body)
     except json.JSONDecodeError as e:
         raise ValueError(f"{block_id}: invalid JSON inside <script> body: {e}") from e
+
+
+_MONTHS_PT_LONG = (
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+)
+_MONTHS_PT_SHORT = (
+    "jan", "fev", "mar", "abr", "mai", "jun",
+    "jul", "ago", "set", "out", "nov", "dez",
+)
+
+
+def _format_period_long(start: date, end: date) -> str:
+    if start == end:
+        return f"{start.day} de {_MONTHS_PT_LONG[start.month - 1]} de {start.year}"
+    if start.year == end.year and start.month == end.month:
+        return f"{start.day} a {end.day} de {_MONTHS_PT_LONG[start.month - 1]} de {start.year}"
+    if start.year == end.year:
+        return (
+            f"{start.day} de {_MONTHS_PT_LONG[start.month - 1]} a "
+            f"{end.day} de {_MONTHS_PT_LONG[end.month - 1]} de {start.year}"
+        )
+    return (
+        f"{start.day} de {_MONTHS_PT_LONG[start.month - 1]} de {start.year} a "
+        f"{end.day} de {_MONTHS_PT_LONG[end.month - 1]} de {end.year}"
+    )
+
+
+def _format_period_short(start: date, end: date) -> str:
+    if start == end:
+        return f"{start:%d/%m/%Y}"
+    if start.year == end.year and start.month == end.month:
+        return f"{start:%d}–{end:%d} {_MONTHS_PT_SHORT[start.month - 1]} {start.year}"
+    if start.year == end.year:
+        return (
+            f"{start:%d} {_MONTHS_PT_SHORT[start.month - 1]} – "
+            f"{end:%d} {_MONTHS_PT_SHORT[end.month - 1]} {start.year}"
+        )
+    return (
+        f"{start:%d} {_MONTHS_PT_SHORT[start.month - 1]} {start.year} – "
+        f"{end:%d} {_MONTHS_PT_SHORT[end.month - 1]} {end.year}"
+    )
+
+
+def make_period_payload(start: date, end: date) -> dict[str, str]:
+    """Build the standard `__period__` payload from a refresh date range.
+
+    The agent's HTML uses these fields by attribute (e.g. `data-period="label_long"`)
+    so labels can be re-rendered in the header/footer without needing a SQL query.
+    Pre-formatted in pt-BR; agents may also use start_date/end_date to format their own."""
+    return {
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "label_long": _format_period_long(start, end),
+        "label_short": _format_period_short(start, end),
+    }
+
+
+def swap_period_block(html: str, period: dict[str, Any]) -> str:
+    """Replace `<script id="__period__" type="application/json">` body with `period`.
+    Returns the HTML unchanged if the block is missing — opt-in convention, so
+    legacy reports without it are not broken."""
+    pattern = _block_pattern(PERIOD_BLOCK_ID)
+    if not pattern.search(html):
+        return html
+    encoded = encode_for_script_tag(period)
+    return pattern.sub(lambda m: m.group(1) + encoded + m.group(3), html, count=1)
 
 
 def validate_html_against_spec(html: str, spec: "RefreshSpec") -> None:

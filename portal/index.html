@@ -306,6 +306,7 @@
         <div class="modal-status" id="share-status"></div>
       </div>
       <div class="modal-footer">
+        <button type="button" class="modal-btn" id="share-copy-link" title="Copiar link da análise" style="margin-right: auto">Copiar link</button>
         <button type="button" class="modal-btn" id="share-cancel">Cancelar</button>
         <button type="button" class="modal-btn primary" id="share-save">Salvar</button>
       </div>
@@ -483,6 +484,8 @@ async function init() {
     agentManifest = manifest.agents || []
 
     await reloadLibrary()
+    // Hash-based deep link — F5 on `#/r/{id}` lands the user back on the report.
+    openFromHash()
   } catch (err) {
     document.getElementById('loading').textContent = `Erro: ${err.message}`
   }
@@ -780,7 +783,7 @@ async function quickToggleAcl(item, { makePublic, shared }) {
 // ─── Iframe viewer ─────────────────────────────────────────────────────────
 let currentAnalysisItem = null
 
-function openAnalysis(item) {
+function openAnalysis(item, { skipPushState = false } = {}) {
   currentAnalysisItem = item
   document.getElementById('library-view').style.display = 'none'
   const view = document.getElementById('analysis-view')
@@ -790,15 +793,62 @@ function openAnalysis(item) {
   let src = `/api/analysis/${encodeURIComponent(item.id)}`
   if (item.last_refreshed_at) src += `?v=${encodeURIComponent(item.last_refreshed_at)}`
   document.getElementById('analysis-iframe').src = src
+  // Make the report a real URL — survives F5 and works as a share link.
+  // skipPushState = true when called from popstate or initial hash hydration,
+  // so we don't pollute the history stack with duplicate entries.
+  if (!skipPushState) {
+    history.pushState({ analysisId: item.id }, '', '#/r/' + encodeURIComponent(item.id))
+  }
 }
 
-document.getElementById('back-btn').addEventListener('click', () => {
+function closeAnalysisView() {
   document.getElementById('analysis-view').style.display = 'none'
   document.getElementById('analysis-iframe').src = ''
   document.getElementById('analysis-menu-dropdown').classList.remove('open')
   document.getElementById('library-view').style.display = 'block'
   currentAnalysisItem = null
+}
+
+document.getElementById('back-btn').addEventListener('click', () => {
+  // If we got here via pushState (the normal path), step back through history
+  // so popstate handles the cleanup and browser back/forward stays consistent.
+  // Fallback to direct close if there's no hash route entry to pop.
+  if (location.hash.startsWith('#/r/')) {
+    history.back()
+  } else {
+    closeAnalysisView()
+  }
 })
+
+// Browser back/forward + initial F5 with hash → re-sync UI to URL.
+window.addEventListener('popstate', () => {
+  const id = parseAnalysisHash()
+  if (id) {
+    const item = allItems.find(i => i.id === id)
+    if (item) {
+      openAnalysis(item, { skipPushState: true })
+      return
+    }
+  }
+  closeAnalysisView()
+})
+
+function parseAnalysisHash() {
+  const m = location.hash.match(/^#\/r\/(.+)$/)
+  return m ? decodeURIComponent(m[1]) : null
+}
+
+function openFromHash() {
+  const id = parseAnalysisHash()
+  if (!id) return
+  const item = allItems.find(i => i.id === id)
+  if (!item) {
+    showToast('Análise não encontrada ou sem acesso', 'error')
+    history.replaceState({}, '', location.pathname + location.search)
+    return
+  }
+  openAnalysis(item, { skipPushState: true })
+}
 
 // Kebab do topbar do relatório — reusa toggleMenu com o item corrente.
 document.getElementById('analysis-menu').addEventListener('click', ev => {
@@ -880,6 +930,27 @@ const sharePublicToggle = document.getElementById('share-public-toggle')
 const shareStatus = document.getElementById('share-status')
 const shareSaveBtn = document.getElementById('share-save')
 const shareCancelBtn = document.getElementById('share-cancel')
+const shareCopyLinkBtn = document.getElementById('share-copy-link')
+
+shareCopyLinkBtn.addEventListener('click', async () => {
+  if (!shareModalItem) return
+  const url = `${location.origin}/#/r/${encodeURIComponent(shareModalItem.id)}`
+  try {
+    await navigator.clipboard.writeText(url)
+    showToast('Link copiado!')
+  } catch {
+    // Older browsers / insecure contexts: fall back to a hidden input + execCommand.
+    const ta = document.createElement('textarea')
+    ta.value = url
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    try { document.execCommand('copy'); showToast('Link copiado!') }
+    catch { showToast('Não consegui copiar — copie manualmente: ' + url, 'error') }
+    finally { ta.remove() }
+  }
+})
 
 function openShareModal(item) {
   shareModalItem = item
@@ -1118,9 +1189,25 @@ refreshSubmitBtn.addEventListener('click', async () => {
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.error ?? data.message ?? `HTTP ${res.status}`)
+    const refreshedId = refreshModalItem.id
     closeRefreshModal()
     showToast('Atualizado!')
     await reloadLibrary()
+    // If the refreshed analysis is currently open, swap the iframe in place so
+    // the user sees the new numbers without F5 (which would dump them back to
+    // the library). reloadLibrary() refreshed allItems; re-grab the fresh row.
+    if (currentAnalysisItem && currentAnalysisItem.id === refreshedId) {
+      const updated = allItems.find(i => i.id === refreshedId) ?? {
+        ...currentAnalysisItem,
+        last_refreshed_at: data.last_refreshed_at,
+        period_start: data.period_start,
+        period_end: data.period_end,
+      }
+      currentAnalysisItem = updated
+      let src = `/api/analysis/${encodeURIComponent(updated.id)}`
+      if (updated.last_refreshed_at) src += `?v=${encodeURIComponent(updated.last_refreshed_at)}`
+      document.getElementById('analysis-iframe').src = src
+    }
   } catch (err) {
     refreshStatus.textContent = `Erro: ${err.message}`
     refreshStatus.classList.add('error')

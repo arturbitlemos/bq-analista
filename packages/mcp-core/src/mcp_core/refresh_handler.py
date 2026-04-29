@@ -22,7 +22,7 @@ from datetime import date
 
 from mcp_core import db, analyses_repo, actions_audit
 from mcp_core.refresh_spec import RefreshSpec
-from mcp_core.html_swap import swap_data_blocks
+from mcp_core.html_swap import swap_data_blocks, swap_period_block, make_period_payload
 
 
 @dataclass
@@ -118,6 +118,9 @@ async def refresh_analysis(
             # Covers SchemaError (subclass of ValueError) and missing-block ValueError.
             # Both surface as 500 — the API layer will roll back the DB tx.
             raise RefreshError(500, f"html_swap_failed: {e}") from e
+        # Soft-swap the reserved __period__ block so header/footer period labels
+        # stay in sync with the new range. No-op for legacy reports.
+        new_html = swap_period_block(new_html, make_period_payload(start, end))
 
         await analyses_repo.update_refresh_state(
             conn, analysis_id,

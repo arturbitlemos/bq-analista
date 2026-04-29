@@ -224,3 +224,59 @@ def test_validate_html_against_spec_skips_blocks_without_schema():
         "original_period": {"start": "2026-04-01", "end": "2026-04-23"},
     })
     validate_html_against_spec(html, spec)  # no raise
+
+
+# ─── __period__ block (auto-injected on refresh) ───────────────────────────
+
+from datetime import date as _date
+from mcp_core.html_swap import make_period_payload, swap_period_block, PERIOD_BLOCK_ID
+
+
+def test_period_payload_same_month():
+    p = make_period_payload(_date(2026, 4, 1), _date(2026, 4, 18))
+    assert p["start_date"] == "2026-04-01"
+    assert p["end_date"] == "2026-04-18"
+    assert p["label_long"] == "1 a 18 de abril de 2026"
+    assert p["label_short"] == "01–18 abr 2026"
+
+
+def test_period_payload_single_day():
+    p = make_period_payload(_date(2026, 4, 24), _date(2026, 4, 24))
+    assert p["label_long"] == "24 de abril de 2026"
+    assert p["label_short"] == "24/04/2026"
+
+
+def test_period_payload_cross_month_same_year():
+    p = make_period_payload(_date(2026, 1, 1), _date(2026, 3, 31))
+    assert p["label_long"] == "1 de janeiro a 31 de março de 2026"
+    assert p["label_short"] == "01 jan – 31 mar 2026"
+
+
+def test_period_payload_cross_year():
+    p = make_period_payload(_date(2025, 12, 1), _date(2026, 1, 31))
+    assert p["label_long"] == "1 de dezembro de 2025 a 31 de janeiro de 2026"
+    assert p["label_short"] == "01 dez 2025 – 31 jan 2026"
+
+
+def test_swap_period_block_replaces_when_present():
+    payload = make_period_payload(_date(2026, 5, 1), _date(2026, 5, 7))
+    html = (
+        '<html><script id="__period__" type="application/json">'
+        '{"start_date":"2026-04-01","end_date":"2026-04-18"}</script></html>'
+    )
+    out = swap_period_block(html, payload)
+    assert '"start_date":"2026-05-01"' in out
+    assert '"end_date":"2026-05-07"' in out
+    assert out.count('id="__period__"') == 1
+
+
+def test_swap_period_block_noop_when_missing():
+    """Legacy reports without the __period__ convention pass through unchanged."""
+    payload = make_period_payload(_date(2026, 5, 1), _date(2026, 5, 7))
+    html = '<html><body>no period block here</body></html>'
+    assert swap_period_block(html, payload) == html
+
+
+def test_period_block_id_is_double_underscore():
+    """Reserved prefix prevents accidental collision with user-defined block_ids."""
+    assert PERIOD_BLOCK_ID == "__period__"

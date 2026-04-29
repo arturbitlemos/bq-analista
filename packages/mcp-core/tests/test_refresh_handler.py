@@ -209,6 +209,52 @@ async def test_refresh_fails_loud_on_schema_mismatch(db_pool):
 
 
 @pytest.mark.asyncio
+async def test_refresh_injects_period_block_when_present(db_pool):
+    """Reports that opt into the __period__ convention get the new period
+    auto-injected on every refresh — keeps header/footer labels in sync with
+    the data without requiring a separate SQL query."""
+    await _seed(id="t_period")
+    bq = _bq_ok([{"x": 1}])
+    blob = MagicMock()
+    blob.get = AsyncMock(return_value=(
+        b'<html>'
+        b'<script id="__period__" type="application/json">'
+        b'{"start_date":"2026-04-01","end_date":"2026-04-23"}</script>'
+        b'<script id="data_q1" type="application/json">[]</script>'
+        b'</html>'
+    ))
+    blob.put = AsyncMock(return_value="https://blob.x/new.html")
+
+    await refresh_analysis(
+        analysis_id="t_period", actor_email="author@x.com",
+        start=date(2026, 5, 1), end=date(2026, 5, 7),
+        bq=bq, blob=blob,
+    )
+    new_body = blob.put.call_args.args[1]
+    assert b'"start_date":"2026-05-01"' in new_body
+    assert b'"end_date":"2026-05-07"' in new_body
+    assert b'"label_long":"1 a 7 de maio de 2026"' in new_body
+    # Legacy old-period strings must be gone from the __period__ block
+    assert new_body.count(b'id="__period__"') == 1
+
+
+@pytest.mark.asyncio
+async def test_refresh_succeeds_when_period_block_absent(db_pool):
+    """Legacy reports without the __period__ block must not break refresh."""
+    await _seed(id="t_no_period")
+    bq = _bq_ok([{"x": 1}])
+    blob = _blob_ok()  # default fixture HTML has no __period__ block
+
+    result = await refresh_analysis(
+        analysis_id="t_no_period", actor_email="author@x.com",
+        start=date(2026, 5, 1), end=date(2026, 5, 7),
+        bq=bq, blob=blob,
+    )
+    assert result.period_start == date(2026, 5, 1)
+    blob.put.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_refresh_object_shape_unwraps_single_row(db_pool):
     spec = {
         "queries": [{"id": "qsum", "sql": "SELECT 1 WHERE d BETWEEN '{{start_date}}' AND '{{end_date}}'"}],

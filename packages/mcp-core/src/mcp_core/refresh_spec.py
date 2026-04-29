@@ -16,9 +16,21 @@ class DataBlockSchema(BaseModel):
     """Declares the shape a refreshed payload must have before being written
     into a `<script id=...>` block. `shape="array"` means the BQ rows go in
     as-is; `shape="object"` means the query MUST return exactly one row, and
-    that row is unwrapped (so the JS sees an object, not a 1-element array)."""
+    that row is unwrapped (so the JS sees an object, not a 1-element array).
+
+    The fields list is bounded — publicar_dashboard accepts user-supplied JSON
+    and the spec persists into Postgres jsonb, so unbounded sizes would let a
+    buggy or malicious caller bloat the row indefinitely. 200 fields × 200
+    chars is far above any realistic dashboard."""
     shape: Literal["array", "object"] = "array"
-    fields: list[str] = Field(min_length=1)
+    fields: list[str] = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def _validate_field_lengths(self) -> "DataBlockSchema":
+        for f in self.fields:
+            if len(f) > 200:
+                raise ValueError(f"field name too long ({len(f)} chars, max 200): {f[:50]!r}…")
+        return self
 
 
 class DataBlockRef(BaseModel):

@@ -96,3 +96,38 @@ def test_refresh_spec_schema_is_optional_for_legacy_specs():
         "original_period": {"start": "2026-04-01", "end": "2026-04-23"},
     })
     assert spec.data_blocks[0].schema_ is None
+
+
+def test_refresh_spec_dump_uses_alias_so_persisted_json_is_clean():
+    """The spec round-trips through Postgres jsonb. We persist via
+    model_dump(by_alias=True) so the on-disk key is "schema" — the same
+    name the agent and SKILL.md use. Without by_alias the persisted form
+    would leak the python-side "schema_" attribute name, which Looker /
+    dbt / hand-written migrations would all see and have to translate."""
+    spec = RefreshSpec.model_validate({
+        "queries": [{"id": "q1", "sql": "SELECT 1 WHERE d BETWEEN '{{start_date}}' AND '{{end_date}}'"}],
+        "data_blocks": [{
+            "block_id": "data_q1", "query_id": "q1",
+            "schema": {"shape": "array", "fields": ["x"]},
+        }],
+        "original_period": {"start": "2026-04-01", "end": "2026-04-23"},
+    })
+    dumped = spec.model_dump(mode="json", by_alias=True)
+    assert "schema" in dumped["data_blocks"][0]
+    assert "schema_" not in dumped["data_blocks"][0]
+    # Round-trip: reload the dumped form, assert it parses identically.
+    reloaded = RefreshSpec.model_validate(dumped)
+    assert reloaded.data_blocks[0].schema_.shape == "array"
+    assert reloaded.data_blocks[0].schema_.fields == ["x"]
+
+
+def test_data_block_schema_rejects_too_many_fields():
+    import pytest
+    with pytest.raises(ValueError):
+        DataBlockSchema(shape="array", fields=[f"f{i}" for i in range(201)])
+
+
+def test_data_block_schema_rejects_overly_long_field_name():
+    import pytest
+    with pytest.raises(ValueError, match="field name too long"):
+        DataBlockSchema(shape="array", fields=["x" * 201])

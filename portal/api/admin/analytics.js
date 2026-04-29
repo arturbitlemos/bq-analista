@@ -66,7 +66,7 @@ module.exports = async function handler(req, res) {
     sql`
       SELECT occurred_at, actor_email, action, analysis_id
       FROM audit_log
-      WHERE occurred_at >= NOW() - INTERVAL '7 days'
+      WHERE occurred_at >= NOW() - INTERVAL '30 days'
       ORDER BY occurred_at DESC
       LIMIT 50
     `.catch(() => null),

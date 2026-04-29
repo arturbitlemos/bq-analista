@@ -210,7 +210,7 @@
     }
 
     if (a.recent_activity?.length) {
-      html += `<p class="section-title">Atividade recente</p>
+      html += `<p class="section-title">Atividade recente (30d)</p>
       <table><thead><tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Analysis ID</th></tr></thead><tbody>`
       for (const ev of a.recent_activity) {
         html += `<tr>

@@ -6,7 +6,8 @@
     "laura.bruno@farmrio.com.br",
     "alisson.calgaroto@somagrupo.com.br",
     "raphael.penna@somagrupo.com.br",
-    "mariana.borges@farmrio.com.br"
+    "mariana.borges@farmrio.com.br",
+    "leonardo.horn@somagrupo.com.br"
   ],
   "notes": "Copy to allowed_execs.json and edit. Emails must match Azure AD upn exactly."
 }

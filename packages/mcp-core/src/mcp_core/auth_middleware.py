@@ -43,6 +43,16 @@ def _peek_iss(token: str) -> str:
         raise AuthError(f"malformed token: {e}") from e
 
 
+def _peek_aud(token: str) -> str:
+    """Decode `aud` claim without verifying the signature."""
+    try:
+        payload = pyjwt.decode(token, options={"verify_signature": False})
+        aud = payload.get("aud", "")
+        return str(aud) if isinstance(aud, str) else ""
+    except Exception:
+        return ""
+
+
 def _validate_azure_signature(token: str, ctx: AuthContext) -> dict[str, object]:
     """Verify Azure AD token signature, audience, issuer, and tenant; return validated payload.
 
@@ -77,27 +87,40 @@ def _extract_azure_email(payload: dict[str, object]) -> str:
 
 
 def extract_exec_email(token: str, ctx: AuthContext) -> str:
-    iss = _peek_iss(token)
+    aud = _peek_aud(token)
 
-    if iss == ctx.issuer.issuer:
-        # Internal JWT issued by this server
+    if aud == "mcp-core-proxy":
+        # Portal proxy JWT (Vercel function → Railway). Audience-scoped HS256
+        # signed with MCP_PROXY_SIGNING_KEY shared between portal and mcp-core.
+        # Distinct from the internal-issuer HS256 path (which uses ctx.issuer
+        # with its own secret + jti tracking) and from Azure RS256.
+        from mcp_core.proxy_jwt import verify_proxy_jwt
         try:
-            claims = ctx.issuer.verify_access(token)
-        except TokenError as e:
-            raise AuthError(f"invalid_token: {e}") from e
-        email = cast(str, claims["email"])
-
-    elif iss.startswith("https://login.microsoftonline.com/"):
-        # Azure AD SSO passthrough — frontend sends its own token directly.
-        # The exact-prefix match is only for routing; the actual issuer/tenant
-        # pinning happens inside _validate_azure_signature.
-        if not ctx.azure_tenant_id or not ctx.azure_client_id:
-            raise AuthError("azure passthrough not configured on this agent")
-        payload = _validate_azure_signature(token, ctx)
-        email = _extract_azure_email(payload)
-
+            email = verify_proxy_jwt(token)
+        except ValueError as e:
+            raise AuthError(f"invalid_proxy_token: {e}") from e
     else:
-        raise AuthError(f"unknown token issuer: {iss!r}")
+        iss = _peek_iss(token)
+
+        if iss == ctx.issuer.issuer:
+            # Internal JWT issued by this server
+            try:
+                claims = ctx.issuer.verify_access(token)
+            except TokenError as e:
+                raise AuthError(f"invalid_token: {e}") from e
+            email = cast(str, claims["email"])
+
+        elif iss.startswith("https://login.microsoftonline.com/"):
+            # Azure AD SSO passthrough — frontend sends its own token directly.
+            # The exact-prefix match is only for routing; the actual issuer/tenant
+            # pinning happens inside _validate_azure_signature.
+            if not ctx.azure_tenant_id or not ctx.azure_client_id:
+                raise AuthError("azure passthrough not configured on this agent")
+            payload = _validate_azure_signature(token, ctx)
+            email = _extract_azure_email(payload)
+
+        else:
+            raise AuthError(f"unknown token issuer: {iss!r}")
 
     if not ctx.allowlist.is_allowed(email):
         raise AuthError(f"not_on_allowlist: {email}")

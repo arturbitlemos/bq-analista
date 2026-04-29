@@ -1,4 +1,4 @@
-const { refreshAccess } = require('../_helpers/jwt');
+const { refreshAccess } = require('../../_helpers/jwt');
 
 const ACCESS_TTL_S = 1800;
 

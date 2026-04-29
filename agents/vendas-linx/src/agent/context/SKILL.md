@@ -19,6 +19,14 @@ If this fails, run `gcloud auth application-default login` first.
 > 2. Informe ao usuário: `⚠️ Estimativa: ~X GB → ~US$ X.XX (teto: 15 GB)`
 > 3. **Aguarde confirmação explícita ("sim") antes de executar.** Nunca execute sem resposta do usuário.
 
+```bash
+# 1. Dry-run — confirma custo antes de executar
+bq query --use_legacy_sql=false --dry_run '<SQL>'
+
+# 2. Executa só após confirmação do usuário
+bq query --use_legacy_sql=false --format=prettyjson '<SQL>'
+```
+
 Referência de custo: US$ 5,00 por TB = US$ 0,005 por GB.
 Teto configurado: **15 GB por query**. Queries que estimativamente ultrapassem esse limite devem ser divididas ou reescritas antes de executar.
 
@@ -164,8 +172,139 @@ A tool `publicar_dashboard` aceita **exatamente** estes args, em inglês — **n
   "period": "2026-04-01 a 2026-04-23",
   "description": "Comparativo de venda líquida e PA por filial vs LY.",
   "html_content": "<!doctype html>...",
-  "tags": ["farm", "produtividade", "lojas"]
+  "tags": ["farm", "produtividade", "lojas"],
+  "refresh_spec": { ... }
 }
 ```
 
 Nunca usar `titulo`, `marca`, `periodo`, `descricao` — a tool rejeita com `Field required`.
+
+**`refresh_spec` é OBRIGATÓRIO.** A tool rejeita publicação sem ele com `refresh_spec_required`. Veja "Publicação com refresh garantido — contrato do data block" mais abaixo — o HTML precisa ser construído com data islands desde o início, então pense no `refresh_spec` antes de escrever a primeira `consultar_bq`, não depois.
+
+---
+
+## Antes de gerar uma análise nova: buscar histórico
+
+Sempre que o usuário pedir uma análise não-trivial:
+
+1. Chame `buscar_analises(query=<resumo da pergunta>, brand=<marca se houver>, agent="vendas-linx")`.
+2. Se houver match recente (últimos 30 dias) com mesma marca + tema:
+   - Mostre pro usuário: *"Já existe uma análise parecida: '<título>' (publicada há N dias). Quer atualizar com o novo período em vez de criar uma nova?"*
+   - Se sim → instrua: *"abre o portal, clica nos 3 pontinhos do card '<título>' e escolhe 'Atualizar período'."* Não tente fazer o refresh por chat.
+   - Se não → siga gerando a análise nova.
+3. Para análises não-triviais, antes de escrever SQL do zero, chame `obter_analise(id=<id da mais relevante>)` em 1-2 análises e use as SQLs do `refresh_spec.queries[].sql` como **ponto de partida** (sempre adaptando — período, filtros, dimensões podem ter mudado).
+4. Inclua uma linha no rascunho: *"reaproveitando estrutura de '<título da análise prévia>'"*.
+
+## Publicação com refresh garantido — contrato do data block
+
+Toda análise publicada deve atender este contrato:
+
+> **SQL é a única camada de transformação. JS só renderiza. Cada data block tem uma query que retorna EXATAMENTE a forma que o JS lê.**
+
+Isso significa:
+
+- Não pré-agregue, não pré-junte e não calcule deltas em Python antes de embutir no HTML. Faça tudo em SQL (window functions, STRUCT, ARRAY_AGG, self-join CY/LY).
+- Cada `<script id="data_X" type="application/json">` recebe o resultado da query `X`. Sem reuso (não mapeie 2 blocks pra mesma query a menos que ambos consumam o resultado idêntico).
+- O JS no HTML faz `JSON.parse(...)` e renderiza. Sem agregação no browser.
+
+### Como declarar o schema
+
+No `refresh_spec`, cada `data_block` deve ter `schema = {shape, fields}`:
+
+```jsonc
+{
+  "queries": [
+    { "id": "summary", "sql": "SELECT total_cy, total_ly, ... FROM (...)" },
+    { "id": "stores",  "sql": "SELECT n, cy, ly, v, c FROM (...) ORDER BY cy DESC" }
+  ],
+  "data_blocks": [
+    { "block_id": "data_summary", "query_id": "summary",
+      "schema": { "shape": "object", "fields": ["total_cy", "total_ly", "var_pct", "lojas"] } },
+    { "block_id": "data_stores",  "query_id": "stores",
+      "schema": { "shape": "array",  "fields": ["n", "cy", "ly", "v", "c"] } }
+  ],
+  "original_period": { "start": "2026-01-01", "end": "2026-04-27" }
+}
+```
+
+- `shape: "array"` — bloco recebe a lista de rows como veio do BQ. JS faz `JSON.parse` e itera.
+- `shape: "object"` — query DEVE retornar exatamente 1 row. O servidor desembrulha pra `{...}` antes de gravar. JS lê como objeto.
+- `fields` — lista de campos obrigatórios em cada row. Validação roda em publish E em refresh; mismatch falha alta com nome do campo faltante.
+
+### Comparativo CY vs LY — fazer em SQL
+
+A regra "comparação sempre vs LY" continua. A diferença: o cálculo do delta vai pra dentro do SQL. Padrão:
+
+```sql
+WITH cy AS (SELECT ..., SUM(...) AS cy_val FROM ... WHERE data BETWEEN '{{start_date}}' AND '{{end_date}}' GROUP BY ...),
+     ly AS (SELECT ..., SUM(...) AS ly_val FROM ... WHERE data BETWEEN DATE_SUB(DATE '{{start_date}}', INTERVAL 1 YEAR)
+                                                                    AND DATE_SUB(DATE '{{end_date}}',   INTERVAL 1 YEAR) GROUP BY ...)
+SELECT cy.dim, cy.cy_val AS cy, ly.ly_val AS ly, SAFE_DIVIDE(cy.cy_val - ly.ly_val, ly.ly_val) * 100 AS v
+FROM cy LEFT JOIN ly USING (dim)
+ORDER BY cy DESC
+```
+
+O placeholder `'{{start_date}}'` / `'{{end_date}}'` é substituído com a string ISO; LY se calcula com `DATE_SUB(..., INTERVAL 1 YEAR)` direto na query.
+
+### Anti-padrões (vão quebrar refresh)
+
+- ❌ Agregar em Python e jogar dict pronto no HTML sem schema correspondente.
+- ❌ Mesma query mapeada pra 2 blocks com shapes diferentes.
+- ❌ JS que faz `data.reduce(...)` pra calcular total — total deve vir da SQL.
+- ❌ Schema declarado com campo `venda` mas SQL retornando `venda_liquida`.
+
+### Período no header/footer — convenção `__period__`
+
+Os relatórios costumam exibir o intervalo da análise em vários lugares (título, navbar, rodapé, metodologia). Pra que o **refresh** atualize esses textos junto com os números, **nunca escreva o período como string literal no HTML**. Use a convenção do bloco reservado `__period__`:
+
+1. Embutir no HTML, junto com os outros data blocks:
+
+```html
+<script id="__period__" type="application/json">{
+  "start_date": "2026-04-01",
+  "end_date": "2026-04-18",
+  "label_long": "1 a 18 de abril de 2026",
+  "label_short": "01–18 abr 2026"
+}</script>
+```
+
+2. Adicionar este snippet de JS uma única vez (antes do `</body>` é seguro):
+
+```html
+<script>
+(() => {
+  const meta = document.getElementById('__period__');
+  if (!meta) return;
+  const data = JSON.parse(meta.textContent);
+  document.querySelectorAll('[data-period]').forEach(el => {
+    const key = el.dataset.period;
+    if (data[key] != null) el.textContent = data[key];
+  });
+})();
+</script>
+```
+
+3. Marcar todo lugar que mostra período com o atributo `data-period`:
+
+```html
+<h1>Performance · <span data-period="label_long">1 a 18 de abril de 2026</span></h1>
+<div class="navbar-meta">MTD · <span data-period="label_short">01–18 abr 2026</span></div>
+<footer>Período <span data-period="start_date">2026-04-01</span> a <span data-period="end_date">2026-04-18</span></footer>
+```
+
+O texto inicial dentro do `<span>` é fallback caso o JS não rode — mantenha consistente com o que o bloco declara.
+
+**Como o refresh atualiza isso**: o servidor injeta automaticamente um payload novo no `<script id="__period__">` com base no `start`/`end` da requisição (campos `start_date`, `end_date`, `label_long`, `label_short` em pt-BR). Você **não** declara `__period__` em `refresh_spec.data_blocks` — é reservado e tratado fora do contrato de queries. O prefixo `__` é proibido em block_ids de usuário.
+
+Relatórios sem essa convenção continuam refrescando os números, mas os textos de período ficam congelados — só republicar resolve.
+
+## Convenções de tags
+
+Use uma ou mais das tags canônicas pra que `buscar_analises` consiga ranquear bem:
+
+- Recorte temporal: `mtd`, `ytd`, `7d`, `30d`, `90d`
+- Tipo: `ranking`, `comparativo`, `tendencia`, `auditoria`
+- Dimensão: `produto`, `loja`, `marca`, `canal`, `colecao`, `vendedor`
+- Métrica em destaque: `markup`, `giro`, `cobertura`, `pa`, `ticket-medio`
+
+Tags em slug-case (lowercase, sem acento, separado por hífen). Não invente sinônimos — se faltar uma tag canônica pra teu caso, use a que mais aproxima.

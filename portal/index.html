@@ -60,12 +60,15 @@
     .hero .editorial { font-family: var(--font-editorial); font-style: italic; font-size: 1.05rem; color: var(--steel); }
 
     /* Tabs */
-    .tabs { background: var(--surface); padding: 0 2rem; display: flex; gap: 0; border-bottom: 1px solid var(--surface-warm); }
-    .tab { background: transparent; border: none; padding: 0.9rem 1.25rem; font-size: 0.85rem; color: var(--ink-faint); border-bottom: 2px solid transparent; letter-spacing: 0.02em; }
+    .tabs { background: var(--surface); padding: 0 2rem; display: flex; gap: 0; border-bottom: 1px solid var(--surface-warm); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { background: transparent; border: none; padding: 0.9rem 1.25rem; font-size: 0.85rem; color: var(--ink-faint); border-bottom: 2px solid transparent; letter-spacing: 0.02em; white-space: nowrap; flex-shrink: 0; }
     .tab.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
     .tab:hover { color: var(--ink-soft); }
     .tab .count { display: inline-block; background: var(--surface-warm); color: var(--ink-soft); font-size: 0.7rem; padding: 0.05rem 0.5rem; border-radius: 8px; margin-left: 0.4rem; font-weight: 400; }
     .tab.active .count { background: var(--blue-light); color: var(--navy); }
+    /* "Compartilhadas comigo" abbreviates to "Compartilhadas" on narrow screens */
+    .tab .tab-suffix { display: inline; }
 
     /* Toolbar */
     .toolbar { background: var(--surface); padding: 1rem 2rem; display: flex; gap: 0.5rem; align-items: center; border-bottom: 1px solid var(--surface-warm); flex-wrap: wrap; }
@@ -103,9 +106,13 @@
     .empty-hint { display: block; font-family: var(--font-primary); font-style: normal; font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.5rem; }
 
     /* Analysis view (iframe) */
-    #analysis-topbar { background: var(--ink); color: var(--surface); padding: 0.85rem 1.5rem; display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; }
-    #back-btn { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: var(--surface); padding: 0.3rem 0.75rem; border-radius: 4px; font-size: 0.8rem; }
+    #analysis-topbar { background: var(--ink); color: var(--surface); padding: 0.85rem 1.5rem; display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; position: relative; }
+    #analysis-crumb { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #back-btn { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: var(--surface); padding: 0.3rem 0.75rem; border-radius: 4px; font-size: 0.8rem; flex-shrink: 0; }
     #back-btn:hover { border-color: var(--surface); }
+    #analysis-menu { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: var(--surface); width: 36px; height: 36px; border-radius: 4px; font-size: 1.1rem; line-height: 1; padding: 0; flex-shrink: 0; cursor: pointer; }
+    #analysis-menu:hover { background: rgba(255,255,255,0.18); border-color: var(--surface); }
+    #analysis-menu-dropdown { position: absolute; top: calc(100% - 4px); right: 1rem; z-index: 11; }
     #analysis-iframe { flex: 1; border: none; width: 100%; background: var(--surface); }
 
     /* Toast */
@@ -136,6 +143,45 @@
     .skeleton-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent); animation: shimmer 1.4s infinite; }
     @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
+    /* Modais (<dialog>) — share + refresh */
+    dialog.az-modal { padding: 0; border: none; border-radius: 10px; box-shadow: 0 24px 60px rgba(0,0,0,0.18); width: min(520px, 92vw); max-height: 92vh; overflow: hidden; background: var(--surface); color: var(--ink); position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0; }
+    dialog.az-modal::backdrop { background: rgba(0,0,0,0.42); }
+    .modal-header { padding: 1.1rem 1.4rem 0.6rem; border-bottom: 1px solid var(--surface-warm); }
+    .modal-title { font-family: var(--font-editorial); font-size: 1.15rem; color: var(--navy); margin-bottom: 0.15rem; }
+    .modal-sub { font-size: 0.8rem; color: var(--ink-soft); }
+    .modal-body { padding: 1.1rem 1.4rem; display: flex; flex-direction: column; gap: 0.95rem; max-height: 60vh; overflow-y: auto; }
+    .modal-footer { padding: 0.85rem 1.4rem; border-top: 1px solid var(--surface-warm); display: flex; justify-content: flex-end; gap: 0.6rem; background: var(--surface); }
+    .modal-btn { background: var(--surface); border: 1px solid var(--surface-warm); color: var(--ink-soft); padding: 0.55rem 1.1rem; border-radius: 6px; font-size: 0.85rem; font-family: inherit; }
+    .modal-btn:hover { border-color: var(--navy); color: var(--navy); }
+    .modal-btn.primary { background: var(--navy); color: var(--surface); border-color: var(--navy); font-weight: 600; }
+    .modal-btn.primary:hover { background: var(--steel); border-color: var(--steel); color: var(--surface); }
+    .modal-btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+    .modal-field { display: flex; flex-direction: column; gap: 0.4rem; }
+    .modal-field > label { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+    .modal-field input[type="text"], .modal-field input[type="email"], .modal-field input[type="date"], .modal-field select { border: 1px solid var(--surface-warm); padding: 0.55rem 0.7rem; border-radius: 6px; font-size: 0.9rem; font-family: inherit; background: var(--surface); color: var(--ink); }
+    .modal-field input:focus, .modal-field select:focus { outline: none; border-color: var(--navy); }
+    .modal-checkbox { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.88rem; color: var(--ink-soft); line-height: 1.45; cursor: pointer; }
+    .modal-checkbox input { width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px; accent-color: var(--navy); }
+    .modal-status { font-size: 0.82rem; min-height: 1.1em; color: var(--ink-soft); }
+    .modal-status.error { color: #b03a2e; }
+    .modal-context { font-size: 0.8rem; color: var(--ink-soft); padding: 0.55rem 0.75rem; background: var(--surface-cream); border-left: 3px solid var(--blue-soft); border-radius: 4px; line-height: 1.45; }
+
+    /* Chips (share modal) */
+    .chip-input-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; border: 1px solid var(--surface-warm); border-radius: 6px; padding: 0.4rem 0.55rem; background: var(--surface); min-height: 42px; }
+    .chip-input-wrap:focus-within { border-color: var(--navy); }
+    .chip { display: inline-flex; align-items: center; gap: 0.35rem; background: var(--blue-light); color: var(--navy); border-radius: 14px; padding: 0.15rem 0.55rem 0.15rem 0.65rem; font-size: 0.78rem; font-weight: 500; }
+    .chip button { background: transparent; border: none; color: var(--navy); font-size: 0.95rem; line-height: 1; cursor: pointer; padding: 0; opacity: 0.65; }
+    .chip button:hover { opacity: 1; }
+    .chip-input { flex: 1; min-width: 140px; border: none; outline: none; padding: 0.25rem; font-size: 0.88rem; font-family: inherit; background: transparent; color: var(--ink); }
+    .chip-hint { font-size: 0.72rem; color: var(--ink-faint); margin-top: 0.25rem; }
+
+    /* Datepicker pair (refresh custom range) */
+    .modal-range { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+    .modal-range[hidden] { display: none; }
+
+    /* Spinner inline (refresh button) */
+    .btn-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.4); border-top-color: var(--surface); border-radius: 50%; animation: spin 0.75s linear infinite; vertical-align: -1px; margin-right: 0.4rem; }
+
     /* Responsive */
     @media (max-width: 900px) {
       #grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); padding: 1.25rem; }
@@ -144,13 +190,35 @@
       header { padding: 0.85rem 1rem; flex-wrap: wrap; gap: 0.75rem; }
       nav { flex-wrap: wrap; gap: 0.75rem; font-size: 0.8rem; }
       .hero { padding: 1.5rem 1rem; }
-      .tabs { padding: 0 1rem; overflow-x: auto; }
-      .tab { padding: 0.75rem 0.85rem; white-space: nowrap; }
+      .tabs { padding: 0 1rem; }
+      .tab { padding: 0.75rem 0.85rem; }
+      /* "Compartilhadas comigo" → "Compartilhadas" no mobile */
+      .tab .tab-suffix { display: none; }
       .toolbar { padding: 0.85rem 1rem; }
       .facet, #facet-agent, #facet-brand, #facet-period, #facet-sort { display: none; }
       .mobile-filters { display: block; }
       .search { width: 100%; min-width: 0; }
       #grid { grid-template-columns: 1fr; padding: 1rem; }
+      .modal-range { grid-template-columns: 1fr; }
+      /* Card kebab — bigger tap target on touch devices */
+      .card-menu { width: 36px; height: 36px; font-size: 1.25rem; background: rgba(255,255,255,0.96); }
+      /* Modal — bottom sheet style on phones */
+      dialog.az-modal {
+        width: 100vw;
+        max-width: 100vw;
+        margin: 0;
+        border-radius: 14px 14px 0 0;
+        position: fixed;
+        inset: auto 0 0 0;
+        top: auto;
+        left: 0;
+        transform: none;
+        max-height: 88vh;
+      }
+      .modal-header { padding: 1rem 1.15rem 0.55rem; }
+      .modal-body { padding: 0.95rem 1.15rem; max-height: 55vh; }
+      .modal-footer { padding: 0.85rem 1.15rem; }
+      .modal-btn { padding: 0.7rem 1.2rem; font-size: 0.9rem; min-height: 44px; }
     }
   </style>
 </head>
@@ -179,8 +247,9 @@
 
     <div class="tabs" role="tablist">
       <button class="tab active" data-tab="mine" role="tab">Minhas <span class="count" id="count-mine">0</span></button>
-      <button class="tab" data-tab="team" role="tab">Time <span class="count" id="count-team">0</span></button>
-      <button class="tab" data-tab="archived" role="tab">Arquivadas <span class="count" id="count-archived">0</span></button>
+      <button class="tab" data-tab="public" role="tab">Público <span class="count" id="count-public">0</span></button>
+      <button class="tab" data-tab="shared" role="tab">Compartilhadas<span class="tab-suffix"> comigo</span> <span class="count" id="count-shared">0</span></button>
+      <button class="tab" data-tab="archive" role="tab">Arquivadas <span class="count" id="count-archive">0</span></button>
     </div>
 
     <div class="toolbar">
@@ -210,9 +279,77 @@
     <div id="analysis-topbar">
       <button id="back-btn">← voltar</button>
       <span id="analysis-crumb"></span>
+      <button id="analysis-menu" aria-label="Mais ações" title="Mais ações">⋯</button>
+      <div id="analysis-menu-dropdown" class="card-menu-dropdown"></div>
     </div>
     <iframe id="analysis-iframe" title="Análise"></iframe>
   </div>
+
+  <dialog id="share-modal" class="az-modal" aria-labelledby="share-modal-title">
+    <form method="dialog">
+      <div class="modal-header">
+        <div class="modal-title" id="share-modal-title">Compartilhar análise</div>
+        <div class="modal-sub" id="share-modal-sub">—</div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="share-emails-input">Compartilhar com pessoas (e-mail)</label>
+          <div class="chip-input-wrap" id="share-chips-wrap">
+            <input type="email" id="share-emails-input" class="chip-input" placeholder="email@somagrupo.com.br" autocomplete="off">
+          </div>
+          <div class="chip-hint">Pressione Enter ou vírgula pra adicionar. Use × pra remover.</div>
+        </div>
+        <label class="modal-checkbox">
+          <input type="checkbox" id="share-public-toggle">
+          <span>Tornar pública (qualquer pessoa do grupo Azzas com acesso ao portal pode ver)</span>
+        </label>
+        <div class="modal-status" id="share-status"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-btn" id="share-copy-link" title="Copiar link da análise" style="margin-right: auto">Copiar link</button>
+        <button type="button" class="modal-btn" id="share-cancel">Cancelar</button>
+        <button type="button" class="modal-btn primary" id="share-save">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="refresh-modal" class="az-modal" aria-labelledby="refresh-modal-title">
+    <form method="dialog">
+      <div class="modal-header">
+        <div class="modal-title" id="refresh-modal-title">Atualizar período da análise</div>
+        <div class="modal-sub" id="refresh-modal-sub">—</div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-context" id="refresh-context">—</div>
+        <div class="modal-field">
+          <label for="refresh-preset">Período</label>
+          <select id="refresh-preset">
+            <option value="7d">Últimos 7 dias</option>
+            <option value="30d" selected>Últimos 30 dias</option>
+            <option value="90d">Últimos 90 dias</option>
+            <option value="MTD">Mês até hoje (MTD)</option>
+            <option value="YTD">Ano até hoje (YTD)</option>
+            <option value="custom">Personalizar…</option>
+          </select>
+        </div>
+        <div class="modal-range" id="refresh-custom-range" hidden>
+          <div class="modal-field">
+            <label for="refresh-start">De</label>
+            <input type="date" id="refresh-start">
+          </div>
+          <div class="modal-field">
+            <label for="refresh-end">Até</label>
+            <input type="date" id="refresh-end">
+          </div>
+        </div>
+        <div class="modal-status" id="refresh-status"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-btn" id="refresh-cancel">Cancelar</button>
+        <button type="button" class="modal-btn primary" id="refresh-submit">Atualizar</button>
+      </div>
+    </form>
+  </dialog>
 
   <div id="toast" class="toast" aria-live="polite"></div>
 
@@ -252,57 +389,25 @@ import { initMsal } from '/msal-init.js'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
 
 // ─── Estado global ─────────────────────────────────────────────────────────
-let userIdentity = null                    // slug do email (usado no middleware)
+let userIdentity = null                    // identidade (email) retornada pelo /api/auth
 let userEmail = null                       // email completo (lowercase)
-let allItems = []                          // Todos os items carregados, c/ source e agent
-let activeTab = 'mine'                     // 'mine' | 'team' | 'archived'
+let allItems = []                          // Todos os items carregados, c/ flags do servidor
+let agentManifest = []                     // [{ name, label, ... }]
+let activeTab = 'mine'                     // 'mine' | 'public' | 'shared' | 'archive'
 let searchQuery = ''
 let filterAgent = ''
 let filterBrand = ''
 let filterPeriod = ''
 let sortMode = 'recent'
 
-// ─── LocalStorage: arquivamento ────────────────────────────────────────────
-const ARCHIVE_KEY = 'azzas_archived'
-
-function getArchivedMap() {
-  try {
-    const raw = localStorage.getItem(ARCHIVE_KEY)
-    if (!raw) return new Map()
-    const arr = JSON.parse(raw)
-    return new Map(arr.map(a => [a.id, a.archivedAt]))
-  } catch { return new Map() }
-}
-function getArchivedIds() {
-  return new Set(getArchivedMap().keys())
-}
-function saveArchivedMap(map) {
-  const arr = [...map.entries()].map(([id, archivedAt]) => ({ id, archivedAt }))
-  localStorage.setItem(ARCHIVE_KEY, JSON.stringify(arr))
-}
-function archiveItem(id) {
-  const m = getArchivedMap(); m.set(id, new Date().toISOString()); saveArchivedMap(m)
-}
-function unarchiveItem(id) {
-  const m = getArchivedMap(); m.delete(id); saveArchivedMap(m)
-}
-
-// ─── Slug de email (igual ao Python) ───────────────────────────────────────
-// packages/mcp-core/src/mcp_core/server_factory.py:
-//   email_slug = re.sub(r"[^a-z0-9]+", "-", exec_email.lower()).strip("-")[:24] or "user"
-function emailSlug(email) {
-  if (!email) return 'user'
-  const s = email.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24)
-  return s || 'user'
-}
-
-// ─── Classificação mine/team ───────────────────────────────────────────────
-function isMine(item) {
-  if (item.source === 'private') return true
-  if (item.author_email) return item.author_email.toLowerCase() === userEmail
-  // Fallback pra items antigos sem author_email: checa prefixo do filename
-  const slug = emailSlug(userEmail)
-  return (item.filename ?? '').startsWith(slug + '-')
+// ─── Classificação por bucket (lê flags do servidor) ───────────────────────
+function inBucket(item, tab) {
+  if (tab === 'archive') return !!item.is_archived
+  if (item.is_archived) return false
+  if (tab === 'mine')   return !!item.is_mine
+  if (tab === 'public') return !item.is_mine && !!item.public
+  if (tab === 'shared') return !!item.is_shared_with_me
+  return false
 }
 
 // ─── Filtros ───────────────────────────────────────────────────────────────
@@ -373,40 +478,46 @@ async function init() {
     document.getElementById('library-view').style.display = 'block'
     document.getElementById('grid').innerHTML = Array.from({length: 6}).map(() => '<div class="skeleton-card"></div>').join('')
 
-    await loadAllLibraries()
+    const agentsRes = await fetch('/api/mcp/agents')
+    if (!agentsRes.ok) throw new Error('Não consegui buscar a lista de agentes')
+    const manifest = await agentsRes.json()
+    agentManifest = manifest.agents || []
+
+    await reloadLibrary()
+    // Hash-based deep link — F5 on `#/r/{id}` lands the user back on the report.
+    openFromHash()
   } catch (err) {
     document.getElementById('loading').textContent = `Erro: ${err.message}`
   }
 }
 
-async function loadAllLibraries() {
+async function reloadLibrary() {
   try {
-    const agentsRes = await fetch('/api/mcp/agents')
-    if (!agentsRes.ok) throw new Error('Não consegui buscar a lista de agentes')
-    const { agents } = await agentsRes.json()
-
-    const tasks = []
-    for (const agent of agents) {
-      tasks.push(fetchLibraryFile(agent, 'private'))
-      tasks.push(fetchLibraryFile(agent, 'public'))
-    }
+    const tasks = agentManifest.map(agent => loadAgentLibrary(agent))
     const results = await Promise.all(tasks)
-    const merged = new Map() // dedupe by id, private wins
+    const merged = new Map() // dedupe by id (server already scopes per agent)
     for (const list of results) {
       for (const item of list) {
-        if (item.source === 'private' || !merged.has(item.id)) {
-          merged.set(item.id, item)
-        }
+        if (!merged.has(item.id)) merged.set(item.id, item)
       }
     }
     allItems = [...merged.values()]
     render()
   } catch (err) {
     showErrorBanner(`Não consegui carregar a library: ${err.message}. Tente atualizar a página.`)
-    // Renderiza grid vazio (sem skeletons pendurados)
     const grid = document.getElementById('grid')
     if (grid) grid.innerHTML = ''
   }
+}
+
+async function loadAgentLibrary(agent) {
+  try {
+    const r = await fetch(`/api/library?agent=${encodeURIComponent(agent.name)}`, { credentials: 'include' })
+    if (!r.ok) return []
+    const data = await r.json()
+    const items = Array.isArray(data?.items) ? data.items : []
+    return items.map(item => ({ ...item, agent: { name: agent.name, label: agent.label } }))
+  } catch { return [] }
 }
 
 function showErrorBanner(msg) {
@@ -420,39 +531,23 @@ function showErrorBanner(msg) {
   banner.textContent = msg
 }
 
-async function fetchLibraryFile(agent, source) {
-  const path = source === 'private'
-    ? `/library/${agent.name}/${encodeURIComponent(userIdentity)}.json`
-    : `/library/${agent.name}/public.json`
-  try {
-    const r = await fetch(path)
-    if (!r.ok) return []
-    const arr = await r.json()
-    return arr.map(item => ({ ...item, source, agent: { name: agent.name, label: agent.label } }))
-  } catch { return [] }
-}
-
 // ─── Render ────────────────────────────────────────────────────────────────
 function render() {
-  const archivedIds = getArchivedIds()
-  const visibleInTab = allItems.filter(item => {
-    const archived = archivedIds.has(item.id)
-    if (activeTab === 'archived') return archived
-    if (archived) return false
-    if (activeTab === 'mine') return isMine(item)
-    if (activeTab === 'team') return !isMine(item)
-    return true
-  })
+  const visibleInTab = allItems.filter(i => inBucket(i, activeTab))
 
-  // Counts (tabs sempre refletem universo antes dos facets/busca)
-  const countMine = allItems.filter(i => !archivedIds.has(i.id) && isMine(i)).length
-  const countTeam = allItems.filter(i => !archivedIds.has(i.id) && !isMine(i)).length
-  const countArchived = [...archivedIds].filter(id => allItems.some(i => i.id === id)).length
-  document.getElementById('count-mine').textContent = countMine
-  document.getElementById('count-team').textContent = countTeam
-  document.getElementById('count-archived').textContent = countArchived
+  // Counts por bucket
+  const counts = {
+    mine:    allItems.filter(i => inBucket(i, 'mine')).length,
+    public:  allItems.filter(i => inBucket(i, 'public')).length,
+    shared:  allItems.filter(i => inBucket(i, 'shared')).length,
+    archive: allItems.filter(i => inBucket(i, 'archive')).length,
+  }
+  document.getElementById('count-mine').textContent = counts.mine
+  document.getElementById('count-public').textContent = counts.public
+  document.getElementById('count-shared').textContent = counts.shared
+  document.getElementById('count-archive').textContent = counts.archive
 
-  // Facets filtram o que é mostrado DENTRO da tab
+  // Facets filtram dentro da tab
   let filtered = visibleInTab
     .filter(i => matchesSearch(i, searchQuery))
     .filter(i => matchesAgent(i, filterAgent))
@@ -464,23 +559,26 @@ function render() {
   else if (sortMode === 'old') filtered.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
   else if (sortMode === 'title') filtered.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
 
-  renderHero(countMine, countTeam, countArchived)
+  renderHero(counts)
   renderFacets(visibleInTab)
   renderGrid(filtered)
 }
 
-function renderHero(mine, team, archived) {
+function renderHero(counts) {
   const titleEl = document.getElementById('hero-title')
   const subEl = document.getElementById('hero-sub')
   if (activeTab === 'mine') {
     titleEl.textContent = 'Minhas análises'
-    subEl.textContent = `${mine} publicadas · ${archived} arquivadas`
-  } else if (activeTab === 'team') {
-    titleEl.textContent = 'Análises do time'
-    subEl.textContent = `${team} publicadas por colegas`
+    subEl.textContent = `${counts.mine} publicadas · ${counts.archive} arquivadas`
+  } else if (activeTab === 'public') {
+    titleEl.textContent = 'Público'
+    subEl.textContent = `${counts.public} análises públicas do time`
+  } else if (activeTab === 'shared') {
+    titleEl.textContent = 'Compartilhadas comigo'
+    subEl.textContent = `${counts.shared} análises compartilhadas diretamente com você`
   } else {
     titleEl.textContent = 'Arquivadas'
-    subEl.textContent = `${archived} escondidas da sua library`
+    subEl.textContent = `${counts.archive} escondidas da sua library`
   }
 }
 
@@ -517,18 +615,17 @@ function renderGrid(items) {
 
 function renderEmpty() {
   const hasFilters = searchQuery || filterAgent || filterBrand || filterPeriod
-  if (activeTab === 'mine' && !hasFilters) {
-    const totalMine = allItems.filter(i => isMine(i)).length
-    if (totalMine > 0) {
-      return `<div class="empty">Todas as suas análises estão arquivadas.<span class="empty-hint">Veja a aba "Arquivadas" para restaurá-las.</span></div>`
+  if (!hasFilters) {
+    if (activeTab === 'mine') {
+      const totalMine = allItems.filter(i => i.is_mine).length
+      if (totalMine > 0) {
+        return `<div class="empty">Todas as suas análises estão arquivadas.<span class="empty-hint">Veja a aba "Arquivadas" para restaurá-las.</span></div>`
+      }
+      return `<div class="empty">Você ainda não publicou nenhuma análise.<span class="empty-hint">Peça uma análise no Claude Desktop com a extensão Azzas MCP instalada.</span></div>`
     }
-    return `<div class="empty">Você ainda não publicou nenhuma análise.<span class="empty-hint">Peça uma análise no Claude Desktop com a extensão Azzas MCP instalada.</span></div>`
-  }
-  if (activeTab === 'team' && !hasFilters) {
-    return `<div class="empty">O time ainda não publicou nada público.</div>`
-  }
-  if (activeTab === 'archived') {
-    return `<div class="empty">Nada arquivado.</div>`
+    if (activeTab === 'public')  return `<div class="empty">O time ainda não publicou nada público.</div>`
+    if (activeTab === 'shared')  return `<div class="empty">Ninguém compartilhou nada com você ainda.</div>`
+    if (activeTab === 'archive') return `<div class="empty">Nada arquivado.</div>`
   }
   const filterHint = !searchQuery && hasFilters ? ' com os filtros selecionados' : searchQuery ? ` pra "${searchQuery}"` : ''
   return `<div class="empty">Nenhuma análise encontrada${filterHint}.</div>`
@@ -579,7 +676,7 @@ function buildCard(item) {
   `
   card.querySelector('.card-thumb').addEventListener('click', ev => { if (!ev.target.closest('.card-menu')) openAnalysis(item) })
   card.querySelector('.card-body').addEventListener('click', () => openAnalysis(item))
-  card.querySelector('.card-menu').addEventListener('click', ev => { ev.stopPropagation(); toggleMenu(card, item) })
+  card.querySelector('.card-menu').addEventListener('click', ev => { ev.stopPropagation(); toggleMenu(card.querySelector('.card-menu-dropdown'), item) })
   return card
 }
 
@@ -587,37 +684,49 @@ function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-// ─── Menu + ações do card ──────────────────────────────────────────────────
-function toggleMenu(card, item) {
-  const dropdown = card.querySelector('.card-menu-dropdown')
+// ─── Menu + ações do card (state-machine baseada nas flags do servidor) ────
+// Usado tanto pelo kebab dos cards quanto pelo do topbar do relatório.
+function toggleMenu(dropdown, item) {
   // Fecha outros
   document.querySelectorAll('.card-menu-dropdown.open').forEach(d => { if (d !== dropdown) d.classList.remove('open') })
-  // Conteúdo
-  const archivedIds = getArchivedIds()
-  const archived = archivedIds.has(item.id)
-  const publicItem = item.source === 'public'
-  let html = ''
-  if (publicItem && !archived) html += `<button data-action="copy-link">Copiar link</button>`
-  if (!publicItem && !archived) html += `<button data-action="share">Tornar pública</button>`
-  html += archived ? `<button data-action="unarchive">Restaurar</button>` : `<button data-action="archive">Arquivar</button>`
-  dropdown.innerHTML = html
+
+  const isMine = !!item.is_mine
+  const isShared = !!item.is_shared_with_me
+  const isArchived = !!item.is_archived
+  const isPublic = !!item.public
+  const hasRefresh = !!item.has_refresh_spec
+
+  const buttons = []
+  if (isMine && hasRefresh) buttons.push(['refresh', 'Atualizar período…'])
+  if (isMine && !isPublic)  buttons.push(['share-people', 'Compartilhar com pessoas…'])
+  if (isMine && !isPublic)  buttons.push(['make-public', 'Tornar pública'])
+  if (isMine && isPublic)   buttons.push(['make-private', 'Tornar privada'])
+  if (isPublic || isShared || isMine) buttons.push(['copy-link', 'Copiar link'])
+  buttons.push([isArchived ? 'unarchive' : 'archive', isArchived ? 'Restaurar' : 'Arquivar'])
+
+  dropdown.innerHTML = buttons.map(([action, label]) =>
+    `<button data-action="${action}">${escapeHtml(label)}</button>`
+  ).join('')
   dropdown.classList.toggle('open')
 
   dropdown.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', ev => {
+    btn.addEventListener('click', async ev => {
       ev.stopPropagation()
       dropdown.classList.remove('open')
       const action = btn.dataset.action
-      if (action === 'archive') { archiveItem(item.id); render() }
-      else if (action === 'unarchive') { unarchiveItem(item.id); render() }
-      else if (action === 'copy-link') { copyLink(item) }
-      else if (action === 'share') { shareAnalysis(item) }
+      if (action === 'archive')         await setArchived(item, true)
+      else if (action === 'unarchive')  await setArchived(item, false)
+      else if (action === 'copy-link')  copyLink(item)
+      else if (action === 'share-people') openShareModal(item)
+      else if (action === 'make-public')  quickToggleAcl(item, { makePublic: true,  shared: item.shared_with || [] })
+      else if (action === 'make-private') quickToggleAcl(item, { makePublic: false, shared: item.shared_with || [] })
+      else if (action === 'refresh')      openRefreshModal(item)
     })
   })
 }
 
 async function copyLink(item) {
-  const url = window.location.origin + (item.link ?? `/${item.file ?? ''}`)
+  const url = `${window.location.origin}/api/analysis/${encodeURIComponent(item.id)}`
   try {
     await navigator.clipboard.writeText(url)
     showToast('Link copiado')
@@ -626,42 +735,126 @@ async function copyLink(item) {
   }
 }
 
-function showToast(text) {
+function showToast(text, kind) {
   const el = document.getElementById('toast')
   el.textContent = text
   el.classList.add('visible')
+  el.style.background = kind === 'error' ? '#b03a2e' : ''
   clearTimeout(el._timer)
-  el._timer = setTimeout(() => el.classList.remove('visible'), 2000)
+  el._timer = setTimeout(() => { el.classList.remove('visible'); el.style.background = '' }, 2400)
 }
 
-async function shareAnalysis(item) {
+// ─── Archive (server-side) ─────────────────────────────────────────────────
+async function setArchived(item, archive) {
+  try {
+    const res = await fetch('/api/archive', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: item.id, archive }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+    await reloadLibrary()
+    showToast(archive ? 'Análise arquivada' : 'Análise restaurada')
+  } catch (err) {
+    showToast(`Erro: ${err.message}`, 'error')
+  }
+}
+
+// ─── Share: toggle público ↔ privado sem abrir o modal ─────────────────────
+async function quickToggleAcl(item, { makePublic, shared }) {
   try {
     const res = await fetch('/api/share', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ analysisId: item.id }),
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: item.id, public: makePublic, shared_with: shared }),
     })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error ?? 'Erro desconhecido')
-    await loadAllLibraries()
-    showToast('Análise agora é pública')
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+    await reloadLibrary()
+    showToast(makePublic ? 'Análise agora é pública' : 'Análise agora é privada')
   } catch (err) {
-    showToast(`Erro ao tornar público: ${err.message}`)
+    showToast(`Erro: ${err.message}`, 'error')
   }
 }
 
 // ─── Iframe viewer ─────────────────────────────────────────────────────────
-function openAnalysis(item) {
+let currentAnalysisItem = null
+
+function openAnalysis(item, { skipPushState = false } = {}) {
+  currentAnalysisItem = item
   document.getElementById('library-view').style.display = 'none'
   const view = document.getElementById('analysis-view')
   view.style.display = 'flex'
   document.getElementById('analysis-crumb').textContent = `${item.brand ?? ''} · ${item.title ?? ''}`
-  document.getElementById('analysis-iframe').src = item.file ?? item.link?.replace(/^\//, '') ?? ''
+  // Sempre via /api/analysis/<id> (com cache-bust quando há last_refreshed_at).
+  let src = `/api/analysis/${encodeURIComponent(item.id)}`
+  if (item.last_refreshed_at) src += `?v=${encodeURIComponent(item.last_refreshed_at)}`
+  document.getElementById('analysis-iframe').src = src
+  // Make the report a real URL — survives F5 and works as a share link.
+  // skipPushState = true when called from popstate or initial hash hydration,
+  // so we don't pollute the history stack with duplicate entries.
+  if (!skipPushState) {
+    history.pushState({ analysisId: item.id }, '', '#/r/' + encodeURIComponent(item.id))
+  }
+}
+
+function closeAnalysisView() {
+  document.getElementById('analysis-view').style.display = 'none'
+  document.getElementById('analysis-iframe').src = ''
+  document.getElementById('analysis-menu-dropdown').classList.remove('open')
+  document.getElementById('library-view').style.display = 'block'
+  currentAnalysisItem = null
 }
 
 document.getElementById('back-btn').addEventListener('click', () => {
-  document.getElementById('analysis-view').style.display = 'none'
-  document.getElementById('analysis-iframe').src = ''
-  document.getElementById('library-view').style.display = 'block'
+  // If we got here via pushState (the normal path), step back through history
+  // so popstate handles the cleanup and browser back/forward stays consistent.
+  // Fallback to direct close if there's no hash route entry to pop.
+  if (location.hash.startsWith('#/r/')) {
+    history.back()
+  } else {
+    closeAnalysisView()
+  }
+})
+
+// Browser back/forward + initial F5 with hash → re-sync UI to URL.
+window.addEventListener('popstate', () => {
+  const id = parseAnalysisHash()
+  if (id) {
+    const item = allItems.find(i => i.id === id)
+    if (item) {
+      openAnalysis(item, { skipPushState: true })
+      return
+    }
+  }
+  closeAnalysisView()
+})
+
+function parseAnalysisHash() {
+  const m = location.hash.match(/^#\/r\/(.+)$/)
+  return m ? decodeURIComponent(m[1]) : null
+}
+
+function openFromHash() {
+  const id = parseAnalysisHash()
+  if (!id) return
+  const item = allItems.find(i => i.id === id)
+  if (!item) {
+    showToast('Análise não encontrada ou sem acesso', 'error')
+    history.replaceState({}, '', location.pathname + location.search)
+    return
+  }
+  openAnalysis(item, { skipPushState: true })
+}
+
+// Kebab do topbar do relatório — reusa toggleMenu com o item corrente.
+document.getElementById('analysis-menu').addEventListener('click', ev => {
+  ev.stopPropagation()
+  if (!currentAnalysisItem) return
+  toggleMenu(document.getElementById('analysis-menu-dropdown'), currentAnalysisItem)
 })
 
 // ─── Tabs e facets ─────────────────────────────────────────────────────────
@@ -724,6 +917,305 @@ document.getElementById('sheet-apply').addEventListener('click', () => {
   document.getElementById('facet-sort').value = sortMode
   closeBottomSheet()
   render()
+})
+
+// ─── Share modal ───────────────────────────────────────────────────────────
+let shareModalItem = null
+let shareModalChips = []   // string[]
+
+const shareModal = document.getElementById('share-modal')
+const shareChipsWrap = document.getElementById('share-chips-wrap')
+const shareEmailInput = document.getElementById('share-emails-input')
+const sharePublicToggle = document.getElementById('share-public-toggle')
+const shareStatus = document.getElementById('share-status')
+const shareSaveBtn = document.getElementById('share-save')
+const shareCancelBtn = document.getElementById('share-cancel')
+const shareCopyLinkBtn = document.getElementById('share-copy-link')
+
+shareCopyLinkBtn.addEventListener('click', async () => {
+  if (!shareModalItem) return
+  const url = `${location.origin}/#/r/${encodeURIComponent(shareModalItem.id)}`
+  try {
+    await navigator.clipboard.writeText(url)
+    showToast('Link copiado!')
+  } catch {
+    // Older browsers / insecure contexts: fall back to a hidden input + execCommand.
+    const ta = document.createElement('textarea')
+    ta.value = url
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    try { document.execCommand('copy'); showToast('Link copiado!') }
+    catch { showToast('Não consegui copiar — copie manualmente: ' + url, 'error') }
+    finally { ta.remove() }
+  }
+})
+
+function openShareModal(item) {
+  shareModalItem = item
+  shareModalChips = Array.isArray(item.shared_with) ? [...item.shared_with] : []
+  document.getElementById('share-modal-sub').textContent = item.title || '—'
+  sharePublicToggle.checked = !!item.public
+  shareEmailInput.value = ''
+  shareStatus.textContent = ''
+  shareStatus.classList.remove('error')
+  renderShareChips()
+  if (typeof shareModal.showModal === 'function') shareModal.showModal()
+  else shareModal.setAttribute('open', '')
+  setTimeout(() => shareEmailInput.focus(), 30)
+}
+function closeShareModal() {
+  if (shareModal.open) shareModal.close()
+  else shareModal.removeAttribute('open')
+  shareModalItem = null
+}
+
+function renderShareChips() {
+  // Limpa só os chips, preservando o input
+  shareChipsWrap.querySelectorAll('.chip').forEach(c => c.remove())
+  shareModalChips.forEach((email, idx) => {
+    const chip = document.createElement('span')
+    chip.className = 'chip'
+    chip.innerHTML = `<span>${escapeHtml(email)}</span><button type="button" aria-label="Remover">×</button>`
+    chip.querySelector('button').addEventListener('click', () => {
+      shareModalChips.splice(idx, 1)
+      renderShareChips()
+    })
+    shareChipsWrap.insertBefore(chip, shareEmailInput)
+  })
+}
+
+function tryAddShareEmail(raw) {
+  const candidates = (raw || '').split(/[,\s]+/).map(s => s.trim()).filter(Boolean)
+  let added = 0
+  for (const c of candidates) {
+    const lower = c.toLowerCase()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(lower)) {
+      shareStatus.textContent = `E-mail inválido: ${c}`
+      shareStatus.classList.add('error')
+      return added
+    }
+    if (!shareModalChips.includes(lower)) {
+      shareModalChips.push(lower)
+      added++
+    }
+  }
+  if (added > 0) {
+    shareStatus.textContent = ''
+    shareStatus.classList.remove('error')
+    renderShareChips()
+  }
+  return added
+}
+
+shareEmailInput.addEventListener('keydown', ev => {
+  if (ev.key === 'Enter' || ev.key === ',') {
+    ev.preventDefault()
+    if (tryAddShareEmail(shareEmailInput.value)) shareEmailInput.value = ''
+  } else if (ev.key === 'Backspace' && !shareEmailInput.value && shareModalChips.length > 0) {
+    shareModalChips.pop()
+    renderShareChips()
+  }
+})
+shareEmailInput.addEventListener('blur', () => {
+  if (shareEmailInput.value.trim()) {
+    if (tryAddShareEmail(shareEmailInput.value)) shareEmailInput.value = ''
+  }
+})
+
+shareCancelBtn.addEventListener('click', () => closeShareModal())
+shareModal.addEventListener('cancel', () => { /* deixa o close padrão rodar */ })
+
+shareSaveBtn.addEventListener('click', async () => {
+  if (!shareModalItem) return
+  // Se há texto pendente no input, tenta adicionar primeiro
+  if (shareEmailInput.value.trim()) {
+    if (!tryAddShareEmail(shareEmailInput.value)) return
+    shareEmailInput.value = ''
+  }
+  shareSaveBtn.disabled = true
+  shareCancelBtn.disabled = true
+  shareStatus.textContent = 'Salvando…'
+  shareStatus.classList.remove('error')
+  try {
+    const res = await fetch('/api/share', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: shareModalItem.id,
+        public: !!sharePublicToggle.checked,
+        shared_with: shareModalChips,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+    closeShareModal()
+    showToast('Lista atualizada')
+    await reloadLibrary()
+  } catch (err) {
+    shareStatus.textContent = `Erro: ${err.message}`
+    shareStatus.classList.add('error')
+    showToast(`Erro ao salvar: ${err.message}`, 'error')
+  } finally {
+    shareSaveBtn.disabled = false
+    shareCancelBtn.disabled = false
+  }
+})
+
+// ─── Refresh modal ─────────────────────────────────────────────────────────
+let refreshModalItem = null
+
+const refreshModal = document.getElementById('refresh-modal')
+const refreshPresetEl = document.getElementById('refresh-preset')
+const refreshCustomRangeEl = document.getElementById('refresh-custom-range')
+const refreshStartEl = document.getElementById('refresh-start')
+const refreshEndEl = document.getElementById('refresh-end')
+const refreshStatus = document.getElementById('refresh-status')
+const refreshSubmitBtn = document.getElementById('refresh-submit')
+const refreshCancelBtn = document.getElementById('refresh-cancel')
+
+function isoDate(d) {
+  // Formata como YYYY-MM-DD em horário local (não UTC)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+function presetToRange(preset) {
+  const today = new Date()
+  const end = new Date(today)
+  if (preset === '7d') {
+    const start = new Date(today); start.setDate(start.getDate() - 6)
+    return { start: isoDate(start), end: isoDate(end) }
+  }
+  if (preset === '30d') {
+    const start = new Date(today); start.setDate(start.getDate() - 29)
+    return { start: isoDate(start), end: isoDate(end) }
+  }
+  if (preset === '90d') {
+    const start = new Date(today); start.setDate(start.getDate() - 89)
+    return { start: isoDate(start), end: isoDate(end) }
+  }
+  if (preset === 'MTD') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1)
+    return { start: isoDate(start), end: isoDate(end) }
+  }
+  if (preset === 'YTD') {
+    const start = new Date(today.getFullYear(), 0, 1)
+    return { start: isoDate(start), end: isoDate(end) }
+  }
+  return null
+}
+
+function openRefreshModal(item) {
+  refreshModalItem = item
+  document.getElementById('refresh-modal-sub').textContent = item.title || '—'
+  const periodStart = item.period_start ? String(item.period_start).slice(0, 10) : '?'
+  const periodEnd   = item.period_end   ? String(item.period_end).slice(0, 10)   : '?'
+  const refreshedAt = item.last_refreshed_at
+    ? new Date(item.last_refreshed_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+    : 'nunca'
+  document.getElementById('refresh-context').textContent =
+    `Período atual: ${periodStart} a ${periodEnd} · Atualizado em: ${refreshedAt}`
+  refreshPresetEl.value = '30d'
+  refreshCustomRangeEl.hidden = true
+  // Pré-popula o range custom com o período atual (se existir)
+  refreshStartEl.value = item.period_start ? String(item.period_start).slice(0, 10) : ''
+  refreshEndEl.value   = item.period_end   ? String(item.period_end).slice(0, 10)   : ''
+  refreshStatus.textContent = ''
+  refreshStatus.classList.remove('error')
+  refreshSubmitBtn.disabled = false
+  refreshCancelBtn.disabled = false
+  if (typeof refreshModal.showModal === 'function') refreshModal.showModal()
+  else refreshModal.setAttribute('open', '')
+}
+function closeRefreshModal() {
+  if (refreshModal.open) refreshModal.close()
+  else refreshModal.removeAttribute('open')
+  refreshModalItem = null
+}
+
+refreshPresetEl.addEventListener('change', () => {
+  refreshCustomRangeEl.hidden = refreshPresetEl.value !== 'custom'
+})
+refreshCancelBtn.addEventListener('click', () => closeRefreshModal())
+
+refreshSubmitBtn.addEventListener('click', async () => {
+  if (!refreshModalItem) return
+  let range
+  if (refreshPresetEl.value === 'custom') {
+    const start = refreshStartEl.value
+    const end = refreshEndEl.value
+    if (!start || !end) {
+      refreshStatus.textContent = 'Informe início e fim para o período personalizado.'
+      refreshStatus.classList.add('error')
+      return
+    }
+    if (start > end) {
+      refreshStatus.textContent = 'A data inicial deve ser anterior ou igual à final.'
+      refreshStatus.classList.add('error')
+      return
+    }
+    range = { start, end }
+  } else {
+    range = presetToRange(refreshPresetEl.value)
+    if (!range) {
+      refreshStatus.textContent = 'Preset inválido.'
+      refreshStatus.classList.add('error')
+      return
+    }
+  }
+
+  refreshSubmitBtn.disabled = true
+  refreshCancelBtn.disabled = true
+  const originalLabel = refreshSubmitBtn.textContent
+  refreshSubmitBtn.innerHTML = `<span class="btn-spinner"></span>Atualizando…`
+  refreshStatus.textContent = 'Executando refresh… isso pode levar alguns segundos.'
+  refreshStatus.classList.remove('error')
+
+  try {
+    const res = await fetch('/api/refresh-proxy', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agent: refreshModalItem.agent?.name,
+        id: refreshModalItem.id,
+        start_date: range.start,
+        end_date: range.end,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error ?? data.message ?? `HTTP ${res.status}`)
+    const refreshedId = refreshModalItem.id
+    closeRefreshModal()
+    showToast('Atualizado!')
+    await reloadLibrary()
+    // If the refreshed analysis is currently open, swap the iframe in place so
+    // the user sees the new numbers without F5 (which would dump them back to
+    // the library). reloadLibrary() refreshed allItems; re-grab the fresh row.
+    if (currentAnalysisItem && currentAnalysisItem.id === refreshedId) {
+      const updated = allItems.find(i => i.id === refreshedId) ?? {
+        ...currentAnalysisItem,
+        last_refreshed_at: data.last_refreshed_at,
+        period_start: data.period_start,
+        period_end: data.period_end,
+      }
+      currentAnalysisItem = updated
+      let src = `/api/analysis/${encodeURIComponent(updated.id)}`
+      if (updated.last_refreshed_at) src += `?v=${encodeURIComponent(updated.last_refreshed_at)}`
+      document.getElementById('analysis-iframe').src = src
+    }
+  } catch (err) {
+    refreshStatus.textContent = `Erro: ${err.message}`
+    refreshStatus.classList.add('error')
+  } finally {
+    refreshSubmitBtn.disabled = false
+    refreshCancelBtn.disabled = false
+    refreshSubmitBtn.textContent = originalLabel
+  }
 })
 
 init()

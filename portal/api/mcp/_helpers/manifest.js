@@ -43,10 +43,47 @@ const TOOL_SCHEMAS = {
       brand:        { type: 'string', description: "Marca (ex: 'Farm', 'Animale')." },
       period:       { type: 'string', description: "Período coberto (ex: '2026-04-01 a 2026-04-23')." },
       description:  { type: 'string', description: 'Descrição curta do conteúdo.' },
-      html_content: { type: 'string', description: 'HTML completo do dashboard.' },
+      html_content: { type: 'string', description: 'HTML do dashboard. Construa com data islands (<script id="data_X" type="application/json">) — use html_data_block.' },
       tags:         { type: 'array', items: { type: 'string' }, description: "Tags para categorização (ex: ['farm', 'lojas'])." },
+      refresh_spec: {
+        type: 'object',
+        description: 'OBRIGATÓRIO. Permite que o usuário clique "Atualizar período" no portal. Sem ele a tool rejeita com refresh_spec_required.',
+        properties: {
+          queries: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id:  { type: 'string' },
+                sql: { type: 'string', description: "SELECT/WITH com placeholders literais '{{start_date}}' e '{{end_date}}' (com aspas simples)." },
+              },
+              required: ['id', 'sql'],
+            },
+          },
+          data_blocks: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                block_id: { type: 'string', description: 'Id do <script id="..."> que recebe o JSON da query.' },
+                query_id: { type: 'string', description: 'Id da query em queries[].' },
+              },
+              required: ['block_id', 'query_id'],
+            },
+          },
+          original_period: {
+            type: 'object',
+            properties: {
+              start: { type: 'string', description: 'YYYY-MM-DD' },
+              end:   { type: 'string', description: 'YYYY-MM-DD' },
+            },
+            required: ['start', 'end'],
+          },
+        },
+        required: ['queries', 'data_blocks', 'original_period'],
+      },
     },
-    required: ['title', 'brand', 'period', 'description', 'html_content', 'tags'],
+    required: ['title', 'brand', 'period', 'description', 'html_content', 'tags', 'refresh_spec'],
   },
   listar_analises: {
     type: 'object',
@@ -63,7 +100,7 @@ const TOOL_DESCRIPTIONS = {
   get_business_rules: 'Regras de negócio: definições de KPIs, SQL canônico, pitfalls conhecidos. Consulte ao calcular venda líquida, LY, giro ou cobertura.',
   ping:               'Health-check: status do servidor, projeto BigQuery e datasets visíveis. Use antes de qualquer query para verificar conectividade.',
   consultar_bq:       'Executa SQL SELECT/WITH no BigQuery. Requer get_context + describe_table antes. Sempre filtre por data. Nunca SELECT *.',
-  publicar_dashboard: 'Publica HTML de análise na biblioteca compartilhada do portal Azzas.',
+  publicar_dashboard: 'Publica HTML de análise na biblioteca compartilhada do portal Azzas. refresh_spec é obrigatório (permite "Atualizar período").',
   listar_analises:    'Lista análises publicadas: mine (sandbox próprio) ou public (biblioteca compartilhada).',
 };
 
@@ -103,7 +140,7 @@ const VERSION = {
 };
 
 const SKILL_VERSION = {
-  latest: '1.0.0',
+  latest: '1.0.1',
 };
 
 module.exports = { MANIFEST, VERSION, SKILL_VERSION };

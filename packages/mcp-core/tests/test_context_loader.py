@@ -189,3 +189,58 @@ def test_extract_case_insensitive():
     section = extract_table_section(SAMPLE_SCHEMA, "tb_vendas")
     assert section is not None
     assert "TB_VENDAS" in section
+
+
+# ── lowercase + non-ASCII tables (atacado_processed style) ────────────────────
+
+LOWERCASE_SCHEMA = """\
+# Schema Reference — Atacado
+
+## 1. Venda — `info_venda`
+
+Full path: `proj.dataset.info_venda`
+
+| Coluna | Tipo |
+|---|---|
+| COLECAO | STRING |
+
+## 2. Cancelamento — `info_cancelamento`
+
+Full path: `proj.dataset.info_cancelamento`
+
+## 3. Devolução — `info_devolução`
+
+Full path: `proj.dataset.info_devolução`
+
+## 4. Clientes — `dim_clientes_v2`
+
+Full path: `proj.dataset.dim_clientes_v2`
+"""
+
+
+def test_parse_table_index_accepts_lowercase_tables():
+    """atacado_processed convention: info_venda, info_cancelamento, etc."""
+    tables = parse_table_index(LOWERCASE_SCHEMA)
+    assert "info_venda" in tables
+    assert "info_cancelamento" in tables
+    assert "dim_clientes_v2" in tables
+
+
+def test_parse_table_index_accepts_non_ascii_table_names():
+    """info_devolução has c-cedilla — must still be captured."""
+    tables = parse_table_index(LOWERCASE_SCHEMA)
+    assert "info_devolução" in tables
+
+
+def test_extract_lowercase_table_section_with_uppercase_input():
+    """Caller passes INFO_VENDA but schema has `info_venda` — should still match."""
+    section = extract_table_section(LOWERCASE_SCHEMA, "INFO_VENDA")
+    assert section is not None
+    assert "info_venda" in section
+    assert "COLECAO" in section
+
+
+def test_extract_non_ascii_table_section():
+    section = extract_table_section(LOWERCASE_SCHEMA, "info_devolução")
+    assert section is not None
+    assert "info_devolução" in section

@@ -1,0 +1,51 @@
+# Agent settings — checked into the repo, reviewable via PR.
+#
+# Governance fields (stay here): domain, allowed_datasets, query limits,
+# retention, auth ttl. These define what this agent is allowed to do.
+#
+# Deployment fields (overridable via env vars): project_id,
+# billing_project_id, github.author_email/author_name/branch.
+# Env convention: MCP_<SECTION>_<FIELD> (see README § "Configuração dos agentes MCP").
+# Env wins over toml. Secrets NEVER go here.
+
+[server]
+host = "0.0.0.0"
+port = 3000
+domain = "ciclo-de-venda-atacado"
+
+[bigquery]
+project_id = "soma-dl-refined-online"
+max_bytes_billed = 15000000000
+query_timeout_s = 60
+max_rows = 100000
+allowed_datasets = [
+  "soma-dl-refined-online.atacado_processed.dim_clientes_v2",
+  "soma-dl-refined-online.atacado_processed.info_devolução",
+  "soma-dl-refined-online.atacado_processed.info_metas",
+  "soma-dl-refined-online.atacado_processed.info_produto",
+  "soma-dl-refined-online.atacado_processed.info_venda",
+  "soma-dl-refined-online.atacado_processed.info_fat_nf",
+  "soma-dl-refined-online.atacado_processed.info_embalado",
+  "soma-dl-refined-online.atacado_processed.info_cancelamento",
+  "soma-dl-refined-online.atacado_processed.info_financeira",
+  "soma-dl-refined-online.atacado_processed.cadastro_somaplace",
+  "soma-dl-refined-online.atacado_processed.venda_somaplace",
+  "soma-dl-refined-online.atacado_processed.afiliados_multimarca",
+  "soma-dl-refined-online.atacado_processed.afiliados_vendas",
+  "soma-dl-refined-online.atacado_processed.afiliados_vendedores",
+]
+
+[github]
+repo_path = "/app/repo"
+branch = "main"
+author_name = "Leonardo Horn"
+author_email = "leonardo.horn@somagrupo.com.br"
+
+[auth]
+jwt_issuer = "mcp-exec-azzas"
+access_token_ttl_s = 1800
+refresh_token_ttl_s = 2592000
+
+[audit]
+db_path = "/var/mcp/audit.db"
+retention_days = 90

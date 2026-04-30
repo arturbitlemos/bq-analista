@@ -7,6 +7,10 @@
     "vendas-linx": {
       "entrypoint": "agents/vendas-linx",
       "routePrefix": "/_/vendas-linx"
+    },
+    "ciclo-de-venda-atacado": {
+      "entrypoint": "agents/ciclo-de-venda-atacado",
+      "routePrefix": "/_/ciclo-de-venda-atacado"
     }
   },
   "headers": [

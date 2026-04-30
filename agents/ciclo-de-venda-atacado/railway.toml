@@ -1,0 +1,9 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "agents/ciclo-de-venda-atacado/Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

@@ -1,6 +1,6 @@
 {
   "name": "@azzas/mcp-client-dxt",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "private": true,
   "description": "Azzas MCP DXT client for Claude Desktop",
   "type": "module",

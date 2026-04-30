@@ -35,7 +35,7 @@
 **Busca:** input de texto abaixo das tabs, procura em `title`, `description`, `tags` e `brand` da tab ativa. Case-insensitive, match por substring.
 
 **Facets (dropdowns) ao lado da busca:**
-- **Agente** — lista distinct dos agentes presentes (Vendas Linx / Devoluções / ...)
+- **Agente** — lista distinct dos agentes presentes (Vendas Linx / Devoluções / Ciclo de Venda Atacado / ...)
 - **Marca** — lista distinct de `brand` dos items da tab ativa
 - **Período** — agrupadores: "Últimos 7 dias" / "Últimos 30 dias" / "Este trimestre" / "Este ano" / "Tudo"
 - **Ordem** — "Mais recente" (default) / "Mais antiga" / "Título A→Z"

@@ -39,7 +39,7 @@ async function openBrowser(url: string): Promise<void> {
     setTimeout(() => settle(), 500); // fallback: assume success if no events in 500ms
   });
 }
-const DXT_VERSION = '1.0.11'; // sync com package.json e manifest.json
+const DXT_VERSION = '1.0.12'; // sync com package.json e manifest.json
 
 async function buildAuthResponse(baseMsg: string): Promise<{ content: { type: 'text'; text: string }[]; isError: true }> {
   await new Promise(r => setTimeout(r, 700));

@@ -378,26 +378,22 @@ O workflow lê esse arquivo se ele existir; caso contrário, usa o nome do diret
 
 > **Quando isso acontece?** Geralmente quando o serviço Railway já existia antes do agente ser scaffoldeado, ou quando alguém criou o serviço com um nome diferente por convenção (`agent-*`). Se você está criando do zero, **prefira manter os nomes iguais** e pular este passo.
 
-### 8. Atualizar `prompt_for_model` no DXT
+### 8. Roteamento entre agentes — onde está
 
-`packages/mcp-client-dxt/manifest.json` tem um campo `prompt_for_model` que é injetado como contexto no Claude Desktop quando o usuário instala o DXT. Esse prompt é o que ensina Claude **quando** usar cada agente — sem atualizar isso, Claude provavelmente vai cair sempre no `vendas-linx` por ser o primeiro listado.
+> ⚠️ **DXT 0.3 não suporta `prompt_for_model`.** Tentativas de adicionar essa chave no `manifest.json` quebram o preview no Claude Desktop com `Invalid manifest: Unrecognized key(s) in object: 'prompt_for_model'`. Não tente.
 
-Adicione um bloco para o novo agente seguindo o padrão dos existentes:
+O roteamento entre agentes acontece **sem prompt de sistema** no DXT. Claude usa duas pistas:
 
-```text
-### <Label> (`<name>`)
-<Descrição curta do domínio>. Use para perguntas sobre:
-- <bullet 1>
-- <bullet 2>
-- <bullet 3>
-- Dataset: `<projeto>.<dataset>`
-```
+1. **Prefixo de tool name** — todas as tools são expostas como `<agent-name>__<tool>` (ex: `ciclo-de-venda-atacado__consultar_bq`).
+2. **Description prefixada com o label** — em `packages/mcp-client-dxt/src/index.ts` o handler de `ListTools` monta cada description como `"<agent.label> · <tool.description>"`. Isso vem do `MANIFEST.agents[].label` e `description` que você editou no Passo 6.
 
-E **estenda a seção "Regra de roteamento"** no fim do `prompt_for_model` com a heurística que distingue esse agente dos outros (ex: "pergunta sobre marketplace B2B → Atacado").
+Por isso o **passo crítico é o Passo 6**: o `label` e o `description` do agente no `manifest.js` do portal são o que ensina Claude quando usar este agente. Capriche neles — bullets de domínio cobertos, marcas relevantes, dataset principal.
+
+Para refinar o comportamento per-agente (workflow, gates de custo, regras de query), o canal certo é o `agents/<name>/src/agent/context/SKILL.md` — ele é servido via `get_context` quando Claude chama essa tool no início da sessão.
 
 ### 9. Release do DXT
 
-Adicionar/mudar agente sem subir versão nova do DXT = usuários continuam com manifest antigo em cache + `prompt_for_model` desatualizado. **Toda mudança no `manifest.js` do portal ou no `manifest.json` do DXT exige release.**
+Adicionar/mudar agente sem subir versão nova do DXT = usuários continuam com manifest antigo em cache. **Toda mudança no `manifest.js` do portal ou no `manifest.json` do DXT exige release.**
 
 Veja o passo a passo completo em [`docs/release-dxt.md`](docs/release-dxt.md). Resumo:
 

@@ -1,6 +1,8 @@
 # Release do DXT (`packages/mcp-client-dxt`)
 
-O DXT é a extensão que os usuários instalam no Claude Desktop. Toda mudança no client do DXT, no `manifest.json` (incluindo `prompt_for_model`), ou no `manifest.js` do portal exige um release. Sem release, **as mudanças não chegam aos usuários**.
+O DXT é a extensão que os usuários instalam no Claude Desktop. Toda mudança no client do DXT, no `manifest.json`, ou no `manifest.js` do portal exige um release. Sem release, **as mudanças não chegam aos usuários**.
+
+> ⚠️ **DXT 0.3 não aceita `prompt_for_model`.** Adicionar essa chave no `manifest.json` quebra o preview no Claude Desktop com `Unrecognized key(s) in object: 'prompt_for_model'`. O roteamento entre agentes acontece via prefixo de tool name + description do agente — ver README §8.
 
 ## Por que existe esse processo
 

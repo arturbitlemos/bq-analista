@@ -23328,7 +23328,7 @@ async function openBrowser(url2) {
     setTimeout(() => settle(), 500);
   });
 }
-var DXT_VERSION = "1.0.11";
+var DXT_VERSION = "1.0.12";
 async function buildAuthResponse(baseMsg) {
   await new Promise((r) => setTimeout(r, 700));
   let text = baseMsg;

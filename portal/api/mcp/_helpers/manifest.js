@@ -131,6 +131,13 @@ const MANIFEST = {
       url: 'https://analista-devolucoes-production.up.railway.app',
       tools: BASE_TOOLS,
     },
+    {
+      name: 'ciclo-de-venda-atacado',
+      label: 'Atacado',
+      description: 'Análise de ciclo de venda no canal atacado.',
+      url: 'https://agent-atacado-production.up.railway.app',
+      tools: BASE_TOOLS,
+    },
   ],
 };
 

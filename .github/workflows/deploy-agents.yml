@@ -26,9 +26,16 @@ jobs:
         run: |
           agents=$(find agents -mindepth 2 -maxdepth 2 -name railway.toml \
                    | xargs -n1 dirname \
-                   | xargs -n1 basename \
-                   | sort -u \
-                   | jq -R . | jq -s -c .)
+                   | while read dir; do
+                       svc_file="$dir/.service-name"
+                       if [ -f "$svc_file" ]; then
+                         service=$(cat "$svc_file")
+                       else
+                         service=$(basename "$dir")
+                       fi
+                       echo "{\"dir\":\"$(basename $dir)\",\"service\":\"$service\"}"
+                     done \
+                   | jq -s -c .)
           if [ "$agents" = "[]" ]; then
             echo "::error::No agents with railway.toml found under agents/"
             exit 1
@@ -51,7 +58,7 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Deploy ${{ matrix.agent }}
+      - name: Deploy ${{ matrix.agent.dir }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service ${{ matrix.agent }} --ci
+        run: railway up --service ${{ matrix.agent.service }} --ci

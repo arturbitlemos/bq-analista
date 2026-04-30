@@ -102,6 +102,7 @@ uv run --directory packages/mcp-core pytest -q
 # Python — agents (integration tests pulam por padrão; use -m integration p/ rodar contra servidor local)
 uv run --directory agents/vendas-linx pytest -q
 uv run --directory agents/devolucoes pytest -q
+uv run --directory agents/ciclo-de-venda-atacado pytest -q
 
 # Cross-language interop (mint TS/JS, valida Python)
 uv run pytest tests/integration/ -q

@@ -19,20 +19,7 @@ max_bytes_billed = 15000000000
 query_timeout_s = 60
 max_rows = 100000
 allowed_datasets = [
-  "soma-dl-refined-online.atacado_processed.dim_clientes_v2",
-  "soma-dl-refined-online.atacado_processed.info_devolução",
-  "soma-dl-refined-online.atacado_processed.info_metas",
-  "soma-dl-refined-online.atacado_processed.info_produto",
-  "soma-dl-refined-online.atacado_processed.info_venda",
-  "soma-dl-refined-online.atacado_processed.info_fat_nf",
-  "soma-dl-refined-online.atacado_processed.info_embalado",
-  "soma-dl-refined-online.atacado_processed.info_cancelamento",
-  "soma-dl-refined-online.atacado_processed.info_financeira",
-  "soma-dl-refined-online.atacado_processed.cadastro_somaplace",
-  "soma-dl-refined-online.atacado_processed.venda_somaplace",
-  "soma-dl-refined-online.atacado_processed.afiliados_multimarca",
-  "soma-dl-refined-online.atacado_processed.afiliados_vendas",
-  "soma-dl-refined-online.atacado_processed.afiliados_vendedores",
+  "soma-dl-refined-online.atacado_processed",
 ]
 
 [github]

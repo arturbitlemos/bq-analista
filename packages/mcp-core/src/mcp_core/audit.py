@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 SCHEMA = """
@@ -33,7 +36,7 @@ class AuditLog:
         with sqlite3.connect(self.db_path) as c:
             c.executescript(SCHEMA)
 
-    def record(
+    async def record(
         self, *, exec_email: str, tool: str, sql: str | None,
         bytes_scanned: int, row_count: int, duration_ms: int,
         result: str, error: str | None,
@@ -56,3 +59,29 @@ class AuditLog:
         with sqlite3.connect(self.db_path) as c:
             cur = c.execute("DELETE FROM audit WHERE ts < ?", (cutoff,))
             return cur.rowcount
+
+
+class PgAuditLog:
+    def __init__(self, agent_name: str) -> None:
+        self._agent_name = agent_name
+
+    async def record(
+        self, *, exec_email: str, tool: str, sql: str | None,
+        bytes_scanned: int, row_count: int, duration_ms: int,
+        result: str, error: str | None,
+    ) -> None:
+        try:
+            from mcp_core import db
+            async with db.get_pool().acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO bq_audit
+                      (exec_email, agent, tool, sql, bytes_scanned,
+                       row_count, duration_ms, result, error)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    """,
+                    exec_email, self._agent_name, tool, sql,
+                    bytes_scanned, row_count, duration_ms, result, error,
+                )
+        except Exception:
+            logger.error("bq_audit insert failed", exc_info=True)

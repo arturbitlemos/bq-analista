@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import functools
 import hashlib
@@ -18,7 +19,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.streamable_http_manager import TransportSecuritySettings as _TSS
 
 from mcp_core.allowlist import Allowlist
-from mcp_core.audit import AuditLog
+from mcp_core.audit import AuditLog, PgAuditLog
 from mcp_core.auth_middleware import AuthContext, AuthError, extract_exec_email
 from mcp_core.auth_routes import build_auth_app
 from mcp_core.azure_auth import AzureAuth
@@ -121,13 +122,16 @@ def build_mcp_app(
 
     # ── Internal singletons ────────────────────────────────────────────────
 
-    _audit: AuditLog | None = None
+    _audit: AuditLog | PgAuditLog | None = None
 
-    def _get_audit() -> AuditLog:
+    def _get_audit() -> AuditLog | PgAuditLog:
         nonlocal _audit
         if _audit is None:
             settings = _load_cached_state().settings
-            _audit = AuditLog(db_path=Path(settings.audit.db_path))
+            if settings.audit.database_url:
+                _audit = PgAuditLog(agent_name=agent_name)
+            else:
+                _audit = AuditLog(db_path=Path(settings.audit.db_path))
         return _audit
 
     # lru_cache(1) caches the AuthContext across requests so PyJWKClient is reused
@@ -235,27 +239,49 @@ def build_mcp_app(
         exec_email = _current_email(ctx)
         start = _time.time()
         await ctx.report_progress(progress=0.0, total=1.0, message="validating query...")
+
         try:
             validate_readonly_sql(sql)
         except SqlValidationError as e:
+            asyncio.create_task(_get_audit().record(
+                exec_email=exec_email, tool="consultar_bq", sql=sql,
+                bytes_scanned=0, row_count=0,
+                duration_ms=int((_time.time() - start) * 1000),
+                result="error", error=f"sql_validation: {e}",
+            ))
             return {"error": f"sql_validation: {e}"}
+
         await ctx.report_progress(progress=0.2, total=1.0, message="checking dataset access...")
         client = _load_cached_state().bq_client
+
         try:
             result = client.run_query(sql=sql, exec_email=exec_email)
         except DatasetNotAllowedError as e:
+            asyncio.create_task(_get_audit().record(
+                exec_email=exec_email, tool="consultar_bq", sql=sql,
+                bytes_scanned=0, row_count=0,
+                duration_ms=int((_time.time() - start) * 1000),
+                result="error", error=f"dataset_not_allowed: {e}",
+            ))
             return {"error": f"dataset_not_allowed: {e}"}
         except Exception as e:
+            asyncio.create_task(_get_audit().record(
+                exec_email=exec_email, tool="consultar_bq", sql=sql,
+                bytes_scanned=0, row_count=0,
+                duration_ms=int((_time.time() - start) * 1000),
+                result="error", error=f"bq_execution: {e}",
+            ))
             return {"error": f"bq_execution: {e}"}
+
         duration_ms = int((_time.time() - start) * 1000)
         await ctx.report_progress(progress=1.0, total=1.0, message="query complete")
-        _get_audit().record(
+        asyncio.create_task(_get_audit().record(
             exec_email=exec_email, tool="consultar_bq", sql=sql,
             bytes_scanned=cast(int, result.bytes_processed or 0),
             row_count=result.row_count,
             duration_ms=duration_ms,
             result="ok", error=None,
-        )
+        ))
         return {
             "rows": result.rows,
             "row_count": result.row_count,

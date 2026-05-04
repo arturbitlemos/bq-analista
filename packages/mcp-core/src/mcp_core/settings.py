@@ -37,6 +37,7 @@ class AuthSettings(BaseModel):
 class AuditSettings(BaseModel):
     db_path: str
     retention_days: int = 90
+    database_url: str | None = None
 
 
 class Settings(BaseModel):
@@ -62,6 +63,8 @@ _ENV_OVERRIDES: tuple[tuple[str, str, str], ...] = (
     ("MCP_GITHUB_AUTHOR_EMAIL", "github", "author_email"),
     ("MCP_GITHUB_AUTHOR_NAME", "github", "author_name"),
     ("MCP_GITHUB_BRANCH", "github", "branch"),
+    # DATABASE_URL intentionally deviates from the MCP_* prefix because Railway provides it with this exact name.
+    ("DATABASE_URL", "audit", "database_url"),
 )
 
 

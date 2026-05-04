@@ -113,3 +113,41 @@ retention_days = 90
 """)
     s = load_settings(toml)
     assert s.server.domain == "vendas-linx"
+
+
+def test_database_url_env_sets_audit_database_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """DATABASE_URL in env populates settings.audit.database_url."""
+    toml = tmp_path / "settings.toml"
+    toml.write_text(
+        '[server]\nhost="0.0.0.0"\nport=3000\ndomain="d"\n'
+        '[bigquery]\nproject_id="p"\nmax_bytes_billed=1\n'
+        'query_timeout_s=60\nmax_rows=100\nallowed_datasets=["x"]\n'
+        '[github]\nrepo_path="/r"\nbranch="main"\n'
+        'author_name="bot"\nauthor_email="bot@x.com"\n'
+        '[auth]\njwt_issuer="i"\naccess_token_ttl_s=1\nrefresh_token_ttl_s=1\n'
+        '[audit]\ndb_path="/a"\nretention_days=1\n'
+    )
+    monkeypatch.setenv("DATABASE_URL", "postgresql://neon/testdb")
+    s = load_settings(toml)
+    assert s.audit.database_url == "postgresql://neon/testdb"
+
+
+def test_audit_database_url_is_none_when_env_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When DATABASE_URL is not set, settings.audit.database_url is None."""
+    toml = tmp_path / "settings.toml"
+    toml.write_text(
+        '[server]\nhost="0.0.0.0"\nport=3000\ndomain="d"\n'
+        '[bigquery]\nproject_id="p"\nmax_bytes_billed=1\n'
+        'query_timeout_s=60\nmax_rows=100\nallowed_datasets=["x"]\n'
+        '[github]\nrepo_path="/r"\nbranch="main"\n'
+        'author_name="bot"\nauthor_email="bot@x.com"\n'
+        '[auth]\njwt_issuer="i"\naccess_token_ttl_s=1\nrefresh_token_ttl_s=1\n'
+        '[audit]\ndb_path="/a"\nretention_days=1\n'
+    )
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    s = load_settings(toml)
+    assert s.audit.database_url is None

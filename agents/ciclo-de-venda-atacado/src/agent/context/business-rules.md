@@ -109,7 +109,7 @@ WHERE v.`TIPO_VENDA` IN ('VENDA', 'PRE VENDA')
   AND v.`VENDA_ORIGINAL` > 0
 ```
 
-**Prateleira Infinita:** quando incluída, considerar sempre `PRATELEIRA INFINITA`, `PRATELEIRA INFINITA - EXTERNO` e `PRONTA ENTREGA` (nome legado) juntos. Separar estoque interno/externo só sob pedido explícito.
+**Prateleira Infinita:** quando incluída, considerar sempre `PRATELEIRA INFINITA`, `PRATELEIRA INFINITA - EXTERNA` e `PRONTA ENTREGA` (nome legado) juntos. Separar estoque interno/externo só sob pedido explícito.
 
 **Redistribuição:** mercadoria devolvida e refaturada para outro cliente. Em `info_venda`, aparece como `TIPO_VENDA = 'REDISTRIBUIÇÃO'` com `VENDA_ORIGINAL = 0` — excluída automaticamente pelo filtro `VENDA_ORIGINAL > 0`. Em `info_fat_nf`, aparece como faturamento e deve ser incluída com `VENDA_ORIGINAL >= 0`. Contexto de negócio: ver §18.
 
@@ -135,6 +135,7 @@ AND `VENDA_ORIGINAL` > 0
 ```sql
 WHERE `MARCA` IN ('FABULA', 'FÁBULA') AND p.`SEGMENTO` = 'MENINA TEEN'
 ```
+Linha iniciada a partir de **VERÃO 2026** — não há dados de FARM FUTURA em coleções anteriores.
 
 ### BENTO (linha infantil masculina da FABULA)
 ```sql
@@ -182,7 +183,20 @@ EXTRACT(YEAR FROM CURRENT_DATE())   -- nunca hardcoded
 ```
 
 ### Quando um ano é referenciado
+`ANO` = `EXTRACT(YEAR FROM CURRENT_DATE())` — nunca hardcoded. Em SQL, sempre use a função dinâmica; nunca substitua por um literal numérico (ex: `2026`).
+
 `ALTO INVERNO [ANO]`, `VERAO [ANO+1]`, `ALTO VERAO [ANO+1]`, `INVERNO [ANO+1]`
+
+### Coleções de um ano
+"Coleções de [ANO]" = coleções **vendidas** naquele ano — não as que terminam com esse número no nome da coleção.
+
+| Ano de referência | Coleções (período de venda) |
+|---|---|
+| 2026 | ALTO INVERNO 2026, VERAO 2027, ALTO VERAO 2027, INVERNO 2027 |
+| 2025 | ALTO INVERNO 2025, VERAO 2026, ALTO VERAO 2026, INVERNO 2026 |
+
+### Marcas que não participam do ALTO INVERNO
+**FÁBULA** e **FARM PRAIA** não realizam venda na estação ALTO INVERNO. Não incluir essas marcas em análises de ALTO INVERNO salvo pedido explícito e verificação de dados disponíveis.
 
 ---
 
@@ -234,6 +248,20 @@ Realizou compra em alguma das últimas 4 coleções. Um cliente **bloqueado impo
 | Cliente Ativo (recorrência) | Comprou em alguma das últimas 3 coleções de outras estações, mas não na imediatamente anterior |
 | Resgate | Voltou após ausência de mais de 4 estações consecutivas, com histórico anterior |
 
+### Janela de avaliação para Cliente Novo e Resgate
+
+Para classificar um cliente como **Novo** ou **Resgate**, considerar **apenas as coleções anteriores à coleção de referência** — desconsiderar coleções posteriores, mesmo que o cliente as tenha comprado.
+
+> Exemplo: para classificar um cliente na coleção VERAO 2027, avaliar somente se ele teve compras antes de VERAO 2027. Se ele comprou em ALTO VERAO 2027 (posterior), essa compra não entra na avaliação.
+
+### Pulo de coleção
+
+A ausência de compra em uma coleção **não significa** que o cliente encerrou o relacionamento. Clientes frequentemente pulam coleções por excesso de estoque, sazonalidade ou restrição financeira pontual. Ao analisar clientes ausentes ou inativos, **verificar o histórico completo de coleções** para identificar padrões de pulo recorrentes antes de concluir abandono.
+
+### Exibição de nome de cliente
+
+Sempre que o nome do cliente (`CLIENTE`) aparecer em qualquer output — tabela, gráfico, lista, texto corrido — o `CLIFOR` correspondente deve estar presente na mesma linha/trecho. Isso vale para respostas parciais, exemplos e rankins. Nunca exibir `CLIENTE` sem `CLIFOR`.
+
 ### Número de atendimentos
 ```sql
 COUNT(DISTINCT `CLIFOR`) AS atendimentos
@@ -269,6 +297,8 @@ Ver nota na coluna `CIDADE` em schema.md §7.
 ## 10. Representantes — exclusões em análises comparativas
 
 **ATENDIMENTO INTERNO** (`NOME_WISE = 'ATENDIMENTO INTERNO'`) **e FACEX** (`NOME_WISE = 'FACEX'`) são excluídos de rankings, desempenho e análises comparativas entre representantes. Entram apenas em somatórios gerais (visão de marca ou grupo). Os clientes geridos por eles seguem a mesma regra.
+
+> **Exceção:** em cálculos de **atingimento de meta** (§14), FACEX e ATENDIMENTO INTERNO são **incluídos** tanto na venda quanto na meta.
 
 ---
 
@@ -323,6 +353,8 @@ O atingimento de venda sempre se refere à comparação `Venda / META`:
 SAFE_DIVIDE(SUM(v.`VENDA_ORIGINAL`), MAX(m.`META`)) AS atingimento
 ```
 `META DESAFIO` e `META ATENDIMENTO` só são usadas quando explicitamente solicitadas.
+
+> **Exceção à §10:** para cálculo de atingimento de meta, **FACEX e ATENDIMENTO INTERNO devem ser incluídos** — não excluir esses representantes da venda nem da meta ao calcular o atingimento.
 
 ---
 
@@ -464,7 +496,7 @@ VERÃO e INVERNO. Maior volume de vendas e faturamento. VERÃO é a maior coleç
 
 ### Segunda Etapa
 **Sinônimos:** Coleções de Alto, Coleções Complementares
-ALTO VERÃO e ALTO INVERNO. Menor volume. ALTO VERÃO é a maior entre as de Segunda Etapa. Algumas marcas (ex: Fábula) não realizam venda no ALTO INVERNO.
+ALTO VERÃO e ALTO INVERNO. Menor volume. ALTO VERÃO é a maior entre as de Segunda Etapa. **FÁBULA e FARM PRAIA não realizam venda no ALTO INVERNO.**
 
 ### Venda Bruta
 **Sinônimos:** Gross Sales, Venda, Pedido Bruto
@@ -488,7 +520,7 @@ Campo `CONDICAO_PAGAMENTO` em `info_venda`. Intervalo de tempo para quitação d
 
 ### Prateleira Infinita
 **Sinônimos:** PI, Reposição (Pronta Entrega é nome anterior)
-Canal complementar após o período de venda. Estoque já pronto no CD — entrega mais rápida. `TIPO_VENDA IN ('PRATELEIRA INFINITA', 'PRATELEIRA INFINITA - EXTERNO', 'PRONTA ENTREGA')`. Incluída apenas quando explicitamente solicitado. Cliente acessa só produtos de coleções que já comprou, com o mesmo markup da última compra.
+Canal complementar após o período de venda. Estoque já pronto no CD — entrega mais rápida. `TIPO_VENDA IN ('PRATELEIRA INFINITA', 'PRATELEIRA INFINITA - EXTERNA', 'PRONTA ENTREGA')`. Incluída apenas quando explicitamente solicitado. Cliente acessa só produtos de coleções que já comprou, com o mesmo markup da última compra.
 
 ### Faturamento Bruto
 **Sinônimos:** Gross Billing, Fat Bruto
@@ -544,7 +576,7 @@ Segmentação PP/P/M/G/GG por soma das vendas nas últimas 4 coleções (incluin
 
 ### Cliente Novo
 **Sinônimos:** New Customer, Cliente Estreante
-Primeira compra exatamente na coleção em análise, sem histórico anterior. Tratado por marca salvo especificação.
+Primeira compra exatamente na coleção em análise, sem histórico anterior. Tratado por marca salvo especificação. **Avaliação:** considerar apenas compras anteriores à coleção de referência — coleções posteriores não entram no critério.
 
 ### SCS (Same Client Sale)
 **Sinônimos:** Cliente Recorrente, Compra Recorrente
@@ -556,7 +588,7 @@ Comprou em alguma das últimas 3 coleções de outras estações, mas não na im
 
 ### Resgate
 **Sinônimos:** Reativação, Cliente Reativado
-Voltou a comprar após ausência de mais de 4 coleções consecutivas. Deve ter histórico anterior de compras.
+Voltou a comprar após ausência de mais de 4 coleções consecutivas. Deve ter histórico anterior de compras. **Avaliação:** considerar apenas compras anteriores à coleção de referência — coleções posteriores não entram no critério.
 
 ### Bloqueio Financeiro
 **Sinônimos:** Bloqueio, Block, Inadimplência
@@ -828,3 +860,4 @@ WHERE avd.`data_desligamento` IS NULL
 | 2026-04-29 | Criação — regras extraídas do documento "Gemini & Azzas 2154" e especificações de schema. |
 | 2026-04-29 | Enriquecimento com contexto de negócio (Afiliados, Somaplace, Prateleira Infinita, ciclo operacional) e fluxo obrigatório de capilaridade. |
 | 2026-04-30 | Adição de §19–§21 (Financeiro, Somaplace, Afiliados). Revisão: correção de VALOR VENCIDO → VALOR_VENCIDO; GROUP BY inválido no aging; referência §9→§19 para bloqueio; sinônimos duplicados em glossário; tool `calculate` inexistente removida; Somaplace adicionado às exceções de filtro por data; terminologia GMV Afiliados corrigida para Venda Afiliados. |
+| 2026-05-04 | PRATELEIRA INFINITA - EXTERNO → EXTERNA (nomenclatura correta). Adição: FARM FUTURA iniciada no VERÃO 2026; FÁBULA e FARM PRAIA fora do ALTO INVERNO; regra de pulo de coleção; interpretação de "coleções de um ano"; janela de avaliação de Novo/Resgate (apenas coleções anteriores à referência). |

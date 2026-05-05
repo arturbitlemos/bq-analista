@@ -32,22 +32,32 @@
     .msg { padding: 32px; text-align: center; color: #71717a; }
     .msg.error { color: #b91c1c; }
     code { font-family: ui-monospace, monospace; font-size: .8rem; background: #f4f4f5; padding: 1px 4px; border-radius: 3px; }
+    .time-btns { display: flex; gap: 8px; margin-bottom: 16px; }
+    .time-btn { padding: 4px 14px; border: 1px solid #e4e4e7; border-radius: 6px; background: #fff; cursor: pointer; font-size: .875rem; }
+    .time-btn.active { background: #18181b; color: #fff; border-color: #18181b; }
+    .chart-wrap { background: #fff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .chart-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    select.user-select { font-size: .875rem; padding: 4px 8px; border: 1px solid #e4e4e7; border-radius: 6px; }
+    .agent-status { background: #fff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 16px; margin-bottom: 16px; font-size: .875rem; }
+    .agent-status-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f4f4f5; }
+    .agent-status-row:last-child { border-bottom: none; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
 <header>
   <a href="/" class="back">← Portal</a>
   <h1>Admin · Analytics de Uso</h1>
 </header>
-<main><div id="root"><p class="msg">Carregando…</p></div></main>
+<main>
+  <div id="bq-root"><p class="msg">Carregando BQ stats…</p></div>
+  <div id="analytics-root"><p class="msg">Carregando analytics do portal…</p></div>
+</main>
 <script type="module">
   function escHtml(str) {
     return String(str ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
   }
 
   function fmt(n) { return Number(n ?? 0).toLocaleString('pt-BR') }
@@ -57,13 +67,24 @@
     if (b >= 1e12) return (b / 1e12).toFixed(1) + ' TB'
     if (b >= 1e9)  return (b / 1e9).toFixed(1) + ' GB'
     if (b >= 1e6)  return (b / 1e6).toFixed(1) + ' MB'
-    return (b / 1e3).toFixed(1) + ' KB'
+    if (b >= 1e3)  return (b / 1e3).toFixed(1) + ' KB'
+    return b + ' B'
   }
 
   function fmtDate(ts) {
     const d = new Date(typeof ts === 'number' ? ts * 1000 : ts)
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) +
       ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  function fmtRelative(isoTs) {
+    if (!isoTs) return 'Nunca'
+    const diffMs = Date.now() - new Date(isoTs).getTime()
+    const mins = Math.floor(diffMs / 60000)
+    if (mins < 60) return `há ${mins}m`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `há ${hrs}h`
+    return fmtDate(isoTs)
   }
 
   function badge(action) {
@@ -80,27 +101,210 @@
     return res.json()
   }
 
-  async function render() {
-    const root = document.getElementById('root')
+  // ── BQ Stats section ──────────────────────────────────────────────────────
 
-    const [analyticsResult, bqResult] = await Promise.allSettled([
-      fetchJson('/api/admin/analytics'),
-      fetchJson('/api/admin/bq-stats'),
-    ])
+  let _activeDays = 30
+  let _chart = null
+  let _byDay = []
 
-    if (analyticsResult.status === 'rejected') {
-      const msg = analyticsResult.reason.message
-      if (msg === 'unauthorized') return
-      if (msg === 'forbidden') {
-        root.innerHTML = '<p class="msg error">⛔ Acesso restrito.</p>'
-        return
+  function selectDays(n) {
+    _activeDays = n
+    document.querySelectorAll('.time-btn').forEach(b => {
+      b.classList.toggle('active', Number(b.dataset.days) === n)
+    })
+    renderBqStats(n)
+  }
+
+  function buildChartDataset(selectedEmail) {
+    const rows = selectedEmail === '__all__'
+      ? _byDay
+      : _byDay.filter(r => r.exec_email === selectedEmail)
+    const dayMap = {}
+    for (const row of rows) {
+      dayMap[row.day] = (dayMap[row.day] || 0) + Number(row.n)
+    }
+    const labels = Object.keys(dayMap).sort()
+    return {
+      labels,
+      datasets: [{
+        label: selectedEmail === '__all__' ? 'Total de queries' : selectedEmail,
+        data: labels.map(d => dayMap[d]),
+        tension: 0.3,
+        fill: false,
+        borderColor: '#2563eb',
+        backgroundColor: '#2563eb',
+        pointRadius: 3,
+      }]
+    }
+  }
+
+  function drawChart(selectedEmail) {
+    if (_chart) { _chart.destroy(); _chart = null }
+    const canvas = document.getElementById('bq-chart')
+    if (!canvas) return
+    _chart = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: buildChartDataset(selectedEmail),
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { ticks: { maxTicksLimit: 10 } },
+          y: { beginAtZero: true, ticks: { precision: 0 } }
+        },
+        plugins: { legend: { display: false } }
       }
-      root.innerHTML = `<p class="msg error">Erro ao carregar analytics: ${escHtml(msg)}</p>`
+    })
+  }
+
+  async function renderBqStats(days) {
+    const root = document.getElementById('bq-root')
+    root.innerHTML = `
+      <p class="section-title">Queries BigQuery</p>
+      <div class="time-btns">
+        <button class="time-btn${days===7?' active':''}" data-days="7" onclick="selectDays(7)">7d</button>
+        <button class="time-btn${days===30?' active':''}" data-days="30" onclick="selectDays(30)">30d</button>
+        <button class="time-btn${days===90?' active':''}" data-days="90" onclick="selectDays(90)">90d</button>
+      </div>
+      <p class="msg">Carregando…</p>`
+
+    let bq
+    try {
+      bq = await fetchJson(`/api/admin/bq-stats?days=${days}`)
+    } catch (e) {
+      root.innerHTML = `
+        <p class="section-title">Queries BigQuery</p>
+        <div class="time-btns">
+          <button class="time-btn${days===7?' active':''}" data-days="7" onclick="selectDays(7)">7d</button>
+          <button class="time-btn${days===30?' active':''}" data-days="30" onclick="selectDays(30)">30d</button>
+          <button class="time-btn${days===90?' active':''}" data-days="90" onclick="selectDays(90)">90d</button>
+        </div>
+        <p class="msg error">Erro ao carregar BQ stats: ${escHtml(e.message)}
+          <button onclick="renderBqStats(${days})" style="margin-left:8px;padding:2px 8px;cursor:pointer">Tentar novamente</button>
+        </p>`
       return
     }
 
-    const a = analyticsResult.value
-    const bq = bqResult.status === 'fulfilled' ? bqResult.value : null
+    _byDay = bq.by_day || []
+    const t = bq.totals || {}
+    const emails = [...new Set(_byDay.map(r => r.exec_email))].sort()
+
+    const hasData = Number(t.total_calls) > 0
+
+    let html = `
+      <p class="section-title">Queries BigQuery — últimos ${days}d</p>
+      <div class="time-btns">
+        <button class="time-btn${days===7?' active':''}" data-days="7" onclick="selectDays(7)">7d</button>
+        <button class="time-btn${days===30?' active':''}" data-days="30" onclick="selectDays(30)">30d</button>
+        <button class="time-btn${days===90?' active':''}" data-days="90" onclick="selectDays(90)">90d</button>
+      </div>`
+
+    if (!hasData) {
+      html += `<p class="msg" style="background:#fff;border-radius:8px;border:1px solid #e4e4e7">
+        Sem queries registradas nos últimos ${days}d.</p>`
+      root.innerHTML = html
+      return
+    }
+
+    html += `<div class="cards">
+      <div class="card"><div class="label">Total de queries</div><div class="value">${fmt(t.total_calls)}</div></div>
+      <div class="card"><div class="label">Erros</div>
+        <div class="value${Number(t.total_errors) > 0 ? ' warn' : ''}">${fmt(t.total_errors)}</div>
+      </div>
+      <div class="card"><div class="label">Bytes escaneados</div>
+        <div class="value" style="font-size:1.25rem">${fmtBytes(t.total_bytes_scanned)}</div>
+      </div>
+      <div class="card"><div class="label">Usuários ativos</div><div class="value">${fmt(t.distinct_users)}</div></div>
+    </div>`
+
+    html += `<div class="chart-wrap">
+      <div class="chart-controls">
+        <span style="font-size:.8rem;font-weight:600;color:#52525b">USO NO TEMPO</span>
+        <select id="bq-user-select" class="user-select">
+          <option value="__all__">Todos os usuários</option>
+          ${emails.map(e => `<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="height:200px"><canvas id="bq-chart"></canvas></div>
+    </div>`
+
+    if (bq.by_user?.length) {
+      html += `<p class="section-title">Por usuário</p>
+      <table><thead><tr>
+        <th>Email</th><th>Queries</th><th>Erros</th><th>Bytes</th><th>Avg ms</th><th>Agent principal</th>
+      </tr></thead><tbody>`
+      for (const u of bq.by_user) {
+        html += `<tr>
+          <td>${escHtml(u.exec_email)}</td>
+          <td>${fmt(u.total_calls)}</td>
+          <td class="${Number(u.errors) > 0 ? 'err-text' : ''}">${fmt(u.errors)}</td>
+          <td>${fmtBytes(u.total_bytes)}</td>
+          <td>${fmt(u.avg_duration_ms)}</td>
+          <td><code>${escHtml(u.top_agent ?? '—')}</code></td>
+        </tr>`
+      }
+      html += `</tbody></table>`
+    }
+
+    if (bq.recent_errors?.length) {
+      html += `<p class="section-title">Erros recentes</p>
+      <table><thead><tr>
+        <th>Quando</th><th>Usuário</th><th>Agent</th><th>SQL (preview)</th><th>Erro</th>
+      </tr></thead><tbody>`
+      for (const e of bq.recent_errors) {
+        html += `<tr>
+          <td>${escHtml(fmtDate(e.ts))}</td>
+          <td>${escHtml(e.exec_email)}</td>
+          <td><code>${escHtml(e.agent ?? '—')}</code></td>
+          <td><code>${escHtml(e.sql_preview ?? '—')}</code></td>
+          <td class="err-text">${escHtml(e.error ?? '—')}</td>
+        </tr>`
+      }
+      html += `</tbody></table>`
+    }
+
+    if (bq.last_seen_by_agent?.length) {
+      html += `<p class="section-title">Último registro por agent</p>
+      <div class="agent-status">`
+      for (const row of bq.last_seen_by_agent) {
+        html += `<div class="agent-status-row">
+          <code>${escHtml(row.agent)}</code>
+          <span style="color:#71717a">${escHtml(fmtRelative(row.last_seen))}</span>
+        </div>`
+      }
+      html += `</div>`
+    } else {
+      html += `<p class="section-title">Último registro por agent</p>
+        <p class="msg" style="background:#fff;border-radius:8px;border:1px solid #e4e4e7">Sem registros.</p>`
+    }
+
+    root.innerHTML = html
+
+    // Chart.js initialisation — must run after innerHTML is set
+    if (_chart) { _chart.destroy(); _chart = null }
+    drawChart('__all__')
+    const sel = document.getElementById('bq-user-select')
+    if (sel) sel.addEventListener('change', () => drawChart(sel.value))
+  }
+
+  // ── Analytics section (portal events) ─────────────────────────────────────
+
+  async function renderAnalytics() {
+    const root = document.getElementById('analytics-root')
+    let a
+    try {
+      a = await fetchJson('/api/admin/analytics')
+    } catch (e) {
+      if (e.message === 'unauthorized') return
+      if (e.message === 'forbidden') {
+        document.getElementById('bq-root').innerHTML = '<p class="msg error">⛔ Acesso restrito.</p>'
+        root.innerHTML = ''
+        return
+      }
+      root.innerHTML = `<p class="msg error">Erro ao carregar analytics: ${escHtml(e.message)}</p>`
+      return
+    }
+
     let html = ''
 
     if (a.summary) {
@@ -140,45 +344,11 @@
       html += `</tbody></table>`
     }
 
-    if (bq?.totals && Object.keys(bq.totals).length) {
-      const t = bq.totals
-      html += `<p class="section-title">Últimos 30 dias — Queries BigQuery</p><div class="cards">
-        <div class="card"><div class="label">Total de queries</div><div class="value">${fmt(t.total_calls)}</div></div>
-        <div class="card"><div class="label">Erros</div>
-          <div class="value${Number(t.total_errors) > 0 ? ' warn' : ''}">${fmt(t.total_errors)}</div>
-        </div>
-        <div class="card"><div class="label">Bytes escaneados</div>
-          <div class="value" style="font-size:1.25rem">${fmtBytes(t.total_bytes_scanned)}</div>
-        </div>
-        <div class="card"><div class="label">Usuários ativos</div><div class="value">${fmt(t.distinct_users)}</div></div>
-      </div>`
-    } else if (bqResult.status === 'rejected') {
-      html += `<p class="section-title">Queries BigQuery</p>
-        <p class="msg" style="background:#fff;border-radius:8px;border:1px solid #e4e4e7">
-          Stats do BigQuery indisponíveis: ${escHtml(bqResult.reason?.message ?? 'erro desconhecido')}
-        </p>`
-    }
-
     if (a.top_users?.length) {
       html += `<p class="section-title">Usuários mais ativos (portal, 30d)</p>
       <table><thead><tr><th>Email</th><th>Ações</th></tr></thead><tbody>`
       for (const u of a.top_users) {
         html += `<tr><td>${escHtml(u.actor_email)}</td><td>${fmt(u.n)}</td></tr>`
-      }
-      html += `</tbody></table>`
-    }
-
-    if (bq?.by_user?.length) {
-      html += `<p class="section-title">Usuários com mais queries (BigQuery, 30d)</p>
-      <table><thead><tr><th>Email</th><th>Queries</th><th>Erros</th><th>Bytes</th><th>Avg ms</th></tr></thead><tbody>`
-      for (const u of bq.by_user) {
-        html += `<tr>
-          <td>${escHtml(u.exec_email)}</td>
-          <td>${fmt(u.total_calls)}</td>
-          <td class="${u.errors > 0 ? 'err-text' : ''}">${fmt(u.errors)}</td>
-          <td>${fmtBytes(u.total_bytes)}</td>
-          <td>${fmt(u.avg_duration_ms)}</td>
-        </tr>`
       }
       html += `</tbody></table>`
     }
@@ -191,19 +361,6 @@
           <td>${escHtml(r.title ?? '—')}</td>
           <td><code>${escHtml(r.analysis_id)}</code></td>
           <td>${fmt(r.n)}</td>
-        </tr>`
-      }
-      html += `</tbody></table>`
-    }
-
-    if (bq?.recent_errors?.length) {
-      html += `<p class="section-title">Erros recentes de query (BigQuery)</p>
-      <table><thead><tr><th>Quando</th><th>Usuário</th><th>Erro</th></tr></thead><tbody>`
-      for (const e of bq.recent_errors) {
-        html += `<tr>
-          <td>${escHtml(fmtDate(e.ts))}</td>
-          <td>${escHtml(e.exec_email)}</td>
-          <td class="err-text">${escHtml(e.error ?? '—')}</td>
         </tr>`
       }
       html += `</tbody></table>`
@@ -223,10 +380,17 @@
       html += `</tbody></table>`
     }
 
-    root.innerHTML = html || '<p class="msg">Nenhum dado disponível.</p>'
+    root.innerHTML = html || '<p class="msg">Nenhum dado de portal disponível.</p>'
   }
 
-  render()
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  // BQ stats loads first (most important section), analytics loads in parallel
+  renderBqStats(_activeDays)
+  renderAnalytics()
+
+  // Make selectDays accessible from inline onclick
+  window.selectDays = selectDays
+  window.renderBqStats = renderBqStats
 </script>
 </body>
 </html>

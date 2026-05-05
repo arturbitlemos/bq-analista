@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import sqlite3
 import time
@@ -38,6 +39,16 @@ class AuditLog:
 
     async def record(
         self, *, exec_email: str, tool: str, sql: str | None,
+        bytes_scanned: int, row_count: int, duration_ms: int,
+        result: str, error: str | None,
+    ) -> None:
+        await asyncio.to_thread(
+            self._write,
+            exec_email, tool, sql, bytes_scanned, row_count, duration_ms, result, error,
+        )
+
+    def _write(
+        self, exec_email: str, tool: str, sql: str | None,
         bytes_scanned: int, row_count: int, duration_ms: int,
         result: str, error: str | None,
     ) -> None:

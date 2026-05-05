@@ -120,6 +120,8 @@ async function handleBqStats(res, days) {
       LIMIT 20
     `.catch(() => null),
 
+    // No time-window filter — intentional. last_seen shows all-time agent activity,
+    // not activity within the selected window, so operators can spot silent agents.
     sql`
       SELECT agent, MAX(ts) AS last_seen
       FROM bq_audit
@@ -127,6 +129,12 @@ async function handleBqStats(res, days) {
       ORDER BY agent
     `.catch(() => null),
   ])
+
+  // If every query failed (e.g. Neon unreachable), return 503 rather than empty data
+  // that looks identical to "no queries yet".
+  if ([totals, byUser, byDay, recentErrors, lastSeenByAgent].every(r => r === null)) {
+    return res.status(503).json({ error: 'db_unavailable' })
+  }
 
   res.setHeader('cache-control', 'private, no-store')
   return res.status(200).json({

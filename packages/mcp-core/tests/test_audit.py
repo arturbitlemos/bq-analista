@@ -64,8 +64,10 @@ async def test_pg_audit_log_record_passes_all_fields():
                 error="bq_execution: quota exceeded",
             )
 
-    positional = mock_conn.execute.call_args[0]
+    # Positional indices verify INSERT column order hasn't been silently reordered.
+    # Index [0] is the SQL string; [1]..[9] are the asyncpg positional params ($1..$9).
     # $1=exec_email $2=agent $3=tool $4=sql $5=bytes $6=rows $7=duration $8=result $9=error
+    positional = mock_conn.execute.call_args[0]
     assert positional[1] == "a@soma.com"
     assert positional[2] == "ciclo-agent"
     assert positional[3] == "consultar_bq"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import functools
 import hashlib
 import json
@@ -28,6 +29,17 @@ from mcp_core.context_loader import ExecContext, extract_table_section, load_exe
 from mcp_core.jwt_tokens import TokenIssuer
 from mcp_core.settings import Settings, load_settings
 from mcp_core.sql_validator import SqlValidationError, validate_readonly_sql
+
+logger = logging.getLogger(__name__)
+
+
+def _fire_audit(coro) -> None:
+    """Schedule a fire-and-forget audit coroutine; log if it fails."""
+    task = asyncio.create_task(coro)
+    def _on_done(t):
+        if not t.cancelled() and (exc := t.exception()):
+            logger.error("audit task failed", exc_info=exc)
+    task.add_done_callback(_on_done)
 
 
 def _repo_root() -> Path:
@@ -243,7 +255,7 @@ def build_mcp_app(
         try:
             validate_readonly_sql(sql)
         except SqlValidationError as e:
-            asyncio.create_task(_get_audit().record(
+            _fire_audit(_get_audit().record(
                 exec_email=exec_email, tool="consultar_bq", sql=sql,
                 bytes_scanned=0, row_count=0,
                 duration_ms=int((_time.time() - start) * 1000),
@@ -257,7 +269,7 @@ def build_mcp_app(
         try:
             result = client.run_query(sql=sql, exec_email=exec_email)
         except DatasetNotAllowedError as e:
-            asyncio.create_task(_get_audit().record(
+            _fire_audit(_get_audit().record(
                 exec_email=exec_email, tool="consultar_bq", sql=sql,
                 bytes_scanned=0, row_count=0,
                 duration_ms=int((_time.time() - start) * 1000),
@@ -265,7 +277,7 @@ def build_mcp_app(
             ))
             return {"error": f"dataset_not_allowed: {e}"}
         except Exception as e:
-            asyncio.create_task(_get_audit().record(
+            _fire_audit(_get_audit().record(
                 exec_email=exec_email, tool="consultar_bq", sql=sql,
                 bytes_scanned=0, row_count=0,
                 duration_ms=int((_time.time() - start) * 1000),
@@ -275,7 +287,7 @@ def build_mcp_app(
 
         duration_ms = int((_time.time() - start) * 1000)
         await ctx.report_progress(progress=1.0, total=1.0, message="query complete")
-        asyncio.create_task(_get_audit().record(
+        _fire_audit(_get_audit().record(
             exec_email=exec_email, tool="consultar_bq", sql=sql,
             bytes_scanned=cast(int, result.bytes_processed or 0),
             row_count=result.row_count,

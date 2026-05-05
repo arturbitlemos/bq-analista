@@ -26,7 +26,7 @@ def test_bq_stats_endpoint_removed():
 
 def test_healthz_still_present():
     """/healthz must still respond after api_routes cleanup."""
-    from unittest.mock import AsyncMock, patch as async_patch
+    from unittest.mock import AsyncMock
     app = FastAPI()
     register_api_routes(
         app,

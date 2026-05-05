@@ -297,8 +297,7 @@
     } catch (e) {
       if (e.message === 'unauthorized') return
       if (e.message === 'forbidden') {
-        document.getElementById('bq-root').innerHTML = '<p class="msg error">⛔ Acesso restrito.</p>'
-        root.innerHTML = ''
+        root.innerHTML = '<p class="msg error">⛔ Acesso restrito.</p>'
         return
       }
       root.innerHTML = `<p class="msg error">Erro ao carregar analytics: ${escHtml(e.message)}</p>`

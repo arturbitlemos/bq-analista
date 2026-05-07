@@ -663,6 +663,210 @@ Substituir `VALOR_PAGO_PROD` por `QTDE_PROD` na mesma estrutura do §15.2.
 
 ---
 
+## 16. Fase de venda — ON / SALE / OFF (validado 2026-05-07)
+
+Recorte que classifica cada venda pelo **ciclo de vida da coleção do produto**. Aplicável a qualquer métrica do agente (receita, peças, ticket, MACO, etc.) — **não é uma métrica em si**, é uma dimensão de quebra.
+
+### 16.1 Conceito
+
+Cada coleção da marca tem uma **`DATA_OFF`** — a data em que sai oficialmente de linha (preço cheio acaba). A partir desse marco:
+
+| Fase | Janela | Significado comercial |
+|---|---|---|
+| **ON** | venda < `DATA_OFF` | Preço cheio (in-season) |
+| **SALE** | `DATA_OFF` ≤ venda ≤ `DATA_OFF + 6 meses` | Liquidação programada |
+| **OFF** | venda > `DATA_OFF + 6 meses` | Pós-sale / queima de outlet |
+
+### 16.2 Fonte do `DATA_OFF`
+
+`soma-dl-refined-online.marketing.colecao` (ver `schema.md §13`).
+
+Chave: **(`COLECAO`, `REDE_LOJAS`)** — não é por produto. Toda coleção sai de linha numa marca específica numa data específica; cada produto herda a `DATA_OFF` da sua coleção.
+
+### 16.3 Como joinar — chave correta
+
+> ⚠️ **A `REDE_LOJAS` do join é a do PRODUTO (`PRODUTOS.REDE_LOJAS`), não a `RL_DESTINO` da venda.**
+>
+> Faz sentido: a coleção "Verão 2025" da Animale sai de linha numa data X **da Animale**, mesmo que o produto seja vendido em loja Outlet. Se você usasse `RL_DESTINO` (loja onde vendeu), faria lookup errado da `DATA_OFF`.
+
+### 16.4 Template SQL canônico
+
+```sql
+WITH custo AS (
+  -- CMV inalterado — ver §4
+  SELECT PRODUTO,
+    COALESCE(
+      SAFE_CAST(MAX(CASE WHEN CODIGO_TAB_PRECO='CT' THEN PRECO1 END) AS NUMERIC),
+      SAFE_CAST(MAX(CASE WHEN CODIGO_TAB_PRECO='C0' THEN PRECO1 END) AS NUMERIC)
+    ) AS preco_custo
+  FROM `soma-pipeline-prd.silver_linx.PRODUTOS_PRECOS`
+  WHERE CODIGO_TAB_PRECO IN ('CT','C0')
+  GROUP BY PRODUTO
+),
+colecao_off AS (
+  -- 1 linha por (COLECAO, REDE_LOJAS) com DATA_OFF resolvido
+  SELECT
+    COLECAO,
+    CAST(REDE_LOJAS AS STRING) AS REDE_LOJAS,         -- ⚠️ tipo: INT na origem, STRING em PRODUTOS
+    COALESCE(
+      MAX(DATA_OFF),                                   -- 1ª opção
+      DATETIME(SAFE_CAST(MAX(DATA_LIQUI) AS DATE)),    -- fallback histórico
+      DATETIME '2030-12-31'                            -- coleção sem off → permanentemente ON
+    ) AS DATA_OFF
+  FROM `soma-dl-refined-online.marketing.colecao`
+  GROUP BY 1, 2
+)
+SELECT
+  CASE
+    WHEN DATE(v.DATA_VENDA) < DATE(COALESCE(co.DATA_OFF, DATETIME '2030-12-31'))                       THEN 'ON'
+    WHEN v.DATA_VENDA BETWEEN DATE(co.DATA_OFF) AND DATE_ADD(DATE(co.DATA_OFF), INTERVAL 6 MONTH)      THEN 'SALE'
+    ELSE                                                                                                    'OFF'
+  END AS fase_venda,
+  -- ... métricas (receita, peças, CMV) ...
+  SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC))            AS receita,
+  SUM(v.QTDE_PROD - v.QTDE_TROCA_PROD)                    AS pecas,
+  SUM((v.QTDE_PROD - v.QTDE_TROCA_PROD) * c.preco_custo)  AS cmv
+FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
+LEFT JOIN `soma-pipeline-prd.silver_linx.PRODUTOS` p ON v.PRODUTO = p.PRODUTO
+LEFT JOIN custo                                       c ON v.PRODUTO = c.PRODUTO
+LEFT JOIN colecao_off                                co ON p.COLECAO = co.COLECAO
+                                                       AND p.REDE_LOJAS = co.REDE_LOJAS
+WHERE v.DATA_VENDA BETWEEN :start AND :end
+  AND CAST(v.RL_DESTINO AS STRING) = :rede
+GROUP BY fase_venda
+```
+
+### 16.5 Validação — Animale jan/26
+
+| Fase | Peças | Receita | % do total |
+|---|---:|---:|---:|
+| ON | 27.942 | R$ 26.928.941 | 69,1% |
+| SALE | 21.054 | R$ 11.589.055 | 29,8% |
+| OFF | 184 | R$ 431.548 | 1,1% |
+| **TOTAL** | **49.180** | **R$ 38.949.544** | 100% |
+
+✅ TOTAL bate na vírgula com o método sem fase (gabarito Power BI).
+✅ Receita e peças por fase: **acurados**.
+
+### 16.6 ⚠️ Limitação conhecida — MACO/Markup da fase OFF
+
+`PRODUTOS_PRECOS.CT.PRECO1` tem valores históricos que **não foram atualizados** para produtos antigos. Como produtos OFF são por definição antigos, a defasagem fica concentrada na fase OFF.
+
+**Sintoma:** OFF aparece com **MACO ~99% e Markup ~88×** — números irreais. No consolidado a defasagem dilui (produtos OFF são <2% das peças) e o total bate com Power BI; só na quebra por fase a anomalia fica visível.
+
+**Causa:** diagnóstico empírico (jan/26, 8 marcas) confirmou que **100% dos produtos têm CT cadastrado** — não é falta de cadastro, é valor desatualizado.
+
+**Como reportar:**
+- Receita e peças por fase: ✅ usar normalmente.
+- MACO e Markup por fase: ⚠️ reportar sempre com o aviso explícito:
+  > *"MACO/Markup da fase OFF tendem a aparecer artificialmente altos — o custo cadastrado (`CT.PRECO1`) pode estar desatualizado para produtos antigos, o que subestima o CMV e infla a margem aparente. Não usar isoladamente para decisão de margem em OFF."*
+- MACO e Markup no TOTAL (sem quebra): ✅ continuam confiáveis (alinhados ao Power BI em 0,05%).
+
+### 16.7 Gotchas
+
+- **Tipo de `REDE_LOJAS`:** INTEGER em `marketing.colecao`, STRING em `PRODUTOS`. CAST obrigatório no join.
+- **Coleção sem `DATA_OFF` cadastrada:** `COALESCE` empurra para `'2030-12-31'` → produto permanece como ON (não vira OFF silenciosamente).
+- **Janela SALE = 6 meses** (hardcoded na regra). Se o time mudar a régua, alterar `INTERVAL 6 MONTH` na CASE.
+- **`DATA_LIQUI` é STRING** na origem — usar `DATETIME(SAFE_CAST(... AS DATE))` no fallback.
+- **`PRODUTOS.COLECAO`** vem do master de produto (current state), não tem versão temporal. Para a maioria dos produtos é estável; produtos que mudaram de coleção historicamente terão sempre a coleção atual.
+
+---
+
+## 17. SSS / Loja Nova — same-store sales (validado 2026-05-07)
+
+Recorte que classifica cada venda como **SSS** (loja comparável, mesma loja base) ou **Loja Nova** (loja recente, fora da base comparável). Aplicável a qualquer métrica do agente — **não é uma métrica em si**, é uma dimensão de quebra.
+
+### 17.1 Conceito
+
+Same-store sales (SSS) é o conceito clássico de FP&A para isolar crescimento orgânico do crescimento por expansão da rede. Uma loja entra na base comparável depois de um período mínimo de operação (tipicamente 12 meses). A regra exata é definida pelo time de Controle.
+
+| Classificação | Significado |
+|---|---|
+| **SSS** (`fl_sss = 'S'`) | Loja comparável — está na base há tempo suficiente |
+| **Loja Nova** (`fl_sss = 'N'`) | Loja recente — fora da base comparável |
+| **Sem classificação** | Venda em filial não cadastrada na `sss_soma` (ver §17.6) |
+
+### 17.2 Fonte
+
+`soma-dl-refined-online.soma_online_refined.sss_soma` (ver `schema.md §14`).
+
+Granularidade: **diária** — uma linha por (`cd_loja`, `dt_referencia`). Para fins de análise por período, usamos um snapshot único (ver §17.3).
+
+> ⚠️ **Usar apenas `fl_sss`. NÃO usar `fl_sss_comp`** — é uma variação para comparativos com anos mais antigos, não a regra default.
+
+### 17.3 Regra do snapshot — uma classificação por período
+
+A classificação SSS é aplicada **uma vez por período de análise**, usando o snapshot na **última `dt_referencia` ≤ data fim do período**. Isso reproduz a lógica do Power BI: a classificação é fixa pro período, não muda dia a dia.
+
+**Por quê:** a classificação é estável (uma loja muda de status apenas no aniversário de operação). A `sss_soma` pode estar atrasada em alguns dias (ex.: para análise de jan/26 hoje, o snapshot mais recente é `2026-01-01`). Aplicar o snapshot mais próximo evita perdas no LEFT JOIN.
+
+### 17.4 Template SQL canônico
+
+```sql
+WITH custo AS (
+  -- CMV inalterado — ver §4
+  -- ...
+),
+sss_snapshot AS (
+  -- Snapshot único: última classificação disponível <= data fim do período
+  SELECT cd_loja, fl_sss
+  FROM `soma-dl-refined-online.soma_online_refined.sss_soma`
+  WHERE DATE(dt_referencia) = (
+    SELECT MAX(DATE(dt_referencia))
+    FROM `soma-dl-refined-online.soma_online_refined.sss_soma`
+    WHERE DATE(dt_referencia) <= DATE :end       -- :end = data fim do período
+  )
+)
+SELECT
+  CASE
+    WHEN s.fl_sss = 'S' THEN 'SSS'
+    WHEN s.fl_sss = 'N' THEN 'Loja Nova'
+    ELSE                       'Sem classificação'
+  END AS classificacao_sss,
+  -- ... métricas (receita, peças, CMV) ...
+  SUM(SAFE_CAST(v.VALOR_PAGO_PROD AS NUMERIC))            AS receita,
+  SUM(v.QTDE_PROD - v.QTDE_TROCA_PROD)                    AS pecas
+FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
+LEFT JOIN custo         c  ON v.PRODUTO = c.PRODUTO
+LEFT JOIN sss_snapshot  s  ON v.CODIGO_FILIAL_DESTINO = s.cd_loja
+WHERE v.DATA_VENDA BETWEEN :start AND :end
+  AND CAST(v.RL_DESTINO AS STRING) = :rede
+GROUP BY classificacao_sss
+```
+
+Chave do join: `v.CODIGO_FILIAL_DESTINO = s.cd_loja` (ambos STRING). Tipo bate diretamente — sem CAST.
+
+### 17.5 Validação — Animale jan/26
+
+| Classificação | Receita | Peças | % do total |
+|---|---:|---:|---:|
+| SSS | R$ 37.758.316 | 47.270 | 96,9% |
+| Loja Nova | R$ 298 | 1 | 0,0% |
+| Sem classificação | R$ 1.190.930 | 1.909 | 3,1% |
+| **TOTAL** | **R$ 38.949.544** | **49.180** | 100% |
+
+✅ TOTAL bate na vírgula com o método sem SSS (gabarito Power BI).
+✅ MACO consolidado: 71,55% (mantém alinhamento com Power BI em todos os recortes).
+
+### 17.6 ⚠️ "Sem classificação" — quando aparece
+
+Vendas que não casam com nenhum `cd_loja` no snapshot da `sss_soma`. Causas conhecidas:
+
+- **Ecommerce**: filiais ecom (ex.: filial `190454` Animale Ecommerce CM) não têm cadastro de SSS — SSS é conceito de loja física, não se aplica a ecom.
+- **Lojas pós-snapshot**: filiais que abriram depois da última `dt_referencia` disponível na tabela.
+- **Códigos divergentes**: 458 dos 1.175 `cd_loja` em `sss_soma` são códigos curtos (1-3 dígitos) que não batem com o formato de filial usado em `vendas` — esses são códigos de rede/marca, não de loja física, e não geram match com vendas mesmo.
+
+**Como reportar:** "Sem classificação" deve ser exibido como uma terceira categoria, em bloco separado quando relevante. **Não somar com SSS nem com Loja Nova**. No exemplo Animale jan/26, "Sem classificação" é 3,1% — pequeno, mas não desprezível. Em marcas com mais peso de ecom, pode ser maior.
+
+### 17.7 Gotchas
+
+- **Snapshot único por período** — não fazer match diário, senão vendas em dias sem `dt_referencia` cadastrado caem em "Sem classificação" silenciosamente.
+- **Cobertura temporal** — a `sss_soma` pode estar com defasagem (último snapshot disponível em 2026-05-07 era de `2026-01-01`). Para análises de períodos recentes, validar que a tabela está atualizada.
+- **`fl_sss_comp` ≠ `fl_sss`** — usar apenas `fl_sss`. Diferença existe em ~268 lojas; `fl_sss_comp` é para comparativos com anos antigos.
+- **SSS é conceito de loja física** — para análise puramente digital, o filtro perde semântica. Considerar excluir vendas digitais (`TIPO_VENDA != 'VENDA_LOJA'`) antes de aplicar o recorte se a análise focar comparabilidade de varejo físico.
+
+---
+
 ## Histórico de atualizações
 
 | Data | Mudança |
@@ -673,3 +877,5 @@ Substituir `VALOR_PAGO_PROD` por `QTDE_PROD` na mesma estrutura do §15.2.
 | 2026-04-21 | Adicionado §12 — regras canônicas venda vs cota; `LOJAS_PREVISAO_VENDAS.VENDA` documentada como não confiável; mapeamento de filiais ecommerce validado (§11 em schema.md). |
 | 2026-04-22 | **Troca do default de filial/rede: ORIGEM → DESTINO.** `RL_DESTINO` + `CODIGO_FILIAL_DESTINO` passam a ser o contexto padrão em §8, §10, §12 e nos exemplos SQL de schema.md §6/§8/§11. `RL_DESTINO` é INTEGER → requer `CAST(... AS STRING)` no join com `LOJAS_REDE`. §3 (chave_pedido) mantém `CODIGO_FILIAL_ORIGEM` — é chave técnica validada empiricamente, não default analítico. |
 | 2026-04-27 | **Correção da fórmula de CMV/MACO (§4, §5, §7).** Quantidade correta: `QTDE_PROD - QTDE_TROCA_PROD` (não `QTDE_PROD` puro). Preço de custo: `COALESCE(CT.PRECO1, C0.PRECO1)` com dois joins em `PRODUTOS_PRECOS`. Validado em Maria Filó mar/26 e Animale fev/26 — reduz desvio vs gabarito de ~19% para ~1,3%. |
+| 2026-05-07 | **Adicionado §16 — fase de venda (ON/SALE/OFF)** via join com `soma-dl-refined-online.marketing.colecao`. Validado em Animale jan/26: receita e peças por fase batem com TOTAL (0% de gap). Fórmulas de receita/MACO/markup intactas — fonte oficial preservada. Limitação conhecida: MACO/Markup da fase OFF têm viés (~99% / 88×) por `CT.PRECO1` desatualizado em produtos antigos — documentado em §16.6. |
+| 2026-05-07 | **Adicionado §17 — SSS / Loja Nova** via join com `soma-dl-refined-online.soma_online_refined.sss_soma`. Snapshot único por período (último `dt_referencia` ≤ fim do período). Validado em Animale jan/26: 96,9% SSS, 0,0% Loja Nova, 3,1% Sem classificação. TOTAL preservado. Usar apenas `fl_sss`, não `fl_sss_comp`. |

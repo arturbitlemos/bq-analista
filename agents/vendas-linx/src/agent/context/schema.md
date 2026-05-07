@@ -832,3 +832,106 @@ ORDER BY 1
   8. OUTLET (6) — R$ 6,8M, 15 lojas *(antes "OFF PREMIUM")*
   9. FABULA (5) — R$ 2,6M, 12 lojas
   10. FARM ETC (26) — R$ 1,9M, 5 lojas
+
+---
+
+## 13. Coleção (DATA_OFF) — `soma-dl-refined-online.marketing.colecao`
+
+> Tabela de referência para a fase de venda (ON / SALE / OFF). Não vive em `silver_linx` — é dataset separado (`soma-dl-refined-online.marketing`).
+
+**Full path:** `soma-dl-refined-online.marketing.colecao`
+**Chave lógica:** `(COLECAO, REDE_LOJAS)` — uma coleção sai de linha numa marca específica, em uma data específica.
+
+| Coluna | Tipo | Uso |
+|---|---|---|
+| `COLECAO` | STRING | Código da coleção (FK p/ `silver_linx.PRODUTOS.COLECAO`) |
+| `COLECAO_MARCA` | STRING | Nome textual da coleção |
+| `REDE_LOJAS` | **INTEGER** ⚠️ | Marca da coleção. **Tipo difere de `PRODUTOS.REDE_LOJAS` (STRING)** — CAST obrigatório no join |
+| `DATA_OFF` | DATETIME | ✅ **Data em que a coleção sai de linha** (preço cheio acaba) |
+| `DATA_LIQUI` | STRING | Data de início de liquidação — fallback histórico para `DATA_OFF` quando ausente |
+| `STATUS` | STRING | Status atual da coleção |
+
+### Resolução do `DATA_OFF`
+
+A regra canônica para resolver `DATA_OFF` (com fallback) é:
+
+```sql
+COALESCE(
+  MAX(DATA_OFF),                                   -- 1ª opção
+  DATETIME(SAFE_CAST(MAX(DATA_LIQUI) AS DATE)),    -- fallback (DATA_LIQUI é STRING)
+  DATETIME '2030-12-31'                            -- coleção sem off → permanentemente ON
+) AS DATA_OFF
+```
+
+### Regras de fase
+
+```
+ON   = data_venda < DATA_OFF
+SALE = DATA_OFF ≤ data_venda ≤ DATA_OFF + 6 meses
+OFF  = data_venda > DATA_OFF + 6 meses
+```
+
+Detalhes completos, template SQL e gotchas em `business-rules.md §16`.
+
+### Gotchas
+
+- **Tipos:** `REDE_LOJAS` aqui é **INTEGER**. Em `silver_linx.PRODUTOS.REDE_LOJAS` é STRING. CAST consistente nos joins.
+- **Chave do join é PRODUTO**, não venda: usar `PRODUTOS.COLECAO + PRODUTOS.REDE_LOJAS` (não `RL_DESTINO` da venda) — a coleção sai de linha na marca-mãe do produto, independente de onde foi vendido.
+- **Coleções sem `DATA_OFF` cadastrada** caem no fallback `'2030-12-31'` → produto permanece como ON. Nunca vira OFF silenciosamente.
+
+---
+
+## 14. SSS / Loja Nova — `soma-dl-refined-online.soma_online_refined.sss_soma`
+
+> Tabela de classificação para o recorte SSS (same-store sales) / Loja Nova. Não vive em `silver_linx` — é dataset separado mantido por outra área.
+
+**Full path:** `soma-dl-refined-online.soma_online_refined.sss_soma`
+**Grão:** 1 linha por (`cd_loja`, `dt_referencia`) — diário.
+**Volume:** ~1,7M linhas, ~1.175 lojas no snapshot atual.
+
+| Coluna | Tipo | Uso |
+|---|---|---|
+| `cd_loja` | STRING | Código da filial — bate com `silver_linx.FILIAIS.COD_FILIAL` (e portanto com `vendas.CODIGO_FILIAL_DESTINO`) para 717 lojas (61%) |
+| `dt_referencia` | TIMESTAMP | Data efetiva da classificação. Granularidade diária |
+| `fl_sss` | STRING | ✅ **Default** — `'S'` = comparável (SSS), `'N'` = loja nova |
+| `fl_sss_comp` | STRING | 🚫 **NÃO USAR** — variação para comparativos com anos antigos. Difere de `fl_sss` em ~268 lojas |
+
+### Cobertura
+
+- Período: `2022-01-01` até `2026-01-01` (snapshot da consulta de 2026-05-07).
+- Diária sem buracos (1.462 dias).
+- Pode estar com defasagem em relação ao período de análise — verificar `MAX(dt_referencia)` antes de rodar análise recente.
+
+### Mapeamento `cd_loja`
+
+| Situação | Lojas | Padrão |
+|---|---:|---|
+| ✅ Match direto em `FILIAIS.COD_FILIAL` | 717 | 6 dígitos (ex.: `"160000"`) |
+| ❌ Sem match | 458 | 1-8 dígitos curtos (ex.: `"1"`, `"2"`) — códigos de rede/marca, ignorar para join com vendas |
+
+As 458 lojas sem match são códigos de rede (ex.: `"1"` = Animale, `"2"` = Farm), não de filial física. Elas não aparecem em `CODIGO_FILIAL_DESTINO` da venda, então o LEFT JOIN simplesmente não casa — sem perda de dados.
+
+### Como joinar com vendas
+
+A regra correta é **snapshot único por período** (não match diário). Detalhes em `business-rules.md §17.3`.
+
+```sql
+WITH sss_snapshot AS (
+  SELECT cd_loja, fl_sss
+  FROM `soma-dl-refined-online.soma_online_refined.sss_soma`
+  WHERE DATE(dt_referencia) = (
+    SELECT MAX(DATE(dt_referencia))
+    FROM `soma-dl-refined-online.soma_online_refined.sss_soma`
+    WHERE DATE(dt_referencia) <= DATE :end
+  )
+)
+SELECT ...
+FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
+LEFT JOIN sss_snapshot s ON v.CODIGO_FILIAL_DESTINO = s.cd_loja
+```
+
+### Gotchas
+
+- **Apenas `fl_sss`** — `fl_sss_comp` é para casos específicos não cobertos pelo agente.
+- **Nunca match diário** (`v.DATA_VENDA = s.dt_referencia`) — usar snapshot único.
+- **Vendas sem match** caem em "Sem classificação" — esperado para ecom (não cadastrado) e lojas pós-snapshot. Reportar como bloco separado, nunca somar com SSS ou Loja Nova.

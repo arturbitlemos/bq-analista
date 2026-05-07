@@ -12,5 +12,6 @@ CREATE TABLE IF NOT EXISTS bq_audit (
   result        TEXT    NOT NULL,
   error         TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_bq_audit_ts   ON bq_audit (ts);
-CREATE INDEX IF NOT EXISTS idx_bq_audit_exec ON bq_audit (exec_email);
+CREATE INDEX IF NOT EXISTS idx_bq_audit_ts    ON bq_audit (ts);
+CREATE INDEX IF NOT EXISTS idx_bq_audit_exec  ON bq_audit (exec_email);
+CREATE INDEX IF NOT EXISTS idx_bq_audit_agent ON bq_audit (agent);

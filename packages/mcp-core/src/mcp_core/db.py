@@ -13,9 +13,13 @@ async def init_pool() -> None:
     `statement_cache_size=0` is REQUIRED when DATABASE_URL points to Neon's pooler
     endpoint (which uses pgbouncer in transaction mode and doesn't support
     prepared statements). Without this flag, the first query may fail with a
-    confusing protocol error."""
+    confusing protocol error.
+
+    No-op when DATABASE_URL is unset — agents fall back to the SQLite audit path."""
     global _pool
-    dsn = os.environ["DATABASE_URL"]
+    dsn = os.environ.get("DATABASE_URL")
+    if not dsn:
+        return
     _pool = await asyncpg.create_pool(
         dsn, min_size=1, max_size=5, command_timeout=60,
         statement_cache_size=0,

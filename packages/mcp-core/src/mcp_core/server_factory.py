@@ -38,7 +38,10 @@ def _fire_audit(coro) -> None:
     task = asyncio.create_task(coro)
     def _on_done(t):
         if not t.cancelled() and (exc := t.exception()):
-            logger.error("audit task failed", exc_info=exc)
+            logger.error(
+                "audit task failed",
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
     task.add_done_callback(_on_done)
 
 

@@ -45,16 +45,20 @@ Marketplace onde a multimarca inclui seus produtos comprados na coleção nos si
 
 ## 1. Aliases de marca (resolver sem perguntar)
 
-| Input do usuário | Campo `MARCA` na tabela | Observação |
+Aliases são usados **exclusivamente para identificar a marca** a partir do input do usuário. O valor que vai para o SQL é sempre o `MARCA` canônico — nunca o alias. A lista abaixo é **exaustiva**: não existem outras marcas além destas no escopo deste agente.
+
+| `MARCA` canônica | Aliases aceitos | Observação |
 |---|---|---|
-| FARM Rio, Farm Rio, FARM moda | `FARM` | — |
-| Etc, FARM ETC | `FARM ETC` | Marca separada — não incluir FARM ou FARM PRAIA |
-| Praia, FARM Beachwear, FARM Swim, Me Leva | `FARM PRAIA` / `FARM ETC` | Praia → FARM PRAIA; Me Leva → FARM ETC |
-| Teen, Linha Teen, Fábula Teen, FARM Teen | identificada via SEGMENTO (ver §3) | Não possui MARCA própria |
-| FABULA, FÁBULA | `FABULA` | Filtrar `MARCA IN ('FABULA', 'FÁBULA')` |
-| AJ | `ANIMALE JEANS` | — |
-| NV, ByNV, By NV, Nati Vozza | `BYNV` | — |
-| MF, Maria Filo | `MARIA FILÓ` | Filtrar também `MARIA FILO` (sem acento) |
+| `ANIMALE` | — | — |
+| `ANIMALE JEANS` | AJ | — |
+| `BYNV` | NV, ByNV, By NV, Nati Vozza | — |
+| `FARM` | FARM Rio, Farm Rio, FARM moda | — |
+| `FARM ETC` | Etc, Me Leva | Marca separada — não incluir FARM ou FARM PRAIA |
+| `FARM PRAIA` | Praia, FARM Beachwear, FARM Swim | — |
+| `FABULA` / `FÁBULA` | FABULA, FÁBULA | Filtrar sempre `MARCA IN ('FABULA', 'FÁBULA')` |
+| `FOXTON` | — | — |
+| `MARIA FILÓ` / `MARIA FILO` | MF, Maria Filo | Filtrar sempre ambas as formas com e sem acento |
+| *(via SEGMENTO)* | Teen, Linha Teen, Fábula Teen, FARM Teen | Não possui MARCA própria — identificar via `SEGMENTO` (ver §4) |
 
 **Regra geral:** filtrar sempre em MAIÚSCULA, com e sem acento:
 ```sql
@@ -65,24 +69,80 @@ WHERE `COLECAO` IN ('VERAO 2026', 'VERÃO 2026')
 
 ### 1.1 Aliases de representante (resolver sem perguntar)
 
-| Input do usuário | `NOME_WISE` canônico |
+Aliases são usados **exclusivamente para identificar o representante** a partir do input do usuário. O valor que vai para o SQL é sempre o `NOME_WISE` canônico — nunca o alias. A lista abaixo é **exaustiva**: não existem outros representantes além destes, a não ser que o usuário especifique um valor diferente.
+
+Lista completa de valores válidos de `NOME_WISE` e seus aliases de entrada:
+
+| `NOME_WISE` canônico | Aliases aceitos |
 |---|---|
-| FENNYZ | ANGELO |
-| HUB | CLEBER |
-| GUSTAVO FARAH, GUSTAVO | GFN |
-| MARCELO SERRUYA, SERRUYA | MAZAL |
-| JOMA, RAFAEL NAGIB, POWDER TENIS | MOL |
-| VWM | VALERIA WEBER |
-| GALERIA | UP |
-| MOACIR, MOACIR TEDESCO | M R TEDESCO (ou M R TEDESCO SC) |
+| AMAIS | — |
+| ANGELO | FENNYZ |
+| ATENDIMENTO INTERNO | — |
+| BAH | — |
+| BR BRAND | — |
+| CBL & REPRESENTACOES | — |
+| CECILINO | — |
+| CJK | — |
+| CLEBER | HUB |
+| CMIX | — |
+| COCAR | — |
+| DRANKA | — |
+| DREAMS | — |
+| DUO | — |
+| EDGAR JUNIOR | — |
+| EDGAR JUNIOR ALTO TIETE | — |
+
+> **Desambiguação EDGAR JUNIOR / EDGAR JUNIOR ALTO TIETE:** quando o usuário mencionar "Edgar Junior" sem especificar a variante geográfica, considerar **ambos** na query e apresentar os resultados discriminados por `NOME_WISE` na resposta final.
+| FACEX | — |
+| FC SHOWROOM | — |
+| FLUMINENSE | — |
+| GFN | GUSTAVO FARAH, GUSTAVO |
+| JADE | — |
+| JULIANO TINELLI | — |
+| JULIANO TINELLI CUIABA | — |
+| JULIANO TINELLI CUIABÁ | — |
+
+> **Desambiguação JULIANO TINELLI:** quando o usuário mencionar "Juliano Tinelli" sem especificar a variante geográfica, considerar **todas as variantes** (`JULIANO TINELLI`, `JULIANO TINELLI CUIABA`, `JULIANO TINELLI CUIABÁ`) na query e apresentar os resultados discriminados por `NOME_WISE` na resposta final. `JULIANO TINELLI CUIABA` e `JULIANO TINELLI CUIABÁ` são a mesma variante — filtrar sempre ambas as formas com e sem acento.
+| KL | — |
+| M R TEDESCO | MOACIR, MOACIR TEDESCO |
+| M R TEDESCO SC | MOACIR TEDESCO, MOACIR |
+
+> **Desambiguação M R TEDESCO / M R TEDESCO SC:** quando o usuário mencionar qualquer alias compartilhado (MOACIR, MOACIR TEDESCO), considerar **ambos os representantes** na query e apresentar os resultados discriminados por `NOME_WISE` na resposta final — nunca consolidar os dois em uma única linha.
+| MAZAL | MARCELO SERRUYA, SERRUYA |
+| MOL | JOMA, RAFAEL NAGIB, POWDER TENIS |
+| POZZA | — |
+| RCG | — |
+| ROTHA | — |
+| RVM | — |
+| RVM RJ | — |
+| SADDI | — |
+| SILVANA | — |
+| SIZE REPRESENTACOES | — |
+| SLIM | — |
+| SP PRIME | — |
+| UNDERGROUND | — |
+| UP | GALERIA |
+| VALERIA WEBER | VWM |
+| WE REPRESENTAÇÕES | — |
+| WELLMAN | — |
 
 ### 1.2 Aliases de coordenador (resolver sem perguntar)
 
-| Input do usuário | `COORDENADOR` canônico |
-|---|---|
-| CAROL ALPES | CAROLINA ALPES |
+Aliases são usados **exclusivamente para identificar o coordenador** a partir do input do usuário. O valor que vai para o SQL é sempre o `COORDENADOR` canônico — nunca o alias. A lista abaixo é **exaustiva**: não existem outros coordenadores além destes, a não ser que o usuário especifique um valor diferente.
 
-Coordenadores sem sinônimos (nome direto): GUSTAVO, LUA, MARIANA, MARINA, MARTA, MILLENA, ROBERTA, VERONICA.
+Lista completa de valores válidos de `COORDENADOR` e seus aliases de entrada:
+
+| `COORDENADOR` canônico | Aliases aceitos |
+|---|---|
+| CAROLINA ALPES | CAROL ALPES |
+| GUSTAVO | — |
+| LUA | — |
+| MARIANA | — |
+| MARINA | — |
+| MARTA | — |
+| MILLENA | — |
+| ROBERTA | — |
+| VERONICA | — |
 
 ### 1.3 Desambiguação de nomes
 
@@ -198,6 +258,66 @@ EXTRACT(YEAR FROM CURRENT_DATE())   -- nunca hardcoded
 ### Marcas que não participam do ALTO INVERNO
 **FÁBULA** e **FARM PRAIA** não realizam venda na estação ALTO INVERNO. Não incluir essas marcas em análises de ALTO INVERNO salvo pedido explícito e verificação de dados disponíveis.
 
+### Coleções — nunca hardcoded; usar CTE canônica
+
+Nunca escrever coleções literais em análises que dependem de "últimas N coleções" ou de referência temporal dinâmica. Usar sempre a CTE canônica abaixo para derivar a lista ordenada a partir dos dados reais do banco.
+
+#### CTE canônica de ordenação
+
+```sql
+WITH tpt_parsed_collections AS (
+  SELECT DISTINCT
+    `COLECAO`,
+    CAST(SUBSTR(`COLECAO`, LENGTH(`COLECAO`) - 3, 4) AS INT64) AS `Ano`,
+    CASE
+      WHEN STARTS_WITH(`COLECAO`, 'VERAO')        THEN 1
+      WHEN STARTS_WITH(`COLECAO`, 'ALTO VERAO')   THEN 2
+      WHEN STARTS_WITH(`COLECAO`, 'INVERNO')      THEN 3
+      WHEN STARTS_WITH(`COLECAO`, 'ALTO INVERNO') THEN 4
+      ELSE 99
+    END AS `Ordem_Estacao`
+  FROM `soma-dl-refined-online.atacado_processed.info_venda`
+  WHERE `COLECAO` NOT LIKE 'NAO INFORMADA%'  -- erro de banco; sempre desconsiderar
+),
+tpt_collections_ordered AS (
+  SELECT
+    `COLECAO`,
+    `Ano`,
+    `Ordem_Estacao`,
+    ROW_NUMBER() OVER (ORDER BY `Ano` DESC, `Ordem_Estacao` DESC) AS `Posicao`
+  FROM tpt_parsed_collections
+)
+```
+
+`Posicao = 1` = coleção mais recente. Quanto maior o número, mais antiga a coleção.
+
+#### Padrão — últimas N coleções antes de uma referência (exclusive)
+
+```sql
+, ref AS (
+  SELECT `Posicao` AS ref_pos
+  FROM tpt_collections_ordered
+  WHERE `COLECAO` = '<COLECAO_REFERENCIA>'  -- ex: 'VERAO 2026'
+)
+SELECT co.`COLECAO`
+FROM tpt_collections_ordered co
+CROSS JOIN ref
+WHERE co.`Posicao` > ref.ref_pos           -- mais antigas que a referência
+  AND co.`Posicao` <= ref.ref_pos + N      -- as N imediatamente anteriores
+ORDER BY co.`Posicao`
+```
+
+#### Padrão — N coleções mais recentes disponíveis
+
+```sql
+SELECT `COLECAO`
+FROM tpt_collections_ordered
+WHERE `Posicao` <= N   -- ex: <= 4 para as últimas 4
+ORDER BY `Posicao`
+```
+
+> ⚠️ **Ponto de atenção obrigatório:** antes de entregar qualquer análise que filtre coleções, verificar se as coleções cobertas pela query estão corretas — especialmente em análises de cluster (§9), segmentação de clientes (§9) e atingimento de meta (§14).
+
 ---
 
 ## 6. Markup e markup realizado
@@ -216,7 +336,24 @@ valor >= limiar * (1 - 0.001)
 
 - **Cancelamento Comercial:** todos os `TIPO_CANCELAMENTO` exceto `'05-BLOQUEIO FINANCEIRO'`
 - **Cancelamento Financeiro:** apenas `TIPO_CANCELAMENTO = '05-BLOQUEIO FINANCEIRO'`
-- **Exibição:** remover prefixo numérico (`"BLOQUEIO FINANCEIRO"`, não `"05-BLOQUEIO FINANCEIRO"`)
+- **Exibição:** remover prefixo numérico ao exibir ao usuário (`"BLOQUEIO FINANCEIRO"`, não `"05-BLOQUEIO FINANCEIRO"`)
+
+### Valores válidos de `TIPO_CANCELAMENTO` (lista exaustiva)
+
+| Valor no banco | Classificação | Observação |
+|---|---|---|
+| `01-SALDO NAO PRDOUZIDO` | Comercial | ⚠️ typo no banco — usar exatamente este valor no SQL |
+| `02-FALTA DE SALDO ENTREGA` | Comercial | — |
+| `03-DESISTENCIA CLIENTE` | Comercial | — |
+| `04-ALTERAÇÃO DE PEDIDO` | Comercial | — |
+| `05-BLOQUEIO FINANCEIRO` | **Financeiro** | — |
+| `06-CANCELAMENTO COMERCIAL` | Comercial | — |
+| `07-TRANSF. DE CADASTRO` | Comercial | — |
+| `10-PEDIDO EM DUPLICIDADE` | Comercial | — |
+| `11-ERRO DIGITAÇÃO` | Comercial | — |
+| `13-AGUARDANDO REPASSE` | Comercial | — |
+| `99-OUTROS CANCELAMENTOS` | Comercial | — |
+| `WMS-TROCA DE DESTINO` | Comercial | — |
 
 > Definições completas e sinônimos: ver §18 (Cancelamento).
 
@@ -289,6 +426,10 @@ Calculado sobre soma das vendas nas últimas 4 coleções (incluindo Prateleira 
 | MARIA FILÓ | até 55k | 55k–90k | 90k–140k | 140k–250k | > 250k |
 | FÁBULA | até 20k | 20k–45k | 45k–65k | 65k–120k | > 120k |
 
+> **FOXTON — sem clusterização:** FOXTON não possui thresholds de cluster definidos.
+> - Se o usuário solicitar clusterização **específica de FOXTON**: informar que a marca não possui clusterização disponível.
+> - Se o usuário solicitar clusterização **geral** (todas as marcas ou sem especificar): **excluir FOXTON** da análise sem mencionar, a menos que o usuário pergunte.
+
 ### Normalização de cidades
 Ver nota na coluna `CIDADE` em schema.md §7.
 
@@ -311,6 +452,23 @@ Ver nota na coluna `CIDADE` em schema.md §7.
 (`LINHA` = 'X' OR `LINHA_MIX` = 'X' OR `GRUPO_PRODUTO` = 'X'
  OR `SUBGRUPO_PRODUTO` = 'X' OR `SOLUCAO` = 'X')
 ```
+
+### Filtros por atributo de produto — fluxo obrigatório
+
+Os campos `LINHA`, `LINHA_MIX`, `GRUPO_PRODUTO`, `SUBGRUPO_PRODUTO`, `SOLUCAO` e `TIPO_PRODUTO` **não têm valores fixos documentados**. Sempre que o usuário pedir análise por um desses atributos, seguir obrigatoriamente:
+
+**Passo 1 — Consultar valores distintos disponíveis:**
+```sql
+SELECT
+  DISTINCT `LINHA`, `LINHA_MIX`, `GRUPO_PRODUTO`, `SUBGRUPO_PRODUTO`, `SOLUCAO`, `TIPO_PRODUTO`
+FROM `soma-dl-refined-online.atacado_processed.info_produto`
+WHERE `MARCA` = '<MARCA>'   -- filtrar pela marca relevante quando aplicável
+ORDER BY 1, 2, 3, 4, 5, 6
+```
+
+**Passo 2 — Identificar o valor correto** a partir dos resultados e do contexto trazido pelo usuário (nome informal, categoria, tipo de peça etc.).
+
+**Passo 3 — Aplicar o filtro** com o valor exato encontrado no banco — nunca assumir ou hardcodar.
 
 ---
 
@@ -653,6 +811,22 @@ Campo `SEGMENTO` em `info_produto`. Classifica submarcas dentro de Fábula: `MEN
 - **Bloqueado:** `SITUACAO = 'BLOQUEADO'`
 - **Liberado:** `SITUACAO = 'LIBERADO'`
 - O bloqueio em uma marca propaga-se a **todas as marcas do mesmo grupo econômico** — sempre consolidar por `GRUPO_ECONOMICO` quando a análise envolver impacto total.
+
+### Valores válidos de `TIPO_BLOQUEIO` (lista exaustiva)
+
+| Valor no banco |
+|---|
+| `ACORDO FINANCEIRO` |
+| `BLOQUEIO PEDIDO` |
+| `BLOQUEIO POR GRUPO` |
+| `COBRANÇA EXTERNA` |
+| `COMERCIAL` |
+| `FINANCEIRO` |
+| `INATIVO` |
+| `LIBERADO` |
+| `PERDA` |
+| `REAVALIAR` |
+| `SOLICITAÇÃO DO REPRESENT.` |
 
 ### Inadimplência
 

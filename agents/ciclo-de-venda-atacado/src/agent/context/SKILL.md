@@ -193,6 +193,8 @@ Não atrasar com confirmações desnecessárias. Só perguntar quando:
 - ✅ Filtros em MAIÚSCULA (MARCA, TIPO_VENDA, STATUS_CAIXA, COLECAO, NOME_WISE)? **Exceção:** tabelas do sub-sistema Afiliados têm colunas em minúsculo (`status_venda`, `tipo_venda`, `marca`, `clifor`, `codigo_vendedor`, `venda_liquida`)?
 - ✅ Crases em todos os nomes de coluna e tabela?
 - ✅ Análise envolvendo cidades? Normalizar `CIDADE` removendo acentos e substituindo ç→c antes de comparar ou agrupar (ver "Casos especiais — Cidades" abaixo)?
+- ✅ Análise com "últimas N coleções"? Usar CTE canônica de `business-rules §5` — nunca hardcoded. Verificar se as coleções cobertas pela query estão corretas.
+- ✅ Análise filtrando por LINHA, GRUPO_PRODUTO, SUBGRUPO_PRODUTO, SOLUCAO ou TIPO_PRODUTO? Consultar valores distintos primeiro (business-rules §11) — nunca assumir o valor.
 
 #### Casos especiais
 

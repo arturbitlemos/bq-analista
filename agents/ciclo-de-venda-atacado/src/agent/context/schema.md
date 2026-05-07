@@ -493,7 +493,7 @@ GROUP BY 1, 2, 3
 | `VALOR_VENCIDO` | NUMERIC | Saldo de títulos já vencidos e não pagos | ✅ SEGURO |
 | `VALOR_A_VENCER` | NUMERIC | Saldo de títulos a vencer (dentro do prazo) | ✅ SEGURO |
 | `SITUACAO` | STRING | Status financeiro: `'BLOQUEADO'` ou `'LIBERADO'` | ✅ SEGURO |
-| `TIPO_BLOQUEIO` | STRING | Motivo do bloqueio (ex: FINANCEIRO, COMERCIAL) | ✅ SEGURO |
+| `TIPO_BLOQUEIO` | STRING | Motivo do bloqueio. Lista exaustiva de valores: ver `business-rules §19` | ✅ SEGURO |
 | `DATA_BLOQ` | DATETIME | Data em que o bloqueio foi aplicado | ✅ SEGURO |
 | `DATA_ATUALIZACAO` | DATETIME | Data da última atualização do snapshot | ✅ SEGURO |
 

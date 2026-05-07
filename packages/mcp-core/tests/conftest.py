@@ -18,8 +18,8 @@ async def db_pool():
     await db.init_pool()
     pool = db.get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("TRUNCATE analyses, audit_log RESTART IDENTITY CASCADE")
+        await conn.execute("TRUNCATE analyses, audit_log, bq_audit RESTART IDENTITY CASCADE")
     yield
     async with pool.acquire() as conn:
-        await conn.execute("TRUNCATE analyses, audit_log RESTART IDENTITY CASCADE")
+        await conn.execute("TRUNCATE analyses, audit_log, bq_audit RESTART IDENTITY CASCADE")
     await db.close_pool()

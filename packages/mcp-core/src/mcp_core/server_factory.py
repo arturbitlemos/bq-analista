@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import logging
 import functools
 import hashlib
 import json
@@ -18,7 +20,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.streamable_http_manager import TransportSecuritySettings as _TSS
 
 from mcp_core.allowlist import Allowlist
-from mcp_core.audit import AuditLog
+from mcp_core.audit import AuditLog, PgAuditLog
 from mcp_core.auth_middleware import AuthContext, AuthError, extract_exec_email
 from mcp_core.auth_routes import build_auth_app
 from mcp_core.azure_auth import AzureAuth
@@ -27,6 +29,20 @@ from mcp_core.context_loader import ExecContext, extract_table_section, load_exe
 from mcp_core.jwt_tokens import TokenIssuer
 from mcp_core.settings import Settings, load_settings
 from mcp_core.sql_validator import SqlValidationError, validate_readonly_sql
+
+logger = logging.getLogger(__name__)
+
+
+def _fire_audit(coro) -> None:
+    """Schedule a fire-and-forget audit coroutine; log if it fails."""
+    task = asyncio.create_task(coro)
+    def _on_done(t):
+        if not t.cancelled() and (exc := t.exception()):
+            logger.error(
+                "audit task failed",
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
+    task.add_done_callback(_on_done)
 
 
 def _repo_root() -> Path:
@@ -121,13 +137,16 @@ def build_mcp_app(
 
     # ── Internal singletons ────────────────────────────────────────────────
 
-    _audit: AuditLog | None = None
+    _audit: AuditLog | PgAuditLog | None = None
 
-    def _get_audit() -> AuditLog:
+    def _get_audit() -> AuditLog | PgAuditLog:
         nonlocal _audit
         if _audit is None:
             settings = _load_cached_state().settings
-            _audit = AuditLog(db_path=Path(settings.audit.db_path))
+            if settings.audit.database_url:
+                _audit = PgAuditLog(agent_name=agent_name)
+            else:
+                _audit = AuditLog(db_path=Path(settings.audit.db_path))
         return _audit
 
     # lru_cache(1) caches the AuthContext across requests so PyJWKClient is reused
@@ -235,27 +254,49 @@ def build_mcp_app(
         exec_email = _current_email(ctx)
         start = _time.time()
         await ctx.report_progress(progress=0.0, total=1.0, message="validating query...")
+
         try:
             validate_readonly_sql(sql)
         except SqlValidationError as e:
+            _fire_audit(_get_audit().record(
+                exec_email=exec_email, tool="consultar_bq", sql=sql,
+                bytes_scanned=0, row_count=0,
+                duration_ms=int((_time.time() - start) * 1000),
+                result="error", error=f"sql_validation: {e}",
+            ))
             return {"error": f"sql_validation: {e}"}
+
         await ctx.report_progress(progress=0.2, total=1.0, message="checking dataset access...")
         client = _load_cached_state().bq_client
+
         try:
             result = client.run_query(sql=sql, exec_email=exec_email)
         except DatasetNotAllowedError as e:
+            _fire_audit(_get_audit().record(
+                exec_email=exec_email, tool="consultar_bq", sql=sql,
+                bytes_scanned=0, row_count=0,
+                duration_ms=int((_time.time() - start) * 1000),
+                result="error", error=f"dataset_not_allowed: {e}",
+            ))
             return {"error": f"dataset_not_allowed: {e}"}
         except Exception as e:
+            _fire_audit(_get_audit().record(
+                exec_email=exec_email, tool="consultar_bq", sql=sql,
+                bytes_scanned=0, row_count=0,
+                duration_ms=int((_time.time() - start) * 1000),
+                result="error", error=f"bq_execution: {e}",
+            ))
             return {"error": f"bq_execution: {e}"}
+
         duration_ms = int((_time.time() - start) * 1000)
         await ctx.report_progress(progress=1.0, total=1.0, message="query complete")
-        _get_audit().record(
+        _fire_audit(_get_audit().record(
             exec_email=exec_email, tool="consultar_bq", sql=sql,
             bytes_scanned=cast(int, result.bytes_processed or 0),
             row_count=result.row_count,
             duration_ms=duration_ms,
             result="ok", error=None,
-        )
+        ))
         return {
             "rows": result.rows,
             "row_count": result.row_count,
@@ -632,7 +673,6 @@ def build_mcp_app(
             auth_ctx=api_auth_ctx,
             bq_factory=lambda: _load_cached_state().bq_client,
             blob_factory=lambda: BlobClient(),
-            audit_db_path=settings.audit.db_path,
         )
 
         auth_app.mount("/", mcp.streamable_http_app())

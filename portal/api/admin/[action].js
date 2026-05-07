@@ -2,8 +2,6 @@ const { getSql } = require('../_helpers/db')
 const { verifySession } = require('../_helpers/session')
 const { parseCookie } = require('../_helpers/cookie')
 const { isAdmin } = require('../_helpers/adminAuth')
-const { mintProxyJwt } = require('../_helpers/proxy_jwt')
-const { MANIFEST } = require('../mcp/_helpers/manifest')
 
 async function handleAnalytics(res) {
   const sql = getSql()
@@ -75,86 +73,76 @@ async function handleAnalytics(res) {
   })
 }
 
-async function handleBqStats(res, email) {
-  let token
-  try {
-    token = mintProxyJwt(email)
-  } catch (err) {
-    return res.status(503).json({ error: `JWT proxy: ${err.message}` })
+async function handleBqStats(res, days) {
+  const sql = getSql()
+
+  const [totals, byUser, byDay, recentErrors, lastSeenByAgent] = await Promise.all([
+    sql`
+      SELECT COUNT(*)                                                     AS total_calls,
+             SUM(CASE WHEN result = 'error' THEN 1 ELSE 0 END)           AS total_errors,
+             SUM(bytes_scanned)                                           AS total_bytes_scanned,
+             COUNT(DISTINCT exec_email)                                   AS distinct_users
+      FROM bq_audit
+      WHERE ts >= NOW() - make_interval(days => ${days})
+    `.catch(() => null),
+
+    sql`
+      SELECT exec_email,
+             COUNT(*)                                              AS total_calls,
+             SUM(CASE WHEN result = 'error' THEN 1 ELSE 0 END)   AS errors,
+             SUM(bytes_scanned)                                   AS total_bytes,
+             ROUND(AVG(duration_ms))                             AS avg_duration_ms,
+             MODE() WITHIN GROUP (ORDER BY agent)                AS top_agent
+      FROM bq_audit
+      WHERE ts >= NOW() - make_interval(days => ${days})
+      GROUP BY exec_email
+      ORDER BY total_calls DESC
+    `.catch(() => null),
+
+    sql`
+      SELECT DATE_TRUNC('day', ts)::date AS day,
+             exec_email,
+             COUNT(*)                   AS n
+      FROM bq_audit
+      WHERE ts >= NOW() - make_interval(days => ${days})
+      GROUP BY 1, 2
+      ORDER BY 1
+    `.catch(() => null),
+
+    sql`
+      SELECT ts, exec_email, agent, tool,
+             LEFT(sql, 200) AS sql_preview,
+             error, bytes_scanned
+      FROM bq_audit
+      WHERE result = 'error'
+        AND ts >= NOW() - make_interval(days => ${days})
+      ORDER BY ts DESC
+      LIMIT 20
+    `.catch(() => null),
+
+    // No time-window filter — intentional. last_seen shows all-time agent activity,
+    // not activity within the selected window, so operators can spot silent agents.
+    sql`
+      SELECT agent, MAX(ts) AS last_seen
+      FROM bq_audit
+      GROUP BY agent
+      ORDER BY agent
+    `.catch(() => null),
+  ])
+
+  // If every query failed (e.g. Neon unreachable), return 503 rather than empty data
+  // that looks identical to "no queries yet".
+  if ([totals, byUser, byDay, recentErrors, lastSeenByAgent].every(r => r === null)) {
+    return res.status(503).json({ error: 'db_unavailable' })
   }
-
-  const agents = MANIFEST.agents
-
-  // Fan-out to all agents in parallel; individual failures are noted but don't crash the response
-  const settled = await Promise.allSettled(
-    agents.map(agent =>
-      fetch(`${agent.url}/api/admin/bq-stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(10_000),
-      })
-        .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-        .then(data => ({ ...data, _agent: agent.name, _ok: true }))
-    )
-  )
-
-  // Merge across agents
-  const byUserMap = {}
-  const totals = {}
-  const recentErrors = []
-  const agentStatus = []
-
-  for (let i = 0; i < settled.length; i++) {
-    const { status, value, reason } = settled[i]
-    const agentName = agents[i].name
-
-    if (status === 'rejected') {
-      agentStatus.push({ name: agentName, ok: false, error: reason?.message ?? 'timeout' })
-      continue
-    }
-
-    agentStatus.push({ name: agentName, ok: true })
-
-    // Sum totals
-    for (const [k, v] of Object.entries(value.totals ?? {})) {
-      totals[k] = (totals[k] ?? 0) + (Number(v) || 0)
-    }
-
-    // Merge by_user: group by exec_email, accumulate weighted duration
-    for (const u of value.by_user ?? []) {
-      const key = u.exec_email
-      if (!byUserMap[key]) {
-        byUserMap[key] = { exec_email: key, total_calls: 0, errors: 0, total_bytes: 0, _weighted_duration: 0 }
-      }
-      const agg = byUserMap[key]
-      const calls = Number(u.total_calls) || 0
-      agg.total_calls += calls
-      agg.errors += Number(u.errors) || 0
-      agg.total_bytes += Number(u.total_bytes) || 0
-      agg._weighted_duration += (Number(u.avg_duration_ms) || 0) * calls
-    }
-
-    // Collect errors tagged with agent name
-    for (const e of value.recent_errors ?? []) {
-      recentErrors.push({ ...e, agent: agentName })
-    }
-  }
-
-  const byUser = Object.values(byUserMap)
-    .map(({ _weighted_duration, total_calls, ...rest }) => ({
-      ...rest,
-      total_calls,
-      avg_duration_ms: total_calls > 0 ? Math.round(_weighted_duration / total_calls) : 0,
-    }))
-    .sort((a, b) => b.total_calls - a.total_calls)
-
-  recentErrors.sort((a, b) => b.ts - a.ts)
 
   res.setHeader('cache-control', 'private, no-store')
   return res.status(200).json({
-    by_user: byUser,
-    totals,
-    recent_errors: recentErrors.slice(0, 20),
-    agents: agentStatus,
+    totals: totals?.[0] ?? {},
+    by_user: byUser ?? [],
+    by_day: byDay ?? [],
+    recent_errors: recentErrors ?? [],
+    last_seen_by_agent: lastSeenByAgent ?? [],
   })
 }
 
@@ -168,6 +156,9 @@ module.exports = async function handler(req, res) {
 
   const { action } = req.query
   if (action === 'analytics') return handleAnalytics(res)
-  if (action === 'bq-stats') return handleBqStats(res, email)
+  if (action === 'bq-stats') {
+    const days = Math.max(1, Math.min(90, parseInt(req.query.days, 10) || 30))
+    return handleBqStats(res, days)
+  }
   return res.status(404).json({ error: 'not found' })
 }

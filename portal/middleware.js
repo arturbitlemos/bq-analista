@@ -39,11 +39,12 @@ async function verifySession(cookieValue, secret) {
 export default async function middleware(request) {
   const url = new URL(request.url)
   const pathname = decodeURIComponent(url.pathname)
-  // Only /onboarding still needs middleware-level auth — `/library/*` and
+  // Only /onboarding and /admin still need middleware-level auth — `/library/*` and
   // `/analyses/*` static paths were retired with the Postgres+Blob migration
   // (Phase B). The /api/* endpoints enforce ACL themselves on the data they
   // serve, so middleware doesn't need to gate them.
-  if (pathname !== '/onboarding' && pathname !== '/onboarding/') return
+  const PROTECTED = ['/onboarding', '/onboarding/', '/admin', '/admin/']
+  if (!PROTECTED.includes(pathname)) return
 
   const cookie = parseCookie(request.headers.get('cookie'), 'session')
   if (!cookie) {
@@ -59,4 +60,4 @@ export default async function middleware(request) {
   }
 }
 
-export const config = { matcher: ['/onboarding'] }
+export const config = { matcher: ['/onboarding', '/onboarding/', '/admin', '/admin/'] }

@@ -280,3 +280,27 @@ async def test_refresh_object_shape_unwraps_single_row(db_pool):
     # Object form, not [{...}]
     assert b'{"total_cy":1234.5}' in new_body
     assert b'[{"total_cy"' not in new_body
+
+
+@pytest.mark.asyncio
+async def test_refresh_metadata_includes_duration_ms(db_pool):
+    """audit_log deve conter duration_ms no metadata do evento refresh."""
+    await _seed()
+    bq = _bq_ok([{"x": 1}])
+    blob = _blob_ok()
+
+    await refresh_analysis(
+        analysis_id="t1", actor_email="author@x.com",
+        start=date(2026, 3, 1), end=date(2026, 3, 31),
+        bq=bq, blob=blob,
+    )
+
+    async with db.transaction() as conn:
+        row = await conn.fetchrow(
+            "SELECT metadata FROM audit_log WHERE action='refresh' AND analysis_id='t1'"
+        )
+    assert row is not None
+    meta = json.loads(row["metadata"])
+    assert "duration_ms" in meta, "metadata deve conter duration_ms"
+    assert isinstance(meta["duration_ms"], (int, float))
+    assert meta["duration_ms"] >= 0

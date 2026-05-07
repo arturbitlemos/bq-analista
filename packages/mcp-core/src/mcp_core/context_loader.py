@@ -24,12 +24,18 @@ class ExecContext:
 
 
 def parse_table_index(schema_text: str) -> list[str]:
-    """Extract UPPER_CASE table names from backtick-quoted names in section headers."""
+    """Extract table names (any case) from backtick-quoted identifiers in section headers.
+
+    Accepts both UPPERCASE conventions (silver_linx style: `TB_WANMTP_VENDAS_LOJA_CAPTADO`)
+    and lowercase conventions (atacado_processed style: `info_venda`, `info_devolução`).
+    Non-ASCII letters in the Latin-1/Latin-Extended range are allowed for tables like
+    `info_devolução`.
+    """
     names: list[str] = []
     seen: set[str] = set()
     for line in schema_text.splitlines():
         if re.match(r"^#{2,4}\s+", line):
-            for name in re.findall(r"`([A-Z][A-Z0-9_]+)`", line):
+            for name in re.findall(r"`([A-Za-z][\w\u00C0-\u017F]*)`", line):
                 if name not in seen:
                     seen.add(name)
                     names.append(name)
@@ -37,15 +43,20 @@ def parse_table_index(schema_text: str) -> list[str]:
 
 
 def extract_table_section(schema_text: str, table_name: str) -> str | None:
-    """Return the schema.md section that documents table_name, or None if not found."""
-    target = f"`{table_name.upper()}`"
+    """Return the schema.md section that documents table_name, or None if not found.
+
+    Case-insensitive: tries the input as-is, lowercased, and uppercased so callers can
+    pass `info_venda`, `INFO_VENDA`, or `Info_Venda` and still match the header even when
+    the schema file uses a single canonical casing.
+    """
+    targets = {f"`{v}`" for v in (table_name, table_name.lower(), table_name.upper())}
     lines = schema_text.splitlines()
     start: int | None = None
     start_level = 0
     for i, line in enumerate(lines):
         if start is None:
             m = re.match(r"^(#{2,4})\s+", line)
-            if m and target in line:
+            if m and any(t in line for t in targets):
                 start, start_level = i, len(m.group(1))
         else:
             m = re.match(r"^(#{2,4})\s+", line)

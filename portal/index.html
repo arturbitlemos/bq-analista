@@ -234,6 +234,7 @@
       <nav>
         <a href="/" class="active">Análises</a>
         <a href="/onboarding">Instalar no Claude</a>
+        <a href="/admin" id="admin-link" style="display:none">Admin</a>
         <span class="user-chip" id="user-email">—</span>
       </nav>
     </header>
@@ -473,6 +474,10 @@ async function init() {
 
     const accounts = msalInstance.getAllAccounts()
     document.getElementById('user-email').textContent = accounts[0]?.username ?? userEmail
+
+    fetch('/api/admin/analytics', { credentials: 'include' })
+      .then(r => { if (r.ok) document.getElementById('admin-link').style.display = '' })
+      .catch(() => {})
 
     document.getElementById('loading').style.display = 'none'
     document.getElementById('library-view').style.display = 'block'

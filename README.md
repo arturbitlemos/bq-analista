@@ -340,6 +340,75 @@ bq add-iam-policy-binding \
   <DATA_PROJECT>:<DATASET>
 ```
 
-### 5. Healthcheck
+### 5. Healthcheck do agente
 
 Depois do deploy, `GET /health` deve retornar 200. Logs do Railway mostram `Processing request of type ListToolsRequest` quando o Claude Team conecta.
+
+> ⚠️ **O agente está rodando, mas ainda invisível para os usuários.** Os passos 6 a 9 abaixo são **obrigatórios** — sem eles o DXT não enxerga o agente e o Claude não sabe rotear pra ele.
+
+### 6. Wire up no portal (manifest.js)
+
+O portal mantém a lista canônica de agentes em `portal/api/mcp/_helpers/manifest.js`. O DXT busca esse manifest em runtime via `/api/mcp/agents` e é por aí que ele descobre URL, label e tools de cada agente. Sem essa entrada, o agente simplesmente não existe pro cliente.
+
+Adicione um item ao array `MANIFEST.agents`:
+
+```js
+{
+  name: 'vendas-ecomm',                    // bate com o diretório agents/<name>/
+  label: 'Vendas E-commerce',              // aparece no Claude como prefixo das tools
+  description: 'Análise de vendas DTC online (Shopify, marketplace).',
+  url: 'https://vendas-ecomm-production.up.railway.app',  // URL pública do Railway
+  tools: BASE_TOOLS,                       // herda as 7 tools base; nunca modificar a lista aqui
+},
+```
+
+`BASE_TOOLS` vem de uma constante no mesmo arquivo — não invente um array novo, todos os agentes compartilham o mesmo conjunto.
+
+### 7. Override de nome do serviço Railway (se necessário)
+
+O workflow `.github/workflows/deploy-agents.yml` descobre agentes via `find agents -name railway.toml`, e por padrão **assume que o nome do serviço Railway é igual ao nome do diretório**. Se o serviço foi criado com um nome diferente no dashboard do Railway (ex: dir = `ciclo-de-venda-atacado`, serviço = `agent-atacado`), o deploy vai falhar com `Service not found`.
+
+**Solução**: crie um arquivo `.service-name` na raiz do diretório do agente com o nome real do serviço:
+
+```bash
+echo "agent-atacado" > agents/ciclo-de-venda-atacado/.service-name
+```
+
+O workflow lê esse arquivo se ele existir; caso contrário, usa o nome do diretório. Não precisa ajustar mais nada.
+
+> **Quando isso acontece?** Geralmente quando o serviço Railway já existia antes do agente ser scaffoldeado, ou quando alguém criou o serviço com um nome diferente por convenção (`agent-*`). Se você está criando do zero, **prefira manter os nomes iguais** e pular este passo.
+
+### 8. Roteamento entre agentes — onde está
+
+> ⚠️ **DXT 0.3 não suporta `prompt_for_model`.** Tentativas de adicionar essa chave no `manifest.json` quebram o preview no Claude Desktop com `Invalid manifest: Unrecognized key(s) in object: 'prompt_for_model'`. Não tente.
+
+O roteamento entre agentes acontece **sem prompt de sistema** no DXT. Claude usa duas pistas:
+
+1. **Prefixo de tool name** — todas as tools são expostas como `<agent-name>__<tool>` (ex: `ciclo-de-venda-atacado__consultar_bq`).
+2. **Description prefixada com o label** — em `packages/mcp-client-dxt/src/index.ts` o handler de `ListTools` monta cada description como `"<agent.label> · <tool.description>"`. Isso vem do `MANIFEST.agents[].label` e `description` que você editou no Passo 6.
+
+Por isso o **passo crítico é o Passo 6**: o `label` e o `description` do agente no `manifest.js` do portal são o que ensina Claude quando usar este agente. Capriche neles — bullets de domínio cobertos, marcas relevantes, dataset principal.
+
+Para refinar o comportamento per-agente (workflow, gates de custo, regras de query), o canal certo é o `agents/<name>/src/agent/context/SKILL.md` — ele é servido via `get_context` quando Claude chama essa tool no início da sessão.
+
+### 9. Release do DXT
+
+Adicionar/mudar agente sem subir versão nova do DXT = usuários continuam com manifest antigo em cache. **Toda mudança no `manifest.js` do portal ou no `manifest.json` do DXT exige release.**
+
+Veja o passo a passo completo em [`docs/release-dxt.md`](docs/release-dxt.md). Resumo:
+
+1. Bump de versão em **três** lugares (package.json, manifest.json do DXT, e `DXT_VERSION` em `src/index.ts`).
+2. `npm run build:dxt` em `packages/mcp-client-dxt/`.
+3. Copiar o `.dxt` gerado para `portal/public/downloads/` e remover a versão anterior.
+4. Bumpar `VERSION.latest` em `portal/api/mcp/_helpers/manifest.js`.
+
+### 10. Validação fim-a-fim
+
+Antes de fechar o PR, valide o ciclo completo:
+
+- [ ] `GET https://bq-analista.vercel.app/api/mcp/agents` retorna o novo agente no array
+- [ ] `GET https://bq-analista.vercel.app/api/mcp/version` retorna a nova `latest`
+- [ ] Download do `.dxt` em `https://bq-analista.vercel.app/downloads/azzas-mcp-X.Y.Z.dxt` funciona
+- [ ] Reinstalar DXT no Claude Desktop → tools `<new-agent>__*` aparecem na lista
+- [ ] Chamar `<new-agent>__get_context` retorna o conteúdo do `SKILL.md` do agente
+- [ ] Chamar `<new-agent>__consultar_bq` com uma SELECT simples retorna dados

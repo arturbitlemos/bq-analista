@@ -632,6 +632,7 @@ def build_mcp_app(
             auth_ctx=api_auth_ctx,
             bq_factory=lambda: _load_cached_state().bq_client,
             blob_factory=lambda: BlobClient(),
+            audit_db_path=settings.audit.db_path,
         )
 
         auth_app.mount("/", mcp.streamable_http_app())

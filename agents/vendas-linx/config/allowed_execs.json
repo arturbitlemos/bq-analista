@@ -10,7 +10,18 @@
     "leonardo.horn@somagrupo.com.br",
     "roberto@animale.com.br",
     "arthur.matsuda@somagrupo.com.br",
-    "gabriel.costa@somagrupo.com.br"
+    "gabriel.costa@somagrupo.com.br",
+    "jessica.scheuer@somagrupo.com.br",
+    "anna.zillmann@somagrupo.com.br",
+    "bruno.carmona@somagrupo.com.br",
+    "nicole.souza@somagrupo.com.br",
+    "andre.xavier@somagrupo.com.br",
+    "deivison.isidoro@somagrupo.com.br",
+    "luis.marques@somagrupo.com.br",
+    "nara.costa@somagrupo.com.br",
+    "julia.tagliari@somagrupo.com.br",
+    "gabrielly.chacara@somagrupo.com.br",
+    "jessica.vieira@somagrupo.com.br"
   ],
   "notes": "Copy to allowed_execs.json and edit. Emails must match Azure AD upn exactly."
 }

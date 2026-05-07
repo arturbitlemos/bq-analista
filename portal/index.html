@@ -387,7 +387,6 @@
 
 <script type="module">
 import { initMsal } from '/msal-init.js'
-import { InteractionRequiredAuthError } from '@azure/msal-browser'
 
 // ─── Estado global ─────────────────────────────────────────────────────────
 let userIdentity = null                    // identidade (email) retornada pelo /api/auth
@@ -454,8 +453,8 @@ async function init() {
         const silent = await msalInstance.acquireTokenSilent({ account: accounts[0], scopes: ['openid', 'profile'] })
         idToken = silent.idToken
       } catch (e) {
-        if (e instanceof InteractionRequiredAuthError) { await msalInstance.loginRedirect({ scopes: ['openid', 'profile'] }); return }
-        throw e
+        await msalInstance.loginRedirect({ scopes: ['openid', 'profile'] })
+        return
       }
     }
 

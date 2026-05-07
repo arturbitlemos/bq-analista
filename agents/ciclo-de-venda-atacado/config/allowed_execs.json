@@ -1,1 +1,31 @@
-{"allowed_emails": ["leonardo.horn@somagrupo.com.br", "artur.lemos@somagrupo.com.br", "luiz.vasconcelos@somagrupo.com.br", "mateus.portelinha@somagrupo.com.br"]}
+{
+  "allowed_emails": [
+    "leonardo.horn@somagrupo.com.br",
+    "artur.lemos@somagrupo.com.br",
+    "luiz.vasconcelos@somagrupo.com.br",
+    "mateus.portelinha@somagrupo.com.br",
+    "maria.carvalho@somagrupo.com.br",
+    "thiarles.borges@somagrupo.com.br",
+    "julia.noronha@somagrupo.com.br",
+    "gabriela.wajzenberg@somagrupo.com.br",
+    "cristian.micocci@somagrupo.com.br",
+    "bruno.andrade@somagrupo.com.br",
+    "eduardo.gama@somagrupo.com.br",
+    "kivia.magioni@somagrupo.com.br",
+    "mariana.lopes@somagrupo.com.br",
+    "millena.renon@somagrupo.com.br",
+    "silvia.ribeiro@somagrupo.com.br",
+    "victor.lemos@somagrupo.com.br",
+    "jessica.scheuer@somagrupo.com.br",
+    "anna.zillmann@somagrupo.com.br",
+    "bruno.carmona@somagrupo.com.br",
+    "nicole.souza@somagrupo.com.br",
+    "andre.xavier@somagrupo.com.br",
+    "deivison.isidoro@somagrupo.com.br",
+    "luis.marques@somagrupo.com.br",
+    "nara.costa@somagrupo.com.br",
+    "julia.tagliari@somagrupo.com.br",
+    "gabrielly.chacara@somagrupo.com.br",
+    "jessica.vieira@somagrupo.com.br"
+  ]
+}

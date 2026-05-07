@@ -121,7 +121,7 @@ Além do ciclo de venda principal, o dataset contém três sub-sistemas independ
 | `T1`…`T8` | INTEGER | Quantidade por tamanho (T1 = 1º tamanho da grade, …) | ✅ SEGURO |
 | `CONDICAO_PAGAMENTO` | STRING | Prazo de pagamento negociado (ex: 30/45/60/90) | ✅ SEGURO |
 | `TABELA_MKP` | STRING | Tabela de markup aplicada (ex: "VENDA ATACADO 2.35") | ✅ SEGURO |
-| `TIPO_VENDA` | STRING | Modalidade da venda. Valores: VENDA, PRE VENDA, PRATELEIRA INFINITA, PRATELEIRA INFINITA - EXTERNO, PRONTA ENTREGA, REDISTRIBUIÇÃO | ✅ SEGURO |
+| `TIPO_VENDA` | STRING | Modalidade da venda. Valores: VENDA, PRE VENDA, PRATELEIRA INFINITA, PRATELEIRA INFINITA - EXTERNA, PRONTA ENTREGA, REDISTRIBUIÇÃO | ✅ SEGURO |
 
 **Filtros padrão obrigatórios:**
 ```sql
@@ -493,7 +493,7 @@ GROUP BY 1, 2, 3
 | `VALOR_VENCIDO` | NUMERIC | Saldo de títulos já vencidos e não pagos | ✅ SEGURO |
 | `VALOR_A_VENCER` | NUMERIC | Saldo de títulos a vencer (dentro do prazo) | ✅ SEGURO |
 | `SITUACAO` | STRING | Status financeiro: `'BLOQUEADO'` ou `'LIBERADO'` | ✅ SEGURO |
-| `TIPO_BLOQUEIO` | STRING | Motivo do bloqueio (ex: FINANCEIRO, COMERCIAL) | ✅ SEGURO |
+| `TIPO_BLOQUEIO` | STRING | Motivo do bloqueio. Lista exaustiva de valores: ver `business-rules §19` | ✅ SEGURO |
 | `DATA_BLOQ` | DATETIME | Data em que o bloqueio foi aplicado | ✅ SEGURO |
 | `DATA_ATUALIZACAO` | DATETIME | Data da última atualização do snapshot | ✅ SEGURO |
 
@@ -711,3 +711,19 @@ LEFT JOIN `soma-dl-refined-online.atacado_processed.afiliados_vendedores` avd
 | `recrutada_por` | VendedorDigital | Multimarca | N:1 | Cada vendedor é recrutado por uma multimarca |
 | `gera` | VendedorDigital | VendaAfiliado | 1:N | Um vendedor pode ter múltiplas vendas |
 | `identificado_por` | VendedorDigital | CodigoVendedor | 1:1 | Código único iniciado em '7' |
+
+---
+
+## Dataset: `soma_online_refined`
+
+**Projeto:** `soma-dl-refined-online`
+**Dataset:** `soma_online_refined`
+
+Tabelas de varejo/omnichannel do grupo Azzas 2154. Usadas **exclusivamente como fonte em subqueries ou CTEs** dentro de consultas maiores — não são consultadas diretamente pelo usuário e não têm schema definido neste documento.
+
+| Tabela | Path completo |
+|---|---|
+| `refined_vendas_mestre` | `soma-dl-refined-online.soma_online_refined.refined_vendas_mestre` |
+| `refined_branches` | `soma-dl-refined-online.soma_online_refined.refined_branches` |
+| `refined_captacao` | `soma-dl-refined-online.soma_online_refined.refined_captacao` |
+| `refined_historico_vendedores` | `soma-dl-refined-online.soma_online_refined.refined_historico_vendedores` |

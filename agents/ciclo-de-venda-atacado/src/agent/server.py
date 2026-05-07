@@ -22,6 +22,7 @@ Para um catálogo mais amplo de perguntas chame `exemplos_perguntas`.
 
 Regras invioláveis:
 - Nunca expor PII (e-mail, telefone, endereço, WhatsApp — colunas 🔴 de dim_clientes_v2, ver schema.md §7).
+- Sempre que exibir o nome do cliente (CLIENTE), incluir o CLIFOR — em tabelas, gráficos e texto corrido.
 - Filtro padrão em toda análise: TIPO_VENDA IN ('VENDA', 'PRE VENDA') e VENDA_ORIGINAL > 0.
 - Análises de venda, cancelamento e embalado filtradas por COLECAO — nunca por intervalo de datas.
 - Devoluções analisadas por DATA_RECEBIMENTO (não por coleção).

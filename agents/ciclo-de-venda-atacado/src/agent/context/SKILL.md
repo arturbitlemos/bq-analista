@@ -70,15 +70,16 @@ Se falhar, executar `gcloud auth application-default login` primeiro.
 ## Query Pattern (sempre usar este fluxo)
 
 > 🚨 **OBRIGATÓRIO — gate antes de qualquer execução:**
-> 1. Estime o custo com base nas tabelas envolvidas, filtros de COLECAO e joins.
-> 2. Informe ao usuário: `⚠️ Estimativa: ~X GB → ~US$ X.XX (teto: 15 GB)`
-> 3. **Aguarde confirmação explícita ("sim") antes de executar.** Nunca execute sem resposta do usuário.
+> 1. Estime o custo internamente com base nas tabelas envolvidas, filtros de COLECAO e joins.
+> 2. **Não exiba o custo estimado ao usuário.** Custo é informação interna de operação.
+> 3. Se o custo estimado ultrapassar o teto (15 GB), reescreva ou divida a query sem mencionar o motivo técnico — apenas informe que está otimizando a consulta.
+> 4. Execute sem solicitar confirmação de custo ao usuário.
 
 ```bash
-# 1. Dry-run — estima custo antes de executar
+# 1. Dry-run — estima custo internamente (não exibir resultado ao usuário)
 bq query --use_legacy_sql=false --dry_run '<SQL>'
 
-# 2. Executa só após confirmação do usuário
+# 2. Executa após validação interna do custo
 bq query --use_legacy_sql=false --format=prettyjson '<SQL>'
 ```
 
@@ -191,6 +192,9 @@ Não atrasar com confirmações desnecessárias. Só perguntar quando:
 - ✅ ATENDIMENTO INTERNO (`NOME_WISE = 'ATENDIMENTO INTERNO'`) e FACEX (`NOME_WISE = 'FACEX'`) excluídos em rankings e comparativos de representantes?
 - ✅ Filtros em MAIÚSCULA (MARCA, TIPO_VENDA, STATUS_CAIXA, COLECAO, NOME_WISE)? **Exceção:** tabelas do sub-sistema Afiliados têm colunas em minúsculo (`status_venda`, `tipo_venda`, `marca`, `clifor`, `codigo_vendedor`, `venda_liquida`)?
 - ✅ Crases em todos os nomes de coluna e tabela?
+- ✅ Análise envolvendo cidades? Normalizar `CIDADE` removendo acentos e substituindo ç→c antes de comparar ou agrupar (ver "Casos especiais — Cidades" abaixo)?
+- ✅ Análise com "últimas N coleções"? Usar CTE canônica de `business-rules §5` — nunca hardcoded. Verificar se as coleções cobertas pela query estão corretas.
+- ✅ Análise filtrando por LINHA, GRUPO_PRODUTO, SUBGRUPO_PRODUTO, SOLUCAO ou TIPO_PRODUTO? Consultar valores distintos primeiro (business-rules §11) — nunca assumir o valor.
 
 #### Casos especiais
 
@@ -200,7 +204,7 @@ Não atrasar com confirmações desnecessárias. Só perguntar quando:
 
 **Prateleira Infinita:** quando solicitada, filtrar:
 ```sql
-TIPO_VENDA IN ('PRATELEIRA INFINITA', 'PRATELEIRA INFINITA - EXTERNO', 'PRONTA ENTREGA')
+TIPO_VENDA IN ('PRATELEIRA INFINITA', 'PRATELEIRA INFINITA - EXTERNA', 'PRONTA ENTREGA')
 ```
 Separar estoque interno/externo só sob pedido explícito.
 
@@ -221,6 +225,13 @@ SAFE_DIVIDE(SUM(v.VENDA_ORIGINAL), MAX(m.META)) AS atingimento
 Usar `MAX(m.META)` para evitar duplicidade do JOIN. META DESAFIO e META ATENDIMENTO só sob pedido explícito.
 
 **FABULA / FÁBULA:** sempre filtrar ambas as formas, com e sem acento.
+
+**Cidades:** antes de comparar, agrupar ou exibir cidades, normalizar removendo acentos e substituindo ç→c (maiúsculas). Aplicar tanto no valor do banco quanto nas listas externas usadas em capilaridade (web_search). Exemplo BigQuery:
+```sql
+REGEXP_REPLACE(
+  REGEXP_REPLACE(UPPER(`CIDADE`),
+    r'[ÁÀÃÂÄ]', 'A'), r'[ÉÈÊË]', 'E')  -- continuar para I, O, U, Ç→C
+```
 
 **Venda vs Venda Líquida:** `VENDA_ORIGINAL` é o padrão (apresentar como "Venda"). `VENDA` (campo) é a venda líquida — só usar quando explicitamente solicitado.
 
@@ -279,6 +290,28 @@ Não rodar mais uma query sem perguntar — deixar o caminho aberto.
 - Depois: detalhes, quebras, tabelas.
 - Fim: 1 observação interpretativa (se houver padrão claro) ou follow-up sugerido.
 
+### Nomes técnicos — proibido expor ao usuário
+Nunca citar nomes de colunas (`VENDA_ORIGINAL`, `CLIFOR`, `NOME_WISE`…) nem de tabelas (`info_venda`, `dim_clientes_v2`…) em respostas ao usuário final, tampouco em dashboards publicados. Usar sempre a nomenclatura de negócio (ex: "Venda", "Cliente", "Representante").
+
+### Formatação de coleções na resposta
+Exibir sempre com acento e maiúsculas — nunca o valor bruto do banco:
+
+| Valor no banco | Exibir ao usuário |
+|---|---|
+| `VERAO` | VERÃO |
+| `ALTO VERAO` | ALTO VERÃO |
+| `INVERNO` | INVERNO |
+| `ALTO INVERNO` | ALTO INVERNO |
+
+Exemplos corretos: "VERÃO 2026", "ALTO VERÃO 2027", "INVERNO 2027", "ALTO INVERNO 2026".
+
+### Ordenação de coleções em gráficos
+Em qualquer gráfico com múltiplas coleções, ordenar sempre na sequência de estação:
+
+**VERÃO → ALTO VERÃO → INVERNO → ALTO INVERNO**
+
+Nunca ordenar por nome alfabético nem pelo número do ano no nome. Quando o eixo mistura anos diferentes (ex: INVERNO 2026 e VERÃO 2027), manter a ordem cronológica real de venda.
+
 ---
 
 ## Anti-hallucination
@@ -298,6 +331,8 @@ Não rodar mais uma query sem perguntar — deixar o caminho aberto.
 - ❌ Filtra venda / cancelamento / embalado por intervalo de datas — sempre por COLECAO
 - ❌ Escreve em nenhuma tabela — apenas leitura (SELECT / WITH)
 - ❌ Publica dashboard sem pedido explícito do usuário
+- ❌ Expõe nomes técnicos de colunas ou tabelas ao usuário final (em respostas ou dashboards) — sempre traduzir para nomenclatura de negócio
+- ❌ Exibe nomes de coleções sem acento (`VERAO`, `ALTO VERAO`) — sempre formatar como VERÃO, ALTO VERÃO, INVERNO, ALTO INVERNO
 
 ---
 
@@ -372,3 +407,5 @@ Tags em slug-case (lowercase, sem acento, hífen). Não inventar sinônimos.
 |---|---|
 | 2026-04-29 | Criação — agente ciclo-de-venda-atacado configurado com 8 tabelas do atacado_processed. |
 | 2026-04-30 | Expansão para 14 tabelas — adicionados sub-sistemas Financeiro (info_financeira), Somaplace (cadastro_somaplace, venda_somaplace) e Afiliados (afiliados_multimarca, afiliados_vendas, afiliados_vendedores). |
+| 2026-05-04 | Adição: proibição de expor nomes técnicos ao usuário; formatação de coleções com acento (VERÃO/ALTO VERÃO); ordenação de coleções em gráficos; normalização de cidades (remover acentos e ç). |
+| 2026-05-04 | Custo de query não deve ser exibido ao usuário final — estimativa permanece como validação interna; gate de confirmação de custo removido do fluxo de atendimento. |

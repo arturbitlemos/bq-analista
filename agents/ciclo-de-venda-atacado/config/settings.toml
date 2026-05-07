@@ -20,6 +20,7 @@ query_timeout_s = 60
 max_rows = 100000
 allowed_datasets = [
   "soma-dl-refined-online.atacado_processed",
+  "soma-dl-refined-online.soma_online_refined",
 ]
 
 [github]

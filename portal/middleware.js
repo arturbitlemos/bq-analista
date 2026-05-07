@@ -43,7 +43,7 @@ export default async function middleware(request) {
   // `/analyses/*` static paths were retired with the Postgres+Blob migration
   // (Phase B). The /api/* endpoints enforce ACL themselves on the data they
   // serve, so middleware doesn't need to gate them.
-  const PROTECTED = ['/onboarding', '/onboarding/', '/admin', '/admin/']
+  const PROTECTED = ['/onboarding', '/onboarding/', '/admin', '/admin/', '/dicionario', '/dicionario/']
   if (!PROTECTED.includes(pathname)) return
 
   const cookie = parseCookie(request.headers.get('cookie'), 'session')
@@ -60,4 +60,4 @@ export default async function middleware(request) {
   }
 }
 
-export const config = { matcher: ['/onboarding', '/onboarding/', '/admin', '/admin/'] }
+export const config = { matcher: ['/onboarding', '/onboarding/', '/admin', '/admin/', '/dicionario', '/dicionario/'] }

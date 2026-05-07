@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Azzas 2154 — Dicionário de Indicadores</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Red+Hat+Display:wght@300;400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" sizes="32x32" href="/public/assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/public/assets/favicon-16x16.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #000; --ink-soft: #595959; --ink-faint: #999;
+      --surface: #fff; --surface-cream: #F9F6EA; --surface-warm: #E8E8E4;
+      --navy: #274566; --steel: #3D5A73; --blue-soft: #A1C6ED; --blue-light: #C5D9ED;
+      --status-green: #2D7A4F; --status-green-bg: #E4F1EA;
+      --status-yellow: #8A6500; --status-yellow-bg: #FBF1D0;
+      --status-grey: #6B6B6B; --status-grey-bg: #ECECEC;
+      --font-primary: 'Red Hat Display', Arial, sans-serif;
+      --font-editorial: 'Playfair Display', Georgia, serif;
+      --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+    }
+    body { background: var(--surface); font-family: var(--font-primary); color: var(--ink); min-height: 100vh; }
+    a { color: inherit; }
+    button { font-family: inherit; cursor: pointer; }
+
+    /* Header */
+    header { background: var(--surface); border-bottom: 1px solid var(--surface-warm); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    .brand { font-size: 0.85rem; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; color: var(--ink); }
+    .brand em { font-family: var(--font-editorial); font-style: italic; font-weight: 400; text-transform: none; letter-spacing: normal; color: var(--steel); font-size: 1rem; margin-left: 0.25rem; }
+    nav { display: flex; gap: 1.25rem; align-items: center; font-size: 0.85rem; }
+    nav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted transparent; padding: 0.25rem 0; }
+    nav a.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+    nav a:hover { color: var(--navy); }
+    .user-chip { background: var(--surface-warm); padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.75rem; color: var(--ink-soft); }
+
+    /* Hero */
+    .hero { background: var(--surface-cream); padding: 2.75rem 2rem 2rem; border-bottom: 1px solid var(--surface-warm); }
+    .hero-inner { max-width: 1200px; margin: 0 auto; }
+    .eyebrow { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 0.85rem; font-weight: 600; }
+    .hero h1 { font-weight: 400; font-size: clamp(1.75rem, 4vw, 2.4rem); letter-spacing: -0.01em; line-height: 1.1; margin-bottom: 0.5rem; }
+    .hero .editorial { font-family: var(--font-editorial); font-style: italic; font-size: clamp(1rem, 2.2vw, 1.2rem); color: var(--steel); margin-bottom: 1rem; }
+    .hero p { color: var(--ink-soft); font-size: 0.95rem; font-weight: 300; line-height: 1.55; max-width: 720px; }
+
+    /* Filter bar */
+    .filters { background: var(--surface); padding: 1rem 2rem; display: flex; gap: 0.5rem; align-items: center; border-bottom: 1px solid var(--surface-warm); flex-wrap: wrap; max-width: 1400px; margin: 0 auto; }
+    .filter-label { font-size: 0.75rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.1em; margin-right: 0.5rem; font-weight: 600; }
+    .filter-btn { background: var(--surface); border: 1px solid var(--surface-warm); padding: 0.45rem 0.95rem; border-radius: 20px; font-size: 0.8rem; color: var(--ink-soft); transition: all 0.15s; }
+    .filter-btn:hover { border-color: var(--navy); color: var(--navy); }
+    .filter-btn.active { background: var(--navy); border-color: var(--navy); color: var(--surface); }
+    .search { flex: 1; min-width: 220px; max-width: 320px; border: 1px solid var(--surface-warm); padding: 0.55rem 0.85rem; border-radius: 6px; font-size: 0.85rem; color: var(--ink); font-family: inherit; background: var(--surface); margin-left: auto; }
+    .search:focus { outline: none; border-color: var(--navy); }
+
+    /* Grid */
+    #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; padding: 1.75rem 2rem 4rem; max-width: 1400px; margin: 0 auto; }
+
+    /* Card */
+    .card { background: var(--surface); border: 1px solid var(--surface-warm); border-top: 3px solid var(--navy); border-radius: 4px; padding: 1.25rem 1.4rem 1.4rem; display: flex; flex-direction: column; gap: 0.85rem; transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s; }
+    .card:hover { border-color: var(--navy); transform: translateY(-2px); box-shadow: 0 4px 14px rgba(39, 69, 102, 0.08); }
+    .card[data-status="em-analise"] { border-top-color: var(--status-yellow); }
+    .card[data-status="depreciado"] { border-top-color: var(--status-grey); opacity: 0.65; }
+
+    .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+    .card-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
+    .card-name { font-size: 1.05rem; font-weight: 600; color: var(--ink); line-height: 1.25; letter-spacing: -0.01em; }
+    .card-tipo { font-family: var(--font-editorial); font-style: italic; font-size: 0.78rem; color: var(--steel); font-weight: 400; }
+    .badge { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.2rem 0.55rem; border-radius: 12px; white-space: nowrap; flex-shrink: 0; }
+    .badge.homologado { color: var(--status-green); background: var(--status-green-bg); }
+    .badge.em-analise { color: var(--status-yellow); background: var(--status-yellow-bg); }
+    .badge.depreciado { color: var(--status-grey); background: var(--status-grey-bg); }
+
+    .field { display: flex; flex-direction: column; gap: 0.25rem; }
+    .field-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); font-weight: 600; }
+    .field-value { font-size: 0.85rem; color: var(--ink); line-height: 1.5; font-weight: 300; }
+    .field-value strong { font-weight: 600; }
+
+    .formula { font-family: var(--font-mono); font-size: 0.78rem; background: var(--surface-cream); border: 1px solid var(--surface-warm); border-radius: 4px; padding: 0.55rem 0.7rem; color: var(--ink); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+
+    .source { font-family: var(--font-mono); font-size: 0.72rem; color: var(--steel); background: var(--surface-warm); padding: 0.15rem 0.45rem; border-radius: 3px; display: inline-block; word-break: break-all; }
+
+    .obs { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.5; font-weight: 300; }
+    .obs ul { list-style: none; padding-left: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+    .obs li { padding-left: 0.85rem; position: relative; }
+    .obs li::before { content: "·"; position: absolute; left: 0.25rem; color: var(--steel); font-weight: 700; }
+    .obs li strong { color: var(--ink); font-weight: 600; }
+
+    .empty-state { grid-column: 1 / -1; text-align: center; padding: 4rem 1rem; color: var(--ink-faint); font-size: 0.95rem; font-weight: 300; }
+
+    /* Footer */
+    footer { padding: 2rem; text-align: center; font-size: 0.78rem; color: var(--ink-faint); border-top: 1px solid var(--surface-warm); }
+    footer a { color: var(--ink-soft); }
+
+    @media (max-width: 680px) {
+      header { padding: 0.85rem 1rem; flex-wrap: wrap; }
+      nav { flex-wrap: wrap; gap: 0.75rem; }
+      .hero { padding: 2rem 1.25rem; }
+      .filters { padding: 0.85rem 1rem; }
+      .search { margin-left: 0; max-width: 100%; }
+      #grid { padding: 1.25rem 1rem 3rem; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">AZZAS <em>análises</em></div>
+    <nav>
+      <a href="/">Análises</a>
+      <a href="/dicionario" class="active">Dicionário</a>
+      <a href="/onboarding">Instalar no Claude</a>
+      <span class="user-chip" id="user-info">—</span>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">Azzas 2154 · Como o agente calcula</div>
+      <h1>Dicionário de indicadores</h1>
+      <p class="editorial">Cada número tem uma história. Aqui está a dela.</p>
+      <p>Lista canônica de indicadores que o agente Azzas usa pra responder. Cada caixa traz a fórmula e a tabela de origem. Use como referência antes de tomar decisão baseada num número.</p>
+    </div>
+  </section>
+
+  <div class="filters">
+    <span class="filter-label">Filtrar:</span>
+    <button class="filter-btn active" data-filter="all">Todos</button>
+    <button class="filter-btn" data-filter="homologado">Homologados</button>
+    <button class="filter-btn" data-filter="em-analise">Em análise</button>
+    <input id="search" class="search" type="search" placeholder="Buscar indicador…" autocomplete="off">
+  </div>
+
+  <div id="grid"></div>
+
+  <footer>
+    Manutenção pelo time AI Labs · Sugestões em <a href="mailto:ai.labs@somagrupo.com.br">ai.labs@somagrupo.com.br</a>
+  </footer>
+
+  <script>
+    // ========================================================================
+    // Dicionário de indicadores — fonte da verdade
+    // ========================================================================
+    // Cada item: { id, nome, status, tabelas[], formula, comoFunciona, observacoes[] }
+    // status: 'homologado' | 'em-analise' | 'depreciado'
+    // Para adicionar/atualizar um indicador, edite este array.
+    // ========================================================================
+    const indicadores = [
+      {
+        id: 'receita',
+        nome: 'Receita Líquida',
+        tipo: 'metrica',
+        status: 'homologado',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO'],
+        formula: 'Σ VALOR_PAGO_PROD',
+        comoFunciona: 'Soma do valor pago em cada item, já líquido de descontos. Devoluções entram com sinal negativo — o total reflete o resultado comercial real do período.',
+        observacoes: ['Não inclui frete.']
+      },
+      {
+        id: 'cmv',
+        nome: 'CMV (Custo da Mercadoria Vendida)',
+        tipo: 'metrica',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO', 'silver_linx.PRODUTOS_PRECOS'],
+        formula: 'Σ ((QTDE_PROD − QTDE_TROCA_PROD) × custo_unitário)\n\ncusto_unitário = COALESCE(CT.PRECO1, C0.PRECO1)',
+        comoFunciona: 'Para cada peça vendida líquida (descontando trocas), multiplica pelo custo cadastrado. Tenta primeiro a tabela "CT" (custo padrão); se NULL, cai no "C0" (fallback).',
+        observacoes: ['Não inclui despesas variáveis (impostos, comissões, frete).']
+      },
+      {
+        id: 'maco',
+        nome: 'MACO / Margem Bruta',
+        tipo: 'metrica',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO', 'silver_linx.PRODUTOS_PRECOS'],
+        formula: 'maco_rs  = Receita − CMV\nmaco_pct = (Receita − CMV) / Receita',
+        comoFunciona: 'Quanto sobra da receita depois de pagar o custo do produto. Sempre apresentar valor em R$ e em %.',
+        observacoes: []
+      },
+      {
+        id: 'markup',
+        nome: 'Markup',
+        tipo: 'metrica',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO', 'silver_linx.PRODUTOS_PRECOS'],
+        formula: 'Markup = Receita / CMV',
+        comoFunciona: 'Quantas vezes a receita é maior que o custo. 3,5× = receita 3,5 vezes o CMV.',
+        observacoes: []
+      },
+      {
+        id: 'ticket-medio',
+        nome: 'Ticket Médio',
+        tipo: 'metrica',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO'],
+        formula: 'Ticket Médio = Receita / COUNT(DISTINCT chave_pedido)',
+        comoFunciona: 'Receita média por pedido. A "chave_pedido" usa PEDIDO_SITE quando existe (ecom/omni); para vendas físicas, compõe data + filial + ticket.',
+        observacoes: []
+      },
+      {
+        id: 'pa',
+        nome: 'PA (Peças por Atendimento)',
+        tipo: 'metrica',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO'],
+        formula: 'PA = Σ QTDE_PROD / COUNT(DISTINCT chave_pedido)',
+        comoFunciona: 'Quantas peças, em média, o cliente leva por compra.',
+        observacoes: []
+      },
+      {
+        id: 'taxa-desconto',
+        nome: 'Taxa de Desconto',
+        tipo: 'metrica',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO'],
+        formula: 'Taxa = Σ (−DESCONTO_PROD) / (Receita + Σ (−DESCONTO_PROD))',
+        comoFunciona: 'Quanto da receita potencial foi cedida em desconto. Compara contra o "valor cheio" hipotético antes do abatimento.',
+        observacoes: []
+      },
+      {
+        id: 'taxa-devolucao',
+        nome: 'Taxa de Devolução',
+        tipo: 'metrica',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO'],
+        formula: 'Taxa = receita_devolvida / receita_bruta\n(regime de faturamento — data da devolução)',
+        comoFunciona: 'Quanto retornou no período, independente de quando a venda original aconteceu (regime de faturamento, default).',
+        observacoes: []
+      },
+      {
+        id: 'atingimento',
+        nome: 'Atingimento de Meta',
+        tipo: 'metrica',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO', 'silver_linx.LOJAS_PREVISAO_VENDAS'],
+        formula: 'Atingimento = Receita realizada / PREVISAO_VALOR',
+        comoFunciona: 'Receita realizada (de TB_WANMTP) dividida pela meta cadastrada (de LOJAS_PREVISAO_VENDAS).',
+        observacoes: []
+      },
+      {
+        id: 'pecas',
+        nome: 'Peças Vendidas (líquidas)',
+        tipo: 'metrica',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO'],
+        formula: 'Peças = Σ (QTDE_PROD − QTDE_TROCA_PROD)',
+        comoFunciona: 'Unidades vendidas no período, descontando trocas. Devoluções entram com sinal negativo.',
+        observacoes: []
+      },
+      {
+        id: 'sale-off-colecao',
+        nome: 'Sale / Off / Coleção',
+        tipo: 'recorte',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO', 'silver_linx.PRODUTOS', 'soma-dl-refined-online.marketing.colecao'],
+        formula: 'fase = CASE\n  WHEN data_venda < DATA_OFF                    THEN "ON"\n  WHEN data_venda ≤ DATA_OFF + 6 meses          THEN "SALE"\n  ELSE                                               "OFF"\nEND',
+        comoFunciona: 'Quebra a venda pelo ciclo de vida da coleção. ON = preço cheio (antes do off). SALE = liquidação (6 meses após o off). OFF = pós-sale (outlet).',
+        observacoes: []
+      },
+      {
+        id: 'sss-loja-nova',
+        nome: 'SSS / Loja Nova',
+        tipo: 'recorte',
+        status: 'em-analise',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO', 'soma-dl-refined-online.soma_online_refined.sss_soma'],
+        formula: 'classificação = CASE\n  WHEN fl_sss = "S"  THEN "SSS"\n  WHEN fl_sss = "N"  THEN "Loja Nova"\n  ELSE                    "Sem classificação"\nEND\n\n(snapshot único por período: última dt_referencia ≤ fim do período)',
+        comoFunciona: 'Separa vendas em lojas comparáveis (SSS — abertas há tempo suficiente para entrar na base de comparação) das vendas em lojas novas. Aplica um snapshot fixo por período de análise.',
+        observacoes: []
+      },
+      {
+        id: 'canal',
+        nome: 'Canal (Físico / Digital)',
+        tipo: 'recorte',
+        status: 'homologado',
+        tabelas: ['silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO'],
+        formula: 'canal = CASE\n  WHEN TIPO_VENDA = "VENDA_LOJA"  THEN "Físico"\n  ELSE                                  "Digital"\nEND\n\nDigital agrupa: VENDA_ECOM + VENDA_OMNI + VENDA_VITRINE',
+        comoFunciona: 'Classifica cada venda pelo canal de origem do pedido. Físico = vendas em loja. Digital agrupa ecommerce, omni (origem digital com fulfillment físico) e vitrine (assistida em loja com fulfillment via ecom).',
+        observacoes: []
+      }
+    ];
+
+    // ========================================================================
+    // Render
+    // ========================================================================
+    const STATUS_LABELS = {
+      'homologado': 'Homologado',
+      'em-analise': 'Em análise',
+      'depreciado': 'Depreciado'
+    };
+
+    function escapeHTML(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function renderCard(ind) {
+      const tabelasHtml = ind.tabelas.map(t => `<span class="source">${escapeHTML(t)}</span>`).join(' ');
+      const tipoLabel = ind.tipo === 'recorte' ? '<span class="card-tipo">Recorte / filtro</span>' : '';
+      const obsBlock = (ind.observacoes && ind.observacoes.length > 0) ? `
+          <div class="field">
+            <span class="field-label">Observações</span>
+            <div class="obs"><ul>${ind.observacoes.map(o => `<li>${o}</li>`).join('')}</ul></div>
+          </div>` : '';
+      return `
+        <article class="card" data-status="${ind.status}" data-tipo="${ind.tipo || 'metrica'}" data-name="${escapeHTML(ind.nome.toLowerCase())}">
+          <div class="card-head">
+            <div class="card-title-block">
+              <h2 class="card-name">${escapeHTML(ind.nome)}</h2>
+              ${tipoLabel}
+            </div>
+            <span class="badge ${ind.status}">${STATUS_LABELS[ind.status]}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Tabela${ind.tabelas.length > 1 ? 's' : ''} de origem</span>
+            <div>${tabelasHtml}</div>
+          </div>
+          <div class="field">
+            <span class="field-label">Como funciona</span>
+            <div class="field-value">${escapeHTML(ind.comoFunciona)}</div>
+          </div>
+          <div class="field">
+            <span class="field-label">Fórmula</span>
+            <pre class="formula">${escapeHTML(ind.formula)}</pre>
+          </div>${obsBlock}
+        </article>
+      `;
+    }
+
+    function render() {
+      const grid = document.getElementById('grid');
+      const filter = document.querySelector('.filter-btn.active').dataset.filter;
+      const search = document.getElementById('search').value.trim().toLowerCase();
+      const filtered = indicadores.filter(ind => {
+        if (filter !== 'all' && ind.status !== filter) return false;
+        if (search && !ind.nome.toLowerCase().includes(search) && !ind.formula.toLowerCase().includes(search) && !ind.comoFunciona.toLowerCase().includes(search)) return false;
+        return true;
+      });
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="empty-state">Nenhum indicador encontrado.</div>';
+        return;
+      }
+      grid.innerHTML = filtered.map(renderCard).join('');
+    }
+
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        render();
+      });
+    });
+
+    // Search
+    document.getElementById('search').addEventListener('input', render);
+
+    // User chip
+    function getSessionEmail() {
+      const match = document.cookie.match(/session=([^;]+)/);
+      if (!match) return null;
+      const raw = decodeURIComponent(match[1]);
+      const parts = raw.split('~');
+      return parts.length >= 3 ? parts[0] : null;
+    }
+    document.getElementById('user-info').textContent = getSessionEmail() ?? '—';
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>

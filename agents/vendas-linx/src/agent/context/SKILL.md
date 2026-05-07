@@ -74,6 +74,8 @@ bq ls PROJECT:DATASET
 - Canal (§2: mapeamento tipo_venda → Físico/Online)
 - PA, ticket, contagem de atendimentos (§3: chave_pedido via pacote tratado)
 - Markup ou margem (§4: correção de sinal do CMV)
+- **Sale/Off/Coleção / fase de venda (§16):** join com `marketing.colecao` + regra ON/SALE/OFF. **MACO e Markup da fase OFF tendem a aparecer artificialmente altos** (custo desatualizado em produtos antigos subestima CMV e infla margem) — **sempre reportar com aviso explícito (ver §16.6).**
+- **SSS / Loja Nova (§17):** join com `sss_soma` usando snapshot único por período (último `dt_referencia` ≤ fim do período). Usar **apenas `fl_sss`** (não `fl_sss_comp`). Vendas sem match caem em "Sem classificação" (ecom, lojas pós-snapshot) — reportar em bloco separado, nunca somar com SSS ou Loja Nova.
 
 For full schema context → read `schema.md`
 For all business rules, canonical formulas, and analysis templates → read `business-rules.md`

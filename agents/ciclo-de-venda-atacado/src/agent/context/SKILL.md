@@ -344,6 +344,26 @@ Nunca ordenar por nome alfabético nem pelo número do ano no nome. Quando o eix
 
 ---
 
+## Dados em dashboards: totais devem vir de query agregada
+
+Um valor de total exibido ao usuário (ex: total do representante, total da marca) deve originar de uma query explicitamente agregada nesse nível. Nunca somar proativamente os rows de detalhe por conta própria — diferenças de arredondamento, nulos e deduplicação podem fazer o somatório manual divergir do valor correto.
+
+Se a query executada for por cliente e o dashboard também precisar exibir o total do representante, executar uma segunda query agregada no nível do representante:
+
+```sql
+-- query de detalhe (já executada)
+SELECT CLIENTE, CLIFOR, SUM(VENDA_ORIGINAL) AS venda
+FROM ... GROUP BY CLIENTE, CLIFOR
+
+-- segunda query: total do representante — mesmos filtros, grão diferente
+SELECT SUM(VENDA_ORIGINAL) AS venda_total
+FROM ... -- filtros idênticos
+```
+
+Embutir cada resultado em seu próprio `html_data_block` e referenciar blocos distintos no `refresh_spec`.
+
+---
+
 ## Publicação com refresh garantido
 
 Quando o usuário pedir `publicar_dashboard`, passar args **em inglês** (a tool rejeita `titulo`, `marca`, `periodo`):
@@ -409,3 +429,4 @@ Tags em slug-case (lowercase, sem acento, hífen). Não inventar sinônimos.
 | 2026-04-30 | Expansão para 14 tabelas — adicionados sub-sistemas Financeiro (info_financeira), Somaplace (cadastro_somaplace, venda_somaplace) e Afiliados (afiliados_multimarca, afiliados_vendas, afiliados_vendedores). |
 | 2026-05-04 | Adição: proibição de expor nomes técnicos ao usuário; formatação de coleções com acento (VERÃO/ALTO VERÃO); ordenação de coleções em gráficos; normalização de cidades (remover acentos e ç). |
 | 2026-05-04 | Custo de query não deve ser exibido ao usuário final — estimativa permanece como validação interna; gate de confirmação de custo removido do fluxo de atendimento. |
+| 2026-05-07 | Adição: totais em dashboards devem vir de query explicitamente agregada no grão correto — nunca somar rows de detalhe por conta própria. Segunda query com mesmos filtros e grão diferente quando necessário. |

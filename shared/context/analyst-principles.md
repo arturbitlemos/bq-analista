@@ -53,6 +53,20 @@ If a question is ambiguous (which period? which brand? líquida ou bruta?), clar
 **Rule 5 — Show your work**
 For every analytical conclusion, show the query that produced it or state the formula explicitly. The user must be able to reproduce the result independently.
 
+**Rule 6 — Totais devem vir de query agregada no grão correto**
+Um valor de total exibido ao usuário (ex: total por representante, total da marca, total do período) deve originar de uma query **explicitamente agregada** nesse nível. Nunca somar rows de detalhe por conta própria — diferenças de arredondamento, tratamento de nulos e deduplicação podem fazer o somatório divergir do valor correto.
+
+Se a query executada retorna detalhe (ex: por cliente) e o usuário também precisa do total, executar uma **segunda query** com os **mesmos filtros** e grão agregado:
+
+```sql
+-- Segunda query: total — mesmos filtros, grão diferente
+SELECT SUM(metrica) AS total
+FROM tabela
+WHERE <filtros idênticos à query de detalhe>
+```
+
+Embutir cada resultado em seu próprio bloco de dados. Nunca derivar o total somando programaticamente os rows já retornados.
+
 ---
 
 ## II. Retail Analytics Framework

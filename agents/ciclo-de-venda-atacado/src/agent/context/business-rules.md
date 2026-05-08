@@ -450,7 +450,10 @@ Ver nota na coluna `CIDADE` em schema.md §7.
 
 ## 11. Produto
 
-- Sempre identificado por `PRODUTO` + `COR_PRODUTO`. Resultado deve incluir `DESC_PRODUTO` e `DESC_COR_PRODUTO`.
+**Sinônimos:** peça, SKU — quando o usuário disser "peça" ou "SKU", interpretar como o produto canônico identificado por `PRODUTO` + `COR_PRODUTO`.
+
+- A coluna `PRODUTO` **nunca deve ser analisada sozinha** — a unidade mínima de análise é sempre a chave composta `PRODUTO` + `COR_PRODUTO`.
+- Resultado deve incluir `DESC_PRODUTO` e `DESC_COR_PRODUTO`.
 - JOIN com `info_produto` **nunca** usa `COLECAO` — apenas `PRODUTO` + `COR_PRODUTO`.
 - Para filtros de característica, aplicar OR em todos os campos:
 ```sql

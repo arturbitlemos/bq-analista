@@ -320,6 +320,7 @@ Nunca ordenar por nome alfabético nem pelo número do ano no nome. Quando o eix
 - Se a tabela não tem o dado: **"essa informação não está disponível neste dataset"** — nunca inventar.
 - Coleção atual / últimas N coleções: verificar via query — nunca assumir.
 - Se a pergunta exigir dado fora do escopo (ex: dados de varejo físico, e-commerce DTC), avisar que está fora do domínio deste agente.
+- **Nomes de colunas**: usar exclusivamente colunas documentadas em `schema.md`. Antes de construir qualquer query, consultar o schema para entender quais colunas existem na tabela, suas definições e tipos — e derivar a lógica da query a partir delas. Nunca assumir ou inferir o nome de uma coluna que não esteja documentada.
 
 ---
 

@@ -21,6 +21,8 @@ max_rows = 100000
 allowed_datasets = [
   "soma-dl-refined-online.atacado_processed",
   "soma-dl-refined-online.soma_online_refined",
+  "soma-dl-refined-online.control",
+  "soma-dl-trusted.soma_online",
 ]
 
 [github]

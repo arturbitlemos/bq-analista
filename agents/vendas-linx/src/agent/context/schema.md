@@ -1,17 +1,25 @@
-# Schema Reference — Azzas 2154 BigQuery (Linx silver)
+# Schema Reference — Azzas 2154 BigQuery
 
 > Living doc. Atualize depois de cada sessão onde descobrir tabelas, colunas ou valores novos.
+>
+> **Projetos acessíveis:**
+> - `soma-pipeline-prd` — vendas, filiais, produtos, preços, estoque, cota (dataset: `silver_linx`)
+> - `apt-bonbon-179602` — vendedores, cota vendedor (dataset: `atelier`)
+> - `soma-dl-refined-online` — captação, fluxo, branches (dataset: `soma_online_refined`)
+>
+> **🔴 VISÃO DEFAULT = FATURADO.** Usar `refined_captacao` somente sob pedido explícito ("captado", "+vendas"). Ver business-rules.md §11.
+>
 
 **Dataset principal:** `soma-pipeline-prd.silver_linx`
 **Todas as tabelas são EXTERNAL** — não há partitioning nativo. Filtre sempre pelas colunas `DATA_*` correspondentes para controlar scan. Todas carregam 4 colunas de CDC no fim (`pk_merge`, `op`, `data_cdc`, `ts_ms`) — ignore-as em análise.
 
 ---
 
-## 1. Vendas — `TB_WANMTP_VENDAS_LOJA_CAPTADO`
+## 1. Vendas (Faturado) — `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO`
 
 **Full path:** `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO`
 **Grão:** 1 linha por item vendido (produto × cor × tamanho × ticket × filial).
-**Data column:** `DATA_VENDA` (DATE).
+**Data column:** `DATA_VENDA` (DATE) — **tabela PARTICIONADA por esta coluna** (filtro obrigatório e eficiente).
 
 ### Colunas por categoria
 
@@ -19,7 +27,7 @@
 | Coluna | Tipo | Uso |
 |---|---|---|
 | `DATA_VENDA` | DATE | ✅ **Filtro padrão** — data da venda |
-| `DATA_VENDA_RELATIVA` | DATE | Data ajustada p/ comparativo (ano anterior etc.) |
+| `DATA_VENDA_RELATIVA` | DATE | 🚫 **NULL em produção — não usar.** Para LY usar `DATE_SUB(DATA_VENDA, INTERVAL 1 YEAR)` |
 | `DATA_VENDA_TICKET` | DATE | Data do ticket (p/ FISICO) |
 | `DATA_DIGITACAO` | DATE | Data em que a venda foi digitada no sistema |
 | `DATA_DESATIVACAO` | DATE | Data de desativação (cancelamento) |
@@ -700,26 +708,7 @@ WHERE v.DATA_VENDA BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT
 GROUP BY 1
 ```
 
----
-
-## 9. Gotchas conhecidos e a validar
-
-- **Valores financeiros como STRING**: `PRODUTOS_PRECOS.PRECO1..4`, `LOJAS_PREVISAO_VENDAS.VENDA/PREVISAO_VALOR/CUSTO/DESCONTO`, `ANMN_ESTOQUE_HISTORICO_PROD.PRECO_VAREJO`. Sempre `SAFE_CAST(... AS NUMERIC)`.
-- **`TAMANHO` em vendas é INTEGER posicional** — precisa de `PRODUTOS.GRADE` → `PRODUTOS_TAMANHOS.TAMANHO_n` para virar label (`"P"`, `"M"`, `"38"`…).
-- **`RL_*` em vendas tem tipos mistos** (STRING e INTEGER dependendo do campo) — cast consistente no JOIN com LOJAS_REDE.
-- **`CODIGO_FILIAL_*` × `FILIAIS`** — vendas usa `CODIGO_FILIAL_*` (com sufixo), FILIAIS usa `COD_FILIAL` (abreviado) p/ código e `FILIAL` p/ NOME. Nomes parecidos, strings SQL distintas. Ver §4.
-- **`DESCONTO_PROD`** — **armazenado negativo** (validado). `SUM(DESCONTO_PROD)` dá desconto como valor negativo.
-- **Sem partition nativo** — filtros em `DATA_VENDA` / `DATA` são obrigatórios mas NÃO particionam; scan é linear no volume total. Cuidado redobrado em estoque.
-- **CDC trailing cols** (`pk_merge`, `op`, `data_cdc`, `ts_ms`): ignorar em análise. `op = 'D'` pode indicar registro deletado — investigar se necessário filtrar.
-
----
-
-## 10. Pendências (abertas)
-
-- [ ] **10.1 Definir a regra de alocação de canal (Físico × Online)** no modelo Linx — a regra antiga do `refined_captacao` (baseada em `tipo_venda`) não se traduz direto. Candidatos: combinar `TIPO_VENDA` (VENDA_LOJA/VENDA_ECOM/VENDA_OMNI/VENDA_VITRINE) + `SUB_TIPO_VENDA` + indicadores `INDICA_ORIGEM_ECOM` / `INDICA_DESTINO_ECOM` / `INDICA_FAT_ECOM` / `INDICA_PEDIDO_VITRINE` + `SELLER` para identificar marketplace externo. Pendente de decisão do usuário.
-- [ ] **10.2 Regra "excluir franquia física"** no Linx — no modelo antigo era `tipo_venda=FISICO AND programa=franquia`. Candidatos: `FILIAIS.INDICA_FRANQUIA` ou `FILIAIS.FILIAL_PROPRIA`. Pendente de decisão do usuário.
-
-## 11. Filiais Ecommerce por marca — mapeamento cota × venda (validado 2026-04-21)
+## 9. Filiais Ecommerce por marca — mapeamento cota × venda (validado 2026-04-21)
 
 > **Contexto:** cada marca tem filiais dedicadas a ecommerce no Linx. A cota digital é registrada nessas filiais em `LOJAS_PREVISAO_VENDAS`, e as vendas digitais saem de `TB_WANMTP_VENDAS_LOJA_CAPTADO` com `TIPO_VENDA IN ('VENDA_ECOM','VENDA_OMNI','VENDA_VITRINE')`.
 >
@@ -814,7 +803,7 @@ ORDER BY 1
 
 ---
 
-## 12. Validações já fechadas (2026-04-18)
+## 10. Validações já fechadas (2026-04-18)
 
 - ✅ Join `vendas.CODIGO_FILIAL_DESTINO = FILIAIS.COD_FILIAL` (default) — 11/11 match em amostra (validação original rodada com `CODIGO_FILIAL_ORIGEM`; mesma convenção de `COD_FILIAL`). `FILIAIS.FILIAL` é nome, não código.
 - ✅ `DESCONTO_PROD` é armazenado **negativo** (~99% das linhas não-zero).
@@ -832,3 +821,195 @@ ORDER BY 1
   8. OUTLET (6) — R$ 6,8M, 15 lojas *(antes "OFF PREMIUM")*
   9. FABULA (5) — R$ 2,6M, 12 lojas
   10. FARM ETC (26) — R$ 1,9M, 5 lojas
+
+
+---
+
+## 11. Captação — `soma-dl-refined-online.soma_online_refined.refined_captacao`
+
+> ⚠️ **Usar SOMENTE quando o usuário pedir explicitamente "captado", "+vendas", "mais vendas".** Ver business-rules-v2.md §11.
+
+**Full path:** `` `soma-dl-refined-online.soma_online_refined.refined_captacao` ``
+**Grão:** 1 linha por item captado (produto × cor × tamanho × ticket × filial).
+**Data column:** `data_evento` (TIMESTAMP).
+
+| Coluna | Tipo | Uso |
+|---|---|---|
+| `data_evento` | TIMESTAMP | Data do evento (CAST AS DATE para análise) |
+| `data_faturamento` | TIMESTAMP | Data do faturamento — usar para match de MALA |
+| `data_venda_original` | TIMESTAMP | Data original da venda |
+| `codigo_filial_evento` | STRING | Filial onde ocorreu o evento |
+| `codigo_filial_faturamento` | STRING | Filial de faturamento |
+| `codigo_filial_mais_vendas` | STRING | ✅ **Filial de atribuição** ("+vendas") — equivalente a CODIGO_FILIAL_DESTINO |
+| `rede_lojas_mais_vendas` | INTEGER | Rede/marca de atribuição da venda. Não necessariamente é a rede/marca de codigo_filial_mais_vendas ou do produto-cor. |
+| `pacote` | STRING | Ticket (equivalente a TICKET na faturada) |
+| `produto` | STRING | Código do produto |
+| `produto_cor` | STRING | Código da cor |
+| `tamanho` | STRING | Tamanho |
+| `grade_produto` | STRING | Posição na grade |
+| `quantidade` | INTEGER | Peças (negativo = devolução) |
+| `valor_pago_produto` | DOUBLE | Receita líquida (equivalente a VALOR_PAGO_PROD) |
+| `valor_produto` | DOUBLE | Valor do produto na data do evento |
+| `tipo_venda` | STRING | Valores: `FISICO`, `ONLINE`, `DEVOLUCAO`, NULL |
+| `status_evento` | STRING | `CAPTURADO` ou `CANCELADO` |
+| `ultimo_status` | STRING | `FATURADO`, `CAPTURADO`, `CANCELADO` |
+| `vendedor` | STRING | Código do vendedor |
+| `cpf_cliente` | STRING | 🔴 PII — código do cliente |
+| `programa` | STRING | `próprio`, `multimarca`, etc. |
+| `seller_fulfillment` | STRING | Seller de fulfillment |
+| `tipo_seller` | STRING | Tipo de seller |
+| `tipo_transacao` | STRING | Tipo de transação |
+| `id_item` | INTEGER | ID do item |
+| `id_status` | INTEGER | ID do status |
+
+**Filtros obrigatórios — ver business-rules.md §11.2:**
+- `ultimo_status <> 'CANCELADO' OR valor_pago_produto <> 0`
+- INNER JOIN com `refined_branches` WHERE `programa_filial = 'próprio'`
+
+---
+
+## 12. Branches — `soma-dl-refined-online.soma_online_refined.refined_branches`
+
+**Full path:** `` `soma-dl-refined-online.soma_online_refined.refined_branches` ``
+**Uso:** Filtrar filiais próprias na visão captado. INNER JOIN obrigatório com `refined_captacao`.
+
+| Coluna | Tipo | Uso |
+|---|---|---|
+| `codigo_filial` | STRING | Código da filial — join com `refined_captacao.codigo_filial_mais_vendas` |
+| `nome` | STRING | Nome da filial |
+| `programa_filial` | STRING | ✅ Filtro: `'próprio'` para excluir multimarcas/franquias |
+| `rede_lojas` | STRING | Código da marca |
+
+**Filtro canônico:**
+```sql
+SELECT codigo_filial, nome
+FROM `soma-dl-refined-online.soma_online_refined.refined_branches`
+WHERE programa_filial = 'próprio'
+```
+
+---
+
+## 13. Vendedores — `apt-bonbon-179602.atelier.vendedor`
+
+**Full path:** `` `apt-bonbon-179602.atelier.vendedor` ``
+**Grão:** 1 linha por vendedor.
+
+| Coluna | Tipo | Uso |
+|---|---|---|
+| `id_vendedor` | BIGINT | Surrogate key interna — **NÃO bate com VENDEDOR da venda** |
+| `vendedor` | STRING | ✅ Código do vendedor (ex: "M001", "T001") — **bate com VENDEDOR da tabela de vendas** |
+| `codigo_filial` | STRING | Filial do vendedor |
+| `data_ativacao` | DATE | Data de ativação |
+| `data_desativacao` | DATE | Data de desativação (NULL = ativo) |
+| `desc_cargo` | STRING | Cargo |
+| `cpf` | STRING | 🔴 PII |
+| `vendedor_apelido` | STRING | Nome/apelido do vendedor |
+
+**Filtros úteis:**
+```sql
+-- Vendedores ativos
+WHERE data_desativacao IS NULL
+  AND vendedor_apelido != 'ATEND PADRAO'
+  AND vendedor_apelido IS NOT NULL
+```
+
+> ⚠️ **Join com vendas:** `TB_WANMTP_VENDAS_LOJA_CAPTADO.VENDEDOR = vendedor.vendedor` (campo STRING "M001", não o id_vendedor BIGINT).
+
+---
+
+## 14. Cota por Vendedor — `apt-bonbon-179602.atelier.lojas_previsao_vendas_vendedor`
+
+**Full path:** `` `apt-bonbon-179602.atelier.lojas_previsao_vendas_vendedor` ``
+**Grão:** 1 linha por vendedor × dia.
+
+| Coluna | Tipo | Uso |
+|---|---|---|
+| `id_vendedor` | BIGINT | FK → `vendedor.id_vendedor` (surrogate, NÃO é o código) |
+| `data_venda` | TIMESTAMP_NTZ | Data da cota (CAST AS DATE) |
+| `previsao_valor` | DOUBLE | Valor da cota para o dia |
+
+> ⚠️ **Obrigatório JOIN com `vendedor`** para obter o código que bate com a tabela de vendas. Ver business-rules.md §12.5.
+
+```sql
+SELECT vnd.vendedor, SUM(cota.previsao_valor) AS cota_total
+FROM `apt-bonbon-179602.atelier.lojas_previsao_vendas_vendedor` cota
+INNER JOIN `apt-bonbon-179602.atelier.vendedor` vnd ON cota.id_vendedor = vnd.id_vendedor
+WHERE CAST(cota.data_venda AS DATE) BETWEEN :data_inicio AND :data_fim
+GROUP BY 1
+```
+
+---
+
+## 15. Fluxo de Loja — `soma-dl-refined-online.soma_online_refined.seed_fluxo_loja`
+
+**Full path:** `` `soma-dl-refined-online.soma_online_refined.seed_fluxo_loja` ``
+**Grão:** 1 linha por filial × dia.
+
+| Coluna | Tipo | Uso |
+|---|---|---|
+| `Data` | DATE | Data do fluxo |
+| `DS_site_id_nome` | STRING | Nome da filial — ⚠️ **requer normalização** para join com vendas |
+| `Visitantes` | INTEGER | Quantidade de visitantes |
+
+> ⚠️ **Normalização obrigatória de nomes** — ver business-rules.md §13 para regex de acentos, BUZIOS, MF, sufixo CM.
+
+---
+
+## 16. Reservas (Mala) — `soma-pipeline-prd.silver_linx.LOJA_RESERVA`
+
+**Full path:** `soma-pipeline-prd.silver_linx.LOJA_RESERVA`
+**Uso:** Marcar vendas como MALA (§5 de business-rules.md).
+
+| Coluna | Tipo | Uso |
+|---|---|---|
+| `codigo_cliente` | STRING | CPF/código do cliente |
+| `filial` | STRING | Nome da filial (join com FILIAL_DESTINO) |
+| `emissao` | DATE | Data de emissão da mala |
+| `encerramento` | DATE | Data de encerramento (NULL = mala aberta) |
+
+**Filtros obrigatórios:**
+- `encerramento IS NOT NULL` — reserva deve estar encerrada
+- `codigo_cliente IS NOT NULL`
+
+> ⚠️ **Para match de mala, usar DATA DE FATURAMENTO** (não data_evento). Ver business-rules.md §5.
+
+---
+
+## 17. Preço por Cor — `soma-pipeline-prd.silver_linx.PRODUTOS_PRECO_COR`
+
+**Full path:** `soma-pipeline-prd.silver_linx.PRODUTOS_PRECO_COR`
+**Chave:** `(PRODUTO, COR_PRODUTO, CODIGO_TAB_PRECO)`.
+**Uso:** Preços específicos por cor — usar quando `PRODUTOS.VARIA_PRECO_COR = TRUE`. Ver business-rules.md §6.
+
+| Coluna | Tipo | Uso |
+|---|---|---|
+| `PRODUTO` | STRING | FK |
+| `COR_PRODUTO` | STRING | FK |
+| `CODIGO_TAB_PRECO` | STRING | Tabela de preço (CT, C0, VO, V) |
+| `PRECO1` | STRING | Preço (SAFE_CAST AS NUMERIC) |
+
+**Lógica de fallback (CMV):**
+```sql
+-- Se varia_preco_cor = TRUE: tentar produtos_preco_cor primeiro, fallback para produtos_precos
+-- Se varia_preco_cor = FALSE: usar produtos_precos diretamente
+-- Ver business-rules.md §6 para CTE completa
+```
+
+---
+
+## 18. Gotchas conhecidos e a validar
+
+- **Valores financeiros como STRING**: `PRODUTOS_PRECOS.PRECO1..4`, `LOJAS_PREVISAO_VENDAS.VENDA/PREVISAO_VALOR/CUSTO/DESCONTO`, `ANMN_ESTOQUE_HISTORICO_PROD.PRECO_VAREJO`. Sempre `SAFE_CAST(... AS NUMERIC)`.
+- **`TAMANHO` em vendas é INTEGER posicional** — precisa de `PRODUTOS.GRADE` → `PRODUTOS_TAMANHOS.TAMANHO_n` para virar label (`"P"`, `"M"`, `"38"`…).
+- **`RL_*` em vendas tem tipos mistos** (STRING e INTEGER dependendo do campo) — cast consistente no JOIN com LOJAS_REDE.
+- **`CODIGO_FILIAL_*` × `FILIAIS`** — vendas usa `CODIGO_FILIAL_*` (com sufixo), FILIAIS usa `COD_FILIAL` (abreviado) p/ código e `FILIAL` p/ NOME. Nomes parecidos, strings SQL distintas. Ver §4.
+- **`DESCONTO_PROD`** — **armazenado negativo** (validado). `SUM(DESCONTO_PROD)` dá desconto como valor negativo.
+- **Sem partition nativo** — filtros em `DATA_VENDA` / `DATA` são obrigatórios mas NÃO particionam; scan é linear no volume total. Cuidado redobrado em estoque.
+- **CDC trailing cols** (`pk_merge`, `op`, `data_cdc`, `ts_ms`): ignorar em análise. `op = 'D'` pode indicar registro deletado — investigar se necessário filtrar.
+
+---
+
+## 19. Pendências resolvidas
+
+- [x] **10.1 Canal (Físico × Online):** Resolvido — `TIPO_VENDA = 'VENDA_LOJA'` = FISICA, todo o resto = ONLINE. Padrão Maria Filó universal. Ver business-rules.md §2.
+- [x] **10.2 Excluir franquia:** Não aplicável na tabela `tb_wanmtp_vendas_loja_captado` (não contém franquias). Para análise captada, filtrar `programa_filial = 'próprio'` via `refined_branches`. Ver business-rules.md §11.2.

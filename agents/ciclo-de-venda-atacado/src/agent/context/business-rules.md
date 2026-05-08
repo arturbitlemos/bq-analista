@@ -148,6 +148,11 @@ Lista completa de valores válidos de `COORDENADOR` e seus aliases de entrada:
 
 Quando um nome for mencionado na pergunta e **não puder ser identificado como representante** (via `NOME_WISE`) **nem como coordenador** (via `COORDENADOR`), deve ser tratado como **cliente** e buscado no campo `CLIENTE` de `dim_clientes_v2` usando `LIKE '%NOME%'`, incluindo variações de acento.
 
+**Correspondência aproximada — validar com o usuário antes de prosseguir:**
+Se a busca não encontrar um cliente com nome idêntico ao mencionado, mas retornar nomes semelhantes, **não assumir** qual é o correto. Apresentar as opções ao usuário e confirmar antes de executar a análise:
+
+> "Não encontrei um cliente com o nome exato '[nome]'. Os mais próximos que encontrei foram: [lista]. Você se referia a algum deles?"
+
 ---
 
 ## 2. Tipo de venda — filtros padrão
@@ -445,7 +450,10 @@ Ver nota na coluna `CIDADE` em schema.md §7.
 
 ## 11. Produto
 
-- Sempre identificado por `PRODUTO` + `COR_PRODUTO`. Resultado deve incluir `DESC_PRODUTO` e `DESC_COR_PRODUTO`.
+**Sinônimos:** peça, SKU — quando o usuário disser "peça" ou "SKU", interpretar como o produto canônico identificado por `PRODUTO` + `COR_PRODUTO`.
+
+- A coluna `PRODUTO` **nunca deve ser analisada sozinha** — a unidade mínima de análise é sempre a chave composta `PRODUTO` + `COR_PRODUTO`.
+- Resultado deve incluir `DESC_PRODUTO` e `DESC_COR_PRODUTO`.
 - JOIN com `info_produto` **nunca** usa `COLECAO` — apenas `PRODUTO` + `COR_PRODUTO`.
 - Para filtros de característica, aplicar OR em todos os campos:
 ```sql
@@ -788,6 +796,10 @@ Multimarcas incluem produtos da coleção nos sites das marcas do grupo. 80% par
 **Sinônimos:** Gross Merchandise Volume, Volume Bruto de Vendas
 Valor bruto de vendas via Somaplace. Padrão de análise ("venda do programa"). Líquido só sob pedido explícito.
 
+### Praça
+**Sinônimos:** Cidade, Município, Local, Região de Venda
+Termo comercial usado para se referir a uma **cidade**. "Praça de Friburgo" = cidade de Nova Friburgo; "praça de Curitiba" = cidade de Curitiba. Sempre interpretar "praça" como `CIDADE` em `dim_clientes_v2`. Normalizar acentos antes de comparar (ver §16 e nota de normalização de cidades em §9).
+
 ### Produto
 **Sinônimos:** SKU, Item, Peça
 Identificado por `PRODUTO + COR_PRODUTO`. Segmento determina submarca quando `MARCA = 'FABULA'`.
@@ -1035,3 +1047,4 @@ WHERE avd.`data_desligamento` IS NULL
 | 2026-04-29 | Enriquecimento com contexto de negócio (Afiliados, Somaplace, Prateleira Infinita, ciclo operacional) e fluxo obrigatório de capilaridade. |
 | 2026-04-30 | Adição de §19–§21 (Financeiro, Somaplace, Afiliados). Revisão: correção de VALOR VENCIDO → VALOR_VENCIDO; GROUP BY inválido no aging; referência §9→§19 para bloqueio; sinônimos duplicados em glossário; tool `calculate` inexistente removida; Somaplace adicionado às exceções de filtro por data; terminologia GMV Afiliados corrigida para Venda Afiliados. |
 | 2026-05-04 | PRATELEIRA INFINITA - EXTERNO → EXTERNA (nomenclatura correta). Adição: FARM FUTURA iniciada no VERÃO 2026; FÁBULA e FARM PRAIA fora do ALTO INVERNO; regra de pulo de coleção; interpretação de "coleções de um ano"; janela de avaliação de Novo/Resgate (apenas coleções anteriores à referência). |
+| 2026-05-07 | Adição: "praça" como sinônimo de cidade (§18 Glossário); regra de validação com o usuário ao encontrar nome de cliente aproximado em vez de exato (§1.3). |

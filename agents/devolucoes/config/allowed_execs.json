@@ -21,7 +21,8 @@
       "nara.costa@somagrupo.com.br",
       "julia.tagliari@somagrupo.com.br",
       "gabrielly.chacara@somagrupo.com.br",
-      "jessica.vieira@somagrupo.com.br"
+      "jessica.vieira@somagrupo.com.br",
+      "roberto.jatahy@somagrupo.com.br"
     ],
     "notes": "Copy to allowed_execs.json and edit. Emails must match Azure AD upn exactly."
   }

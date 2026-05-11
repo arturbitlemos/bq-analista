@@ -6,6 +6,7 @@ from pathlib import Path
 
 SHARED_DOCS = [
     "analyst-principles.md",
+    "communication-principles.md",
     "pii-rules.md",
     "identidade-visual-azzas.md",
     "TEMPLATE.md",

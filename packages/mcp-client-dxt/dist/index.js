@@ -23148,10 +23148,13 @@ var ForwardError = class extends Error {
 };
 var pool = /* @__PURE__ */ new Map();
 async function forwardToolCall(p, factory = defaultFactory) {
+  const args = p.args ?? {};
   const cached2 = pool.get(p.agentUrl);
   if (cached2) {
     try {
-      return await cached2.callTool(p.tool, p.args ?? {});
+      const result = await cached2.callTool(p.tool, args, p.getAccessToken);
+      throwIfAuthErrorInPayload(result);
+      return result;
     } catch (err) {
       const translated = translateCallError(err);
       if (translated.kind === "auth_invalid") {
@@ -23175,7 +23178,9 @@ async function forwardToolCall(p, factory = defaultFactory) {
   }
   pool.set(p.agentUrl, session);
   try {
-    return await session.callTool(p.tool, p.args ?? {});
+    const result = await session.callTool(p.tool, args, p.getAccessToken);
+    throwIfAuthErrorInPayload(result);
+    return result;
   } catch (err) {
     const translated = translateCallError(err);
     if (translated.kind !== "forbidden") {
@@ -23185,7 +23190,18 @@ async function forwardToolCall(p, factory = defaultFactory) {
     throw translated;
   }
 }
+function throwIfAuthErrorInPayload(result) {
+  const r = result;
+  if (!r?.isError) return;
+  const text = (r.content ?? []).map((c) => c?.text ?? "").join(" ");
+  if (/invalid_token|token expired/i.test(text)) {
+    const err = new Error("invalid_token");
+    err.code = 401;
+    throw err;
+  }
+}
 function translateCallError(err) {
+  if (err instanceof ForwardError) return err;
   const e = err;
   if (typeof e.code === "number") {
     if (e.code === 401) return new ForwardError("auth_invalid", "unauthorized", 401);
@@ -23195,18 +23211,20 @@ function translateCallError(err) {
   }
   return new ForwardError("network", String(e.message ?? err));
 }
-async function defaultFactory(agentUrl, getAccessToken) {
+async function defaultFactory(agentUrl, initialGetter) {
+  let currentGetter = initialGetter;
   const transport = new StreamableHTTPClientTransport(new URL(`${agentUrl.replace(/\/$/, "")}/mcp`), {
     fetch: async (input, init) => {
       const headers = new Headers(init?.headers);
-      headers.set("Authorization", `Bearer ${getAccessToken()}`);
+      headers.set("Authorization", `Bearer ${currentGetter()}`);
       return fetch(input, { ...init, headers });
     }
   });
   const client = new Client({ name: "mcp-client-dxt", version: "1.0.0" });
   await client.connect(transport);
   return {
-    async callTool(name, args) {
+    async callTool(name, args, getAccessToken) {
+      currentGetter = getAccessToken;
       return await client.callTool({ name, arguments: args });
     },
     async close() {
@@ -23328,7 +23346,7 @@ async function openBrowser(url2) {
     setTimeout(() => settle(), 500);
   });
 }
-var DXT_VERSION = "1.0.12";
+var DXT_VERSION = "1.0.13";
 async function buildAuthResponse(baseMsg) {
   await new Promise((r) => setTimeout(r, 700));
   let text = baseMsg;

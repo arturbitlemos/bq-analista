@@ -22,13 +22,17 @@ export interface ForwardParams {
 }
 
 export interface ForwardSession {
-  callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
+  callTool(
+    name: string,
+    args: Record<string, unknown>,
+    getAccessToken: () => string,
+  ): Promise<unknown>;
   close(): Promise<void>;
 }
 
 export type ForwardSessionFactory = (
   agentUrl: string,
-  getAccessToken: () => string,
+  initialGetter: () => string,
 ) => Promise<ForwardSession>;
 
 const pool = new Map<string, ForwardSession>();
@@ -44,10 +48,13 @@ export async function forwardToolCall(
   p: ForwardParams,
   factory: ForwardSessionFactory = defaultFactory,
 ): Promise<unknown> {
+  const args = (p.args ?? {}) as Record<string, unknown>;
   const cached = pool.get(p.agentUrl);
   if (cached) {
     try {
-      return await cached.callTool(p.tool, (p.args ?? {}) as Record<string, unknown>);
+      const result = await cached.callTool(p.tool, args, p.getAccessToken);
+      throwIfAuthErrorInPayload(result);
+      return result;
     } catch (err) {
       const translated = translateCallError(err);
       // auth_invalid/forbidden are about credentials, not stale sessions —
@@ -76,7 +83,9 @@ export async function forwardToolCall(
   }
   pool.set(p.agentUrl, session);
   try {
-    return await session.callTool(p.tool, (p.args ?? {}) as Record<string, unknown>);
+    const result = await session.callTool(p.tool, args, p.getAccessToken);
+    throwIfAuthErrorInPayload(result);
+    return result;
   } catch (err) {
     const translated = translateCallError(err);
     if (translated.kind !== 'forbidden') {
@@ -87,7 +96,23 @@ export async function forwardToolCall(
   }
 }
 
+// Tool-level auth errors surface as JSON-RPC tool results with isError:true
+// (HTTP 200), not as HTTP 401. Detect the canonical OAuth "invalid_token" /
+// "token expired" message in the payload so the upstream reactive-refresh
+// path in index.ts can fire.
+function throwIfAuthErrorInPayload(result: unknown): void {
+  const r = result as { content?: Array<{ type?: string; text?: string }>; isError?: boolean };
+  if (!r?.isError) return;
+  const text = (r.content ?? []).map((c) => c?.text ?? '').join(' ');
+  if (/invalid_token|token expired/i.test(text)) {
+    const err = new Error('invalid_token') as Error & { code: number };
+    err.code = 401;
+    throw err;
+  }
+}
+
 function translateCallError(err: unknown): ForwardError {
+  if (err instanceof ForwardError) return err;
   const e = err as { code?: number; message?: string };
   if (typeof e.code === 'number') {
     if (e.code === 401) return new ForwardError('auth_invalid', 'unauthorized', 401);
@@ -100,19 +125,27 @@ function translateCallError(err: unknown): ForwardError {
 
 async function defaultFactory(
   agentUrl: string,
-  getAccessToken: () => string,
+  initialGetter: () => string,
 ): Promise<ForwardSession> {
+  // The pool caches one ForwardSession per agentUrl across calls. Each call
+  // arrives with its own getAccessToken closure (over the call's credsRef),
+  // so we route the Authorization header through a mutable ref that each
+  // callTool updates — otherwise the cached session would forever send the
+  // Bearer token captured at session creation, even after silent refresh
+  // rotated the access token on disk.
+  let currentGetter = initialGetter;
   const transport = new StreamableHTTPClientTransport(new URL(`${agentUrl.replace(/\/$/, '')}/mcp`), {
     fetch: async (input, init) => {
       const headers = new Headers(init?.headers);
-      headers.set('Authorization', `Bearer ${getAccessToken()}`);
+      headers.set('Authorization', `Bearer ${currentGetter()}`);
       return fetch(input, { ...init, headers });
     },
   });
   const client = new Client({ name: 'mcp-client-dxt', version: '1.0.0' });
   await client.connect(transport);
   return {
-    async callTool(name, args) {
+    async callTool(name, args, getAccessToken) {
+      currentGetter = getAccessToken;
       return await client.callTool({ name, arguments: args });
     },
     async close() {

@@ -790,7 +790,7 @@ Pessoa física recrutada por multimarca para divulgar as marcas via canais digit
 
 ### Somaplace
 **Sinônimos:** Marketplace Somaplace, Soma Marketplace, Marketplace
-Multimarcas incluem produtos da coleção nos sites das marcas do grupo. 80% para a multimarca, 20% para o grupo. Pagamento todo dia 13. GMV = `SUM(VALOR_PAGO)` onde `STATUS = 'CAPTURADO'`. GMV Líquido = sem filtros (cancelados e devoluções entram negativos). Comissão calculada sobre GMV Líquido. Cliente ativo = venda nos últimos 2 meses.
+Multimarcas incluem produtos da coleção nos sites das marcas do grupo. 80% para a multimarca, 20% para o grupo. Pagamento todo dia 13. GMV = `SUM(VALOR_PAGO)` onde `STATUS = 'CAPTURADO'`. GMV Líquido = sem filtros (cancelados e devoluções entram negativos). Comissão calculada sobre GMV Líquido. **Cliente ativo** = cadastrado em `cadastro_somaplace` + ao menos 1 transação `CAPTURADO` nos últimos 2 meses — ver §20 para queries completas e distinção ativo vs inativo.
 
 ### GMV
 **Sinônimos:** Gross Merchandise Volume, Volume Bruto de Vendas
@@ -930,11 +930,50 @@ FROM gmv_liq
 
 ### Cliente ativo no Somaplace
 
-Cliente com ao menos uma transação capturada nos **últimos 2 meses** (referência: `DATA`).
+Multimarca **cadastrada** em `cadastro_somaplace` que possui ao menos uma transação com `STATUS = 'CAPTURADO'` nos **últimos 2 meses** (campo `DATA` de `venda_somaplace`).
+
+> **Desambiguação:** "cliente ativo" ≠ "cliente cadastrado". Um cliente pode constar em `cadastro_somaplace` sem nunca ter gerado venda — não é considerado ativo.
+
+#### Classificação de atividade
+
+| Classificação | Critério |
+|---|---|
+| **Ativo** | Cadastrado + ao menos 1 `STATUS = 'CAPTURADO'` nos últimos 2 meses |
+| **Inativo** | Cadastrado + nenhuma transação `CAPTURADO` nos últimos 2 meses (inclui quem nunca vendeu) |
+
+#### Query — contagem de clientes ativos por marca
 
 ```sql
-WHERE `STATUS` = 'CAPTURADO'
-  AND `DATA` >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH)
+SELECT
+  cs.`MARCA`,
+  COUNT(DISTINCT cs.`CLIFOR`) AS clientes_ativos
+FROM `soma-dl-refined-online.atacado_processed.cadastro_somaplace` cs
+INNER JOIN `soma-dl-refined-online.atacado_processed.venda_somaplace` vs
+  ON cs.`CLIFOR` = vs.`CLIFOR` AND cs.`MARCA` = vs.`MARCA`
+WHERE vs.`STATUS` = 'CAPTURADO'
+  AND vs.`DATA` >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH)
+GROUP BY 1
+ORDER BY 2 DESC
+```
+
+#### Query — ativo vs inativo (todos os cadastrados)
+
+```sql
+SELECT
+  cs.`MARCA`,
+  cs.`CLIFOR`,
+  CASE
+    WHEN MAX(
+      CASE WHEN vs.`STATUS` = 'CAPTURADO'
+                AND vs.`DATA` >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH)
+           THEN 1 ELSE 0 END
+    ) = 1 THEN 'ATIVO'
+    ELSE 'INATIVO'
+  END AS status_atividade
+FROM `soma-dl-refined-online.atacado_processed.cadastro_somaplace` cs
+LEFT JOIN `soma-dl-refined-online.atacado_processed.venda_somaplace` vs
+  ON cs.`CLIFOR` = vs.`CLIFOR` AND cs.`MARCA` = vs.`MARCA`
+GROUP BY 1, 2
 ```
 
 ### Join cadastro → venda
@@ -961,16 +1000,22 @@ Programa de afiliados analisado via `afiliados_vendas` (tabela central), com JOI
 
 ### Venda Afiliados
 
-O campo `venda_liquida` já representa o valor líquido da transação. A métrica padrão é a **venda confirmada** (CAPTURADO + ONLINE); "líquida de cancelamento" = excluindo status CANCELADO via filtro.
+O campo `venda_liquida` já representa o valor líquido da transação. A métrica padrão é a **Venda Líquida de Cancelamento**: soma de venda confirmada (CAPTURADO + ONLINE) e cancelamentos (CANCELADO). Devoluções (`CAPTURADO + DEVOLUÇÃO`) são excluídas por padrão e só entram quando explicitamente solicitadas.
 
 ```sql
--- Venda confirmada (padrão)
-SELECT SUM(`venda_liquida`) AS venda_afiliados
+-- Venda Líquida de Cancelamento (PADRÃO)
+SELECT SUM(`venda_liquida`) AS venda_liquida_cancelamento
+FROM `soma-dl-refined-online.atacado_processed.afiliados_vendas`
+WHERE (`status_venda` = 'CAPTURADO' AND `tipo_venda` = 'ONLINE')
+   OR `status_venda` = 'CANCELADO'
+
+-- Apenas venda confirmada (sob pedido explícito)
+SELECT SUM(`venda_liquida`) AS venda_confirmada
 FROM `soma-dl-refined-online.atacado_processed.afiliados_vendas`
 WHERE `status_venda` = 'CAPTURADO' AND `tipo_venda` = 'ONLINE'
 
--- Venda líquida de cancelamento (confirmadas - devoluções)
-SELECT SUM(`venda_liquida`) AS venda_liquida_cancelamento
+-- Incluindo devoluções (sob pedido explícito)
+SELECT SUM(`venda_liquida`) AS venda_liquida_com_devolucao
 FROM `soma-dl-refined-online.atacado_processed.afiliados_vendas`
 WHERE `status_venda` = 'CAPTURADO'  -- inclui ONLINE e DEVOLUÇÃO
 ```
@@ -1048,3 +1093,5 @@ WHERE avd.`data_desligamento` IS NULL
 | 2026-04-30 | Adição de §19–§21 (Financeiro, Somaplace, Afiliados). Revisão: correção de VALOR VENCIDO → VALOR_VENCIDO; GROUP BY inválido no aging; referência §9→§19 para bloqueio; sinônimos duplicados em glossário; tool `calculate` inexistente removida; Somaplace adicionado às exceções de filtro por data; terminologia GMV Afiliados corrigida para Venda Afiliados. |
 | 2026-05-04 | PRATELEIRA INFINITA - EXTERNO → EXTERNA (nomenclatura correta). Adição: FARM FUTURA iniciada no VERÃO 2026; FÁBULA e FARM PRAIA fora do ALTO INVERNO; regra de pulo de coleção; interpretação de "coleções de um ano"; janela de avaliação de Novo/Resgate (apenas coleções anteriores à referência). |
 | 2026-05-07 | Adição: "praça" como sinônimo de cidade (§18 Glossário); regra de validação com o usuário ao encontrar nome de cliente aproximado em vez de exato (§1.3). |
+| 2026-05-12 | §20 Somaplace: expansão do conceito de cliente ativo — distinção cadastrado vs ativo vs inativo; queries completas de contagem e classificação adicionadas. Glossário §18 Somaplace atualizado com referência a §20. |
+| 2026-05-12 | §21 Afiliados: métrica padrão alterada para Venda Líquida de Cancelamento (CAPTURADO+ONLINE + CANCELADO). Devoluções excluídas por padrão — entram só sob pedido explícito. SKILL.md atualizado para refletir novo padrão. |

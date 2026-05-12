@@ -243,7 +243,7 @@ REGEXP_REPLACE(
 
 **Somaplace:** GMV Bruto = `SUM(VALOR_PAGO) WHERE STATUS = 'CAPTURADO'`. GMV Líquido = sem filtro de STATUS. Divisão 80%/20% calculada sobre GMV Líquido. Join cadastro × venda por `CLIFOR + MARCA`. Filtrar por `DATA` (não por COLECAO). Ver `business-rules.md §20`.
 
-**Afiliados:** classificar por `status_venda + tipo_venda` (CAPTURADO+ONLINE = venda; CAPTURADO+DEVOLUÇÃO = devolução; CANCELADO = cancelado). GMV = `SUM(venda_liquida) WHERE status_venda='CAPTURADO' AND tipo_venda='ONLINE'`. Vendedor digital identificado por `codigo_vendedor LIKE '7%'`. Nunca expor `cpf_vendedor` nem `nome_vendedor`. Ver `business-rules.md §21`.
+**Afiliados:** classificar por `status_venda + tipo_venda` (CAPTURADO+ONLINE = venda confirmada; CAPTURADO+DEVOLUÇÃO = devolução; CANCELADO = cancelado). Métrica padrão = **Venda Líquida de Cancelamento** = `SUM(venda_liquida) WHERE (status_venda='CAPTURADO' AND tipo_venda='ONLINE') OR status_venda='CANCELADO'`. Devoluções só incluídas sob pedido explícito. Vendedor digital identificado por `codigo_vendedor LIKE '7%'`. Nunca expor `cpf_vendedor` nem `nome_vendedor`. Ver `business-rules.md §21`.
 
 ---
 

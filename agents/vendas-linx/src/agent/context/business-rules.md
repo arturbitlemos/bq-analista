@@ -297,17 +297,18 @@ Um `LEFT JOIN` direto com `loja_reserva` pode gerar **multiplicação de linhas*
 ```sql
 SELECT v.*,
   CASE
-    WHEN EXISTS (
-      SELECT 1
-      FROM `soma-pipeline-prd.silver_linx.LOJA_RESERVA` r
-      WHERE r.codigo_cliente = v.CODIGO_CLIENTE
-        AND r.filial = v.FILIAL_DESTINO
-        AND v.DATA_VENDA >= r.emissao
-        AND v.DATA_VENDA <= DATE_ADD(r.encerramento, INTERVAL 7 DAY)
-        AND r.encerramento IS NOT NULL
-        AND r.codigo_cliente IS NOT NULL
-        AND r.codigo_cliente != ''
-    ) THEN TRUE
+    WHEN v.CODIGO_CLIENTE IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM `soma-pipeline-prd.silver_linx.LOJA_RESERVA` r
+        WHERE r.codigo_cliente = v.CODIGO_CLIENTE
+          AND r.filial = v.FILIAL_DESTINO
+          AND v.DATA_VENDA >= DATE(TIMESTAMP_MILLIS(r.emissao))
+          AND v.DATA_VENDA <= DATE_ADD(DATE(TIMESTAMP_MILLIS(r.encerramento)), INTERVAL 7 DAY)
+          AND r.encerramento IS NOT NULL
+          AND r.codigo_cliente IS NOT NULL
+          AND r.codigo_cliente != ''
+      ) THEN TRUE
     ELSE FALSE
   END AS mala
 FROM `soma-pipeline-prd.silver_linx.TB_WANMTP_VENDAS_LOJA_CAPTADO` v
@@ -320,16 +321,17 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 -- Na visão captado, o match de mala usa data_faturamento + filial (atribuição) + cpf_cliente
 SELECT v.*,
   CASE
-    WHEN EXISTS (
-      SELECT 1
-      FROM `soma-pipeline-prd.silver_linx.LOJA_RESERVA` r
-      WHERE r.codigo_cliente = v.cpf_cliente
-        AND r.filial = v.filial           -- filial de atribuição (codigo_filial_mais_vendas resolvido para nome)
-        AND CAST(v.data_faturamento AS DATE) >= r.emissao
-        AND CAST(v.data_faturamento AS DATE) <= DATE_ADD(r.encerramento, INTERVAL 7 DAY)
-        AND r.encerramento IS NOT NULL
-        AND r.codigo_cliente IS NOT NULL
-    ) THEN TRUE
+    WHEN v.cpf_cliente IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM `soma-pipeline-prd.silver_linx.LOJA_RESERVA` r
+        WHERE r.codigo_cliente = v.cpf_cliente
+          AND r.filial = v.filial           -- filial de atribuição (codigo_filial_mais_vendas resolvido para nome)
+          AND CAST(v.data_faturamento AS DATE) >= DATE(TIMESTAMP_MILLIS(r.emissao))
+          AND CAST(v.data_faturamento AS DATE) <= DATE_ADD(DATE(TIMESTAMP_MILLIS(r.encerramento)), INTERVAL 7 DAY)
+          AND r.encerramento IS NOT NULL
+          AND r.codigo_cliente IS NOT NULL
+      ) THEN TRUE
     ELSE FALSE
   END AS mala
 FROM refined_captacao_filtrado v
@@ -344,12 +346,20 @@ FROM refined_captacao_filtrado v
 |---|---|---|---|
 | `CODIGO_CLIENTE` | `cpf_cliente` | `codigo_cliente` | Igualdade (exclui NULL e vazio) |
 | `FILIAL_DESTINO` | `filial` (nome) | `filial` | Igualdade |
-| `DATA_VENDA` | `data_faturamento` ⚠️ | `emissao` / `encerramento` | `data_fat BETWEEN emissao AND encerramento + 7 dias` |
+| `DATA_VENDA` | `data_faturamento` ⚠️ | `emissao` / `encerramento` (INT64 ms → `DATE(TIMESTAMP_MILLIS(...))`) | `data_fat BETWEEN emissao AND encerramento + 7 dias` |
 
-### Filtros na reserva (obrigatórios)
+### Filtros obrigatórios
 
+**No lado da reserva (dentro do EXISTS):**
 - `encerramento IS NOT NULL` — reserva deve estar encerrada (mala devolvida/concluída)
 - `codigo_cliente IS NOT NULL AND codigo_cliente != ''` — precisa de identificação do cliente
+
+**No lado da venda (guard antes do EXISTS):**
+- Faturado: `v.CODIGO_CLIENTE IS NOT NULL` — evita avaliar EXISTS quando não há cliente identificado
+- Captado: `v.cpf_cliente IS NOT NULL` — idem
+
+> ⚠️ **Tipo das colunas `emissao` e `encerramento`:** são INT64 (Unix timestamp em milissegundos), não DATE.
+> Conversão obrigatória: `DATE(TIMESTAMP_MILLIS(r.emissao))` e `DATE(TIMESTAMP_MILLIS(r.encerramento))`.
 
 ### Métrica `venda_mala`
 
@@ -830,7 +840,10 @@ O campo `tipo_venda` em `refined_captacao` tem valores **diferentes** da tabela 
 - Faturado: `VENDA_LOJA`, `VENDA_ECOM`, `VENDA_OMNI`, `VENDA_VITRINE`
 - Captado (raw): `FISICO`, `ONLINE`, `DEVOLUCAO`, NULL
 
-**Regra de classificação (padrão Maria Filó — universal para todas as marcas):**
+**Regra de classificação (default — universal para todas as marcas):**
+
+> ✅ **Default:** `DEVOLUCAO` é agrupado com `ONLINE` (ambos = `VENDA ONLINE`).
+> Isso porque devoluções no captado representam cancelamentos/retornos de vendas digitais e devem ser contabilizadas junto com o canal online para o resultado líquido bater.
 
 ```sql
 CASE
@@ -839,9 +852,54 @@ CASE
 END AS tipo_venda_classificado
 ```
 
-### 11.5 Venda Normal vs Venda Código (captado)
+**Separar DEVOLUCAO (sob pedido explícito do usuário):**
 
-Mesma lógica do faturado (§2.3), mas usando o campo `filial` (nome da filial de atribuição):
+Se o usuário pedir para ver devoluções separadamente ("separar devoluções", "devolução à parte", "canal da devolução"), usar classificação em 3 categorias:
+
+```sql
+CASE
+  WHEN tipo_venda = 'DEVOLUCAO' THEN 'DEVOLUCAO'
+  WHEN tipo_venda = 'ONLINE' THEN 'VENDA ONLINE'
+  WHEN tipo_venda IS NULL OR tipo_venda NOT IN ('ONLINE', 'DEVOLUCAO') THEN 'VENDA FISICA'
+END AS tipo_venda_classificado
+```
+
+> ⚠️ Sem pedido explícito, **sempre** incluir DEVOLUCAO dentro de VENDA ONLINE (default).
+
+### 11.5 Obtendo o nome da filial (campo `filial`) no captado
+
+A tabela `refined_captacao` contém apenas o **código** da filial (`codigo_filial_mais_vendas`), não o nome. Para obter o nome legível — necessário para a lógica de Venda Código (§11.5.1) e para a marcação de MALA (§5) — fazer **INNER JOIN com `refined_branches`**:
+
+```sql
+-- refined_branches = soma-dl-refined-online.soma_online_refined.refined_branches (BigQuery)
+-- Filtra filiais próprias e obtém o nome
+INNER JOIN `soma-dl-refined-online.soma_online_refined.refined_branches` rb
+  ON v.codigo_filial_mais_vendas = rb.codigo_filial
+  AND rb.programa_filial = 'próprio'
+```
+
+**Resultado:** `rb.nome` → alias `filial` (nome da filial de atribuição).
+
+> **Nota:** O INNER JOIN com `programa_filial = 'próprio'` cumpre **duas funções simultâneas:**
+> 1. Obtém o nome da filial (`rb.nome`)
+> 2. Remove automaticamente vendas de multimarcas/franquias (filtro obrigatório — §11.2)
+>
+
+**Para filial de evento e filial de faturamento** (quando necessário), usar LEFT JOIN:
+
+```sql
+LEFT JOIN `soma-dl-refined-online.soma_online_refined.refined_branches` rb_evento
+  ON v.codigo_filial_evento = rb_evento.codigo_filial
+-- resultado: rb_evento.nome → alias filial_evento
+
+LEFT JOIN `soma-dl-refined-online.soma_online_refined.refined_branches` rb_fat
+  ON v.codigo_filial_faturamento = rb_fat.codigo_filial
+-- resultado: rb_fat.nome → alias filial_faturamento
+```
+
+### 11.5.1 Venda Normal vs Venda Código (captado)
+
+Mesma lógica do faturado (§2.3), mas usando o campo `filial` (nome obtido via §11.5):
 
 ```sql
 -- Venda Código: ONLINE atribuída a loja física (não-ECOMMERCE) → vendedor usou código

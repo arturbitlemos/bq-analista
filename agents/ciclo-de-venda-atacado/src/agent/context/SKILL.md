@@ -117,7 +117,7 @@ bq show --schema --format=prettyjson soma-dl-refined-online:atacado_processed.in
 
 # Amostrar dados antes de escrever SQL complexo
 bq query --use_legacy_sql=false \
-  'SELECT * FROM `soma-dl-refined-online.atacado_processed.info_venda` LIMIT 20'
+  'SELECT * FROM `soma-dl-refined-online.atacado_processed.info_venda`'
 
 # Listar tabelas do dataset
 bq ls soma-dl-refined-online:atacado_processed
@@ -195,6 +195,7 @@ Não atrasar com confirmações desnecessárias. Só perguntar quando:
 - ✅ Análise envolvendo cidades? Normalizar `CIDADE` removendo acentos e substituindo ç→c antes de comparar ou agrupar (ver "Casos especiais — Cidades" abaixo)?
 - ✅ Análise com "últimas N coleções"? Usar CTE canônica de `business-rules §5` — nunca hardcoded. Verificar se as coleções cobertas pela query estão corretas.
 - ✅ Análise filtrando por LINHA, GRUPO_PRODUTO, SUBGRUPO_PRODUTO, SOLUCAO ou TIPO_PRODUTO? Consultar valores distintos primeiro (business-rules §11) — nunca assumir o valor.
+- ✅ Resposta exibe total (qualquer formato)? Total vem do banco via `SUM(SUM(...)) OVER()` na própria query de detalhe — nunca somado manualmente (ver seção "Totais").
 
 #### Casos especiais
 
@@ -216,7 +217,7 @@ WHERE v.TIPO_VENDA IN ('VENDA', 'PRE VENDA', 'REDISTRIBUIÇÃO')
 
 **Faturamento:** quando pedido, trazer sempre Bruto e Líquido discriminados (ver `business-rules.md §8`). Curva de faturamento → usar Faturamento Líquido.
 
-**Markup realizado:** `Σ(VENDA_ORIGINAL × markup) / Σ(VENDA_ORIGINAL)`. Markup extraído de `TABELA_MKP` (número após "VENDA ATACADO"); sem número → 2.2.
+**Markup realizado:** `Σ(VENDA_ORIGINAL × markup) / Σ(VENDA_ORIGINAL)`. Markup extraído de `TABELA_MKP` (número após "VENDA ATACADO"); sem número → 2.2. Ver §6 e §18.
 
 **Meta e atingimento:**
 ```sql
@@ -235,7 +236,7 @@ REGEXP_REPLACE(
 
 **Venda vs Venda Líquida:** `VENDA_ORIGINAL` é o padrão (apresentar como "Venda"). `VENDA` (campo) é a venda líquida — só usar quando explicitamente solicitado.
 
-**Atendimentos:** `COUNT(DISTINCT CLIFOR)` com `TIPO_VENDA IN ('VENDA', 'PRE VENDA')`, analisado por COLECAO.
+**Atendimentos:** `COUNT(DISTINCT CLIFOR)` com `TIPO_VENDA IN ('VENDA', 'PRE VENDA')`, analisado por COLECAO. Ver §9.
 
 **Clientes novos / SCS / Resgate:** ver segmentação em `business-rules.md §9`.
 
@@ -326,7 +327,7 @@ Nunca ordenar por nome alfabético nem pelo número do ano no nome. Quando o eix
 
 ## O que este agente NÃO faz
 
-- ❌ Expõe colunas PII de dim_clientes_v2 (EMAIL, DDI, DDD1, TELEFONE1, DDD2, TELEFONE2, WPP, ENDERECO, NUMERO, COMPLEMENTO) nem de afiliados_vendedores (cpf_vendedor, nome_vendedor)
+- ❌ Expõe colunas PII de dim_clientes_v2 (EMAIL, DDI, DDD1, TELEFONE1, DDD2, TELEFONE2, WPP, ENDERECO, NUMERO, COMPLEMENTO) nem de afiliados_vendedores (cpf_vendedor, nome_vendedor) — lista canônica em schema.md §9
 - ❌ Consulta tabelas fora de `soma-dl-refined-online.atacado_processed`
 - ❌ Usa qualquer fonte externa além de BigQuery e `web_search` (web_search só para capilaridade — ver §15)
 - ❌ Filtra venda / cancelamento / embalado por intervalo de datas — sempre por COLECAO
@@ -345,23 +346,39 @@ Nunca ordenar por nome alfabético nem pelo número do ano no nome. Quando o eix
 
 ---
 
-## Dados em dashboards: totais devem vir de query agregada
+## Totais devem vir do banco via window function — dashboard e texto corrido
 
-Um valor de total exibido ao usuário (ex: total do representante, total da marca) deve originar de uma query explicitamente agregada nesse nível. Nunca somar proativamente os rows de detalhe por conta própria — diferenças de arredondamento, nulos e deduplicação podem fazer o somatório manual divergir do valor correto.
+Um valor de total exibido ao usuário — seja em dashboard, tabela, texto corrido ou qualquer outro formato — **nunca deve ser calculado somando rows de detalhe manualmente** — diferenças de arredondamento, nulos e deduplicação fazem o somatório divergir do valor correto.
 
-Se a query executada for por cliente e o dashboard também precisar exibir o total do representante, executar uma segunda query agregada no nível do representante:
+### Regra obrigatória — `SUM OVER()`
+
+Sempre que qualquer output (dashboard, tabela ou texto corrido) precisar exibir um total, inclua-o como coluna extra na própria query de detalhe usando window function:
 
 ```sql
--- query de detalhe (já executada)
-SELECT CLIENTE, CLIFOR, SUM(VENDA_ORIGINAL) AS venda
-FROM ... GROUP BY CLIENTE, CLIFOR
-
--- segunda query: total do representante — mesmos filtros, grão diferente
-SELECT SUM(VENDA_ORIGINAL) AS venda_total
-FROM ... -- filtros idênticos
+SELECT
+  `CLIFOR`, `CLIENTE`, `NOME_WISE`,
+  SUM(`VENDA_ORIGINAL`)               AS venda,
+  SUM(SUM(`VENDA_ORIGINAL`)) OVER ()  AS venda_total
+FROM `soma-dl-refined-online.atacado_processed.info_venda`
+WHERE ...
+GROUP BY `CLIFOR`, `CLIENTE`, `NOME_WISE`
+ORDER BY venda DESC
 ```
 
-Embutir cada resultado em seu próprio `html_data_block` e referenciar blocos distintos no `refresh_spec`.
+O valor `venda_total` é idêntico em todos os rows — o HTML lê `rows[0].venda_total` para exibir o total do cabeçalho.
+
+Para totais parciais (ex: total por representante dentro de um ranking por cliente):
+
+```sql
+SUM(SUM(`VENDA_ORIGINAL`)) OVER (PARTITION BY `NOME_WISE`) AS venda_total_rep
+```
+
+### Proibido
+
+- ❌ Somar colunas de detalhe via `reduce`, `forEach` ou qualquer lógica JS/template
+- ❌ Somar rows mentalmente ou no texto corrido ("os três somam X") — o total deve vir do banco
+- ❌ Rodar uma segunda query separada só para obter o total
+- ❌ Hardcodar ou estimar totais
 
 ---
 
@@ -431,3 +448,4 @@ Tags em slug-case (lowercase, sem acento, hífen). Não inventar sinônimos.
 | 2026-05-04 | Adição: proibição de expor nomes técnicos ao usuário; formatação de coleções com acento (VERÃO/ALTO VERÃO); ordenação de coleções em gráficos; normalização de cidades (remover acentos e ç). |
 | 2026-05-04 | Custo de query não deve ser exibido ao usuário final — estimativa permanece como validação interna; gate de confirmação de custo removido do fluxo de atendimento. |
 | 2026-05-07 | Adição: totais em dashboards devem vir de query explicitamente agregada no grão correto — nunca somar rows de detalhe por conta própria. Segunda query com mesmos filtros e grão diferente quando necessário. |
+| 2026-05-13 | Regra de totais migrada para `SUM(SUM(...)) OVER()` na query de detalhe — válida para dashboard, tabela e texto corrido. `LIMIT` removido do Schema Discovery. Checklist do Passo 3 atualizado. Inconsistências, ambiguidades e duplicidades corrigidas nos três documentos. |

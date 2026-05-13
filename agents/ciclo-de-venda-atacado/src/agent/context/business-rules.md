@@ -200,7 +200,7 @@ AND `VENDA_ORIGINAL` > 0
 ```sql
 WHERE `MARCA` IN ('FABULA', 'FÁBULA') AND p.`SEGMENTO` = 'MENINA TEEN'
 ```
-Linha iniciada a partir de **VERÃO 2026** — não há dados de FARM FUTURA em coleções anteriores.
+Linha iniciada a partir de **VERÃO 2026** — não há dados de FARM FUTURA em coleções anteriores. Se o usuário perguntar sobre períodos anteriores ao VERÃO 2026, informar que a marca só iniciou sua operação no canal Atacado a partir desta coleção.
 
 ### BENTO (linha infantil masculina da FABULA)
 ```sql
@@ -379,7 +379,7 @@ valor >= limiar * (1 - 0.001)
 ### Cliente Ativo (operacional)
 Realizou compra em alguma das últimas 4 coleções. Um cliente **bloqueado impossibilita compra** na coleção.
 
-> **Desambiguação:** quando o usuário disser "cliente ativo" sem qualificar, usar esta definição (últimas 4 coleções). A variante "Cliente Ativo (recorrência)" na tabela abaixo aplica-se somente em análises explícitas de perfil de coleção.
+> **Desambiguação:** quando o usuário disser "cliente ativo" sem qualificar, usar esta definição (últimas 4 coleções). A variante "Cliente Ativo (análise de coleção)" na tabela abaixo aplica-se somente em análises explícitas de perfil de coleção. Em contexto de **Somaplace** (§20) e **Afiliados** (§21), "ativo" significa venda confirmada nos últimos 2 meses — definição independente das duas anteriores.
 
 ### Segmentação por histórico de compra (por coleção, por marca)
 
@@ -387,8 +387,8 @@ Realizou compra em alguma das últimas 4 coleções. Um cliente **bloqueado impo
 |---|---|
 | Cliente Novo | Primeira compra exatamente na coleção em análise, sem histórico anterior |
 | SCS (Same Client Sale) | Comprou na coleção em análise E na imediatamente anterior da mesma estação |
-| Cliente Ativo (recorrência) | Comprou em alguma das últimas 3 coleções de outras estações, mas não na imediatamente anterior |
-| Resgate | Voltou após ausência de mais de 4 estações consecutivas, com histórico anterior |
+| Cliente Ativo (análise de coleção) | Comprou em alguma das últimas 3 coleções de outras estações, mas não na imediatamente anterior |
+| Resgate | Voltou após ausência de mais de 4 coleções consecutivas, com histórico anterior |
 
 ### Janela de avaliação para Cliente Novo e Resgate
 
@@ -418,7 +418,7 @@ Tabela: `info_financeira`. Regras operacionais completas: ver §19. Resumo:
 - **Aging:** `DATE_DIFF(CURRENT_DATE(), DATE(DATA_BLOQ), DAY)`
 
 ### Cluster (segmentação por porte)
-Calculado sobre soma das vendas nas últimas 4 coleções (incluindo Prateleira Infinita), por marca. Coleção de referência determina as 4 coleções consideradas.
+Calculado sobre soma das vendas nas últimas 4 coleções **incluindo a coleção de referência** (incluindo Prateleira Infinita), por marca.
 
 | Marca | PP | P | M | G | GG |
 |---|---|---|---|---|---|
@@ -619,6 +619,36 @@ JOIN `soma-dl-refined-online.atacado_processed.dim_clientes_v2` c
 DATE(v.`EMISSAO`)   -- para agrupar por dia
 ```
 
+### Uso de LIMIT
+
+**Nunca use `LIMIT` em queries analíticas.** O `LIMIT` trunca o resultado silenciosamente e produz totais errados, rankings incompletos e métricas enganosas.
+
+**Exceção única:** rankings de TOP N explícitos — Top vendedores, Top clientes, Top produtos — onde o objetivo é exatamente mostrar os N maiores. Nesses casos, use `ORDER BY ... DESC LIMIT N`.
+
+```sql
+-- ❌ Proibido — LIMIT em query analítica
+SELECT `MARCA`, SUM(`VENDA_ORIGINAL`) AS venda
+FROM `soma-dl-refined-online.atacado_processed.info_venda`
+WHERE `COLECAO` = 'VERAO 2026'
+GROUP BY 1
+LIMIT 100   -- errado: omite marcas e distorce o total
+
+-- ✅ Correto — sem LIMIT
+SELECT `MARCA`, SUM(`VENDA_ORIGINAL`) AS venda
+FROM `soma-dl-refined-online.atacado_processed.info_venda`
+WHERE `COLECAO` = 'VERAO 2026'
+GROUP BY 1
+ORDER BY venda DESC
+
+-- ✅ Correto — LIMIT apenas em ranking explícito de TOP N
+SELECT `CLIFOR`, `CLIENTE`, SUM(`VENDA_ORIGINAL`) AS venda
+FROM `soma-dl-refined-online.atacado_processed.info_venda`
+WHERE `COLECAO` = 'VERAO 2026'
+GROUP BY 1, 2
+ORDER BY venda DESC
+LIMIT 10   -- Top 10 clientes — uso legítimo
+```
+
 ---
 
 ## 17. Anti-hallucination
@@ -627,10 +657,10 @@ Nunca inventar um número. Labels obrigatórios:
 
 | Label | Uso |
 |---|---|
-| ✅ Dado real | Saiu de query nesta sessão |
+| ✅ Dado real | Resultado de query executada nesta sessão |
 | 📊 Benchmark | Referência de mercado (citar fonte) |
 | 🔶 Estimativa | Calculado a partir de dado real |
-| ❓ Indisponível | Não presente — não inventar |
+| ❓ Indisponível | Não presente nas tabelas — não inventar |
 
 ---
 
@@ -692,6 +722,10 @@ Canal complementar após o período de venda. Estoque já pronto no CD — entre
 **Sinônimos:** Gross Billing, Fat Bruto
 Total faturado sem deduções de devoluções. Padrão de análise.
 
+### Faturamento Líquido
+**Sinônimos:** Fat Líquido, Net Billing, Faturamento Deduzido
+Faturamento Bruto deduzido do `VALOR_NF` de devoluções recebidas no mesmo período. Usado na Curva de Faturamento. Regras completas: ver §8.
+
 ### Curva de Faturamento
 **Sinônimos:** Curva de Entrega, Ritmo de Faturamento, Fat Mensal
 Progressão mensal do valor faturado ao longo de uma coleção. Construída com Faturamento Líquido.
@@ -749,8 +783,15 @@ Primeira compra exatamente na coleção em análise, sem histórico anterior. Tr
 Comprou na coleção em análise E na imediatamente anterior da mesma estação.
 
 ### Cliente Ativo (análise de coleção)
-**Sinônimos:** Ativo
+**Sinônimos:** Ativo, Cliente Ativo (recorrência)
 Comprou em alguma das últimas 3 coleções de outras estações, mas não na imediatamente anterior. Não confundir com "ativo operacional" (compra nas últimas 4 coleções).
+
+### Perda
+**Sinônimos:** Cliente Perdido, Churn, Evasão
+Comprou em pelo menos uma das 4 coleções anteriores à coleção de referência, mas **não** comprou na coleção de referência. **Avaliação:** considerar apenas compras anteriores à coleção de referência — coleções posteriores não entram no critério.
+**Exemplo:** Coleção de referência = Verão 25. Se o cliente comprou em pelo menos uma das coleções Alto Inverno 2024, Inverno 2024, Alto Verão 2024 ou Verão 2024, mas não registrou nenhuma compra em Verão 25, é classificado como Perda.
+
+> **Não confundir com** `TIPO_BLOQUEIO = 'PERDA'` em `info_financeira` (§19) — esse valor indica um status de bloqueio financeiro, não segmentação de churn de cliente.
 
 ### Resgate
 **Sinônimos:** Reativação, Cliente Reativado
@@ -838,6 +879,8 @@ Campo `SEGMENTO` em `info_produto`. Classifica submarcas dentro de Fábula: `MEN
 | `LIBERADO` |
 | `PERDA` |
 | `REAVALIAR` |
+
+> **Não confundir** o valor `PERDA` de `TIPO_BLOQUEIO` com a segmentação de churn "Perda" do glossário §18 — são conceitos distintos: aqui indica um status de bloqueio financeiro do cliente.
 | `SOLICITAÇÃO DO REPRESENT.` |
 
 ### Inadimplência
@@ -1095,3 +1138,4 @@ WHERE avd.`data_desligamento` IS NULL
 | 2026-05-07 | Adição: "praça" como sinônimo de cidade (§18 Glossário); regra de validação com o usuário ao encontrar nome de cliente aproximado em vez de exato (§1.3). |
 | 2026-05-12 | §20 Somaplace: expansão do conceito de cliente ativo — distinção cadastrado vs ativo vs inativo; queries completas de contagem e classificação adicionadas. Glossário §18 Somaplace atualizado com referência a §20. |
 | 2026-05-12 | §21 Afiliados: métrica padrão alterada para Venda Líquida de Cancelamento (CAPTURADO+ONLINE + CANCELADO). Devoluções excluídas por padrão — entram só sob pedido explícito. SKILL.md atualizado para refletir novo padrão. |
+| 2026-05-13 | Revisão geral: §4 FARM FUTURA com instrução para consultas anteriores ao VERÃO 2026; §9 Resgate uniformizado para "coleções"; §9 Cluster esclarece inclusão da coleção de referência; "Cliente Ativo (recorrência)" renomeado para "análise de coleção"; desambiguação de "ativo" expandida para Somaplace/Afiliados; §18 Faturamento Líquido adicionado ao glossário; desambiguação de "Perda" vs TIPO_BLOQUEIO em §18 e §19; labels de anti-hallucination uniformizados com SKILL.md. |

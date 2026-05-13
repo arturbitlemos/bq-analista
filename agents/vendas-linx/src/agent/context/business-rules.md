@@ -5,7 +5,7 @@
 >
 > **IMPORTANTE — Tabelas acessíveis:**
 > - `soma-pipeline-prd.silver_linx.*` — vendas, filiais, produtos, preços, estoque, cota
-> - `apt-bonbon-179602.atelier.*` — vendedores, cota vendedor, filiais atelier
+> - `apt-bonbon-179602.Atelier.*` — vendedores, cota vendedor, filiais atelier
 > - `soma-dl-refined-online.soma_online_refined.*` — captação, fluxo, branches
 >
 >
@@ -593,7 +593,7 @@ Excluir:
 - `vendedor_apelido = 'ATEND PADRAO'`
 - Inativos (`data_desativacao IS NOT NULL` quando filtrar por ativos)
 
-Fonte: `apt-bonbon-179602.atelier.vendedor`
+Fonte: `apt-bonbon-179602.Atelier.vendedor`
 
 ---
 
@@ -1107,8 +1107,8 @@ SELECT
   vnd.vendedor_apelido AS vendedor_apelido,
   vnd.codigo_filial    AS codigo_filial,
   SUM(cota.previsao_valor) AS cota_total
-FROM `apt-bonbon-179602.atelier.lojas_previsao_vendas_vendedor` cota
-INNER JOIN `apt-bonbon-179602.atelier.vendedor` vnd
+FROM `apt-bonbon-179602.Atelier.lojas_previsao_vendas_vendedor` cota
+INNER JOIN `apt-bonbon-179602.Atelier.vendedor` vnd
   ON cota.id_vendedor = vnd.id_vendedor
 WHERE CAST(cota.data_venda AS DATE) BETWEEN :data_inicio AND :data_fim
 GROUP BY 1, 2, 3
@@ -1132,8 +1132,8 @@ cota_vendedor AS (
     vnd.vendedor,
     vnd.codigo_filial,
     SUM(cota.previsao_valor) AS cota_total
-  FROM `apt-bonbon-179602.atelier.lojas_previsao_vendas_vendedor` cota
-  INNER JOIN `apt-bonbon-179602.atelier.vendedor` vnd
+  FROM `apt-bonbon-179602.Atelier.lojas_previsao_vendas_vendedor` cota
+  INNER JOIN `apt-bonbon-179602.Atelier.vendedor` vnd
     ON cota.id_vendedor = vnd.id_vendedor
   WHERE CAST(cota.data_venda AS DATE) BETWEEN :data_inicio AND :data_fim
   GROUP BY 1, 2

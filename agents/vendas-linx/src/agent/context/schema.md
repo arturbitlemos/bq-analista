@@ -4,7 +4,7 @@
 >
 > **Projetos acessíveis:**
 > - `soma-pipeline-prd` — vendas, filiais, produtos, preços, estoque, cota (dataset: `silver_linx`)
-> - `apt-bonbon-179602` — vendedores, cota vendedor (dataset: `atelier`)
+> - `apt-bonbon-179602` — vendedores, cota vendedor (dataset: `Atelier`)
 > - `soma-dl-refined-online` — captação, fluxo, branches (dataset: `soma_online_refined`)
 >
 > **🔴 VISÃO DEFAULT = FATURADO.** Usar `refined_captacao` somente sob pedido explícito ("captado", "+vendas"). Ver business-rules.md §11.
@@ -889,9 +889,9 @@ WHERE programa_filial = 'próprio'
 
 ---
 
-## 13. Vendedores — `apt-bonbon-179602.atelier.vendedor`
+## 13. Vendedores — `apt-bonbon-179602.Atelier.vendedor`
 
-**Full path:** `` `apt-bonbon-179602.atelier.vendedor` ``
+**Full path:** `` `apt-bonbon-179602.Atelier.vendedor` ``
 **Grão:** 1 linha por vendedor.
 
 | Coluna | Tipo | Uso |
@@ -917,9 +917,9 @@ WHERE data_desativacao IS NULL
 
 ---
 
-## 14. Cota por Vendedor — `apt-bonbon-179602.atelier.lojas_previsao_vendas_vendedor`
+## 14. Cota por Vendedor — `apt-bonbon-179602.Atelier.lojas_previsao_vendas_vendedor`
 
-**Full path:** `` `apt-bonbon-179602.atelier.lojas_previsao_vendas_vendedor` ``
+**Full path:** `` `apt-bonbon-179602.Atelier.lojas_previsao_vendas_vendedor` ``
 **Grão:** 1 linha por vendedor × dia.
 
 | Coluna | Tipo | Uso |
@@ -932,8 +932,8 @@ WHERE data_desativacao IS NULL
 
 ```sql
 SELECT vnd.vendedor, SUM(cota.previsao_valor) AS cota_total
-FROM `apt-bonbon-179602.atelier.lojas_previsao_vendas_vendedor` cota
-INNER JOIN `apt-bonbon-179602.atelier.vendedor` vnd ON cota.id_vendedor = vnd.id_vendedor
+FROM `apt-bonbon-179602.Atelier.lojas_previsao_vendas_vendedor` cota
+INNER JOIN `apt-bonbon-179602.Atelier.vendedor` vnd ON cota.id_vendedor = vnd.id_vendedor
 WHERE CAST(cota.data_venda AS DATE) BETWEEN :data_inicio AND :data_fim
 GROUP BY 1
 ```

@@ -506,7 +506,8 @@ Nunca entregar só o percentual — o valor absoluto (R$) é obrigatório.
 | `receita_total` | `SUM(SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC))` |
 | `receita_fisica` | `SUM(...) WHERE TIPO_VENDA = 'VENDA_LOJA'` |
 | `receita_codigo` | `SUM(...) WHERE TIPO_VENDA != 'VENDA_LOJA' AND FILIAL_DESTINO NOT LIKE '%ECOMMERCE%'` (§2.3) |
-| `qtd_pecas_total` | `SUM(QTDE_PROD)` |
+| `qtd_pecas_total` | `SUM(QTDE_PROD - QTDE_TROCA_PROD)` |
+| `qtd_pecas_fisico` | `SUM(QTDE_PROD - QTDE_TROCA_PROD) WHERE TIPO_VENDA = 'VENDA_LOJA'` |
 | `cota` | `SUM(SAFE_CAST(PREVISAO_VALOR AS NUMERIC)) FROM lojas_previsao_vendas` |
 | `fluxo` | `SUM(Visitantes) FROM seed_fluxo_loja` |
 | `qtd_ticket_total` | `COUNT(DISTINCT chave_pedido)` |
@@ -516,9 +517,9 @@ Nunca entregar só o percentual — o valor absoluto (R$) é obrigatório.
 | `ticket_medio_fisico` | `receita_fisica / qtd_ticket_fisico` |
 | `conversao` | `qtd_ticket_fisico / fluxo` (**cap 30%**: acima = 0, dado inconsistente) |
 | `pa_total` | `qtd_pecas_total / qtd_ticket_total` |
-| `pa_fisico` | `qtd_pecas_fisica / qtd_ticket_fisico` |
+| `pa_fisico` | `qtd_pecas_fisico / qtd_ticket_fisico` |
 | `pv_medio_total` | `receita_total / qtd_pecas_total` |
-| `pv_medio_fisico` | `receita_fisica / qtd_pecas_fisica` |
+| `pv_medio_fisico` | `receita_fisica / qtd_pecas_fisico` |
 | `venda_mala` | `SUM(VALOR_PAGO_PROD) WHERE mala = TRUE` (via EXISTS — §5) |
 
 - **Sempre que usar markup/margem:** dois joins com `PRODUTOS_PRECOS` (CT e C0) — ver §6.
@@ -540,7 +541,7 @@ Valores acima de 30% indicam inconsistência no dado de fluxo — retornar 0.
 ### 7.3 Filiais ecommerce — zerar métricas físicas
 
 Filiais cujo nome contém 'ECOMMERCE' ou 'MARKET PLACE':
-- `receita_fisica = 0`, `qtd_pecas_fisica = 0`, `ticket_medio_fisico = 0`, `pa_fisico = 0`
+- `receita_fisica = 0`, `qtd_pecas_fisico = 0`, `ticket_medio_fisico = 0`, `pa_fisico = 0`
 
 ### 7.4 Taxa de Desconto
 
@@ -568,12 +569,14 @@ SAFE_DIVIDE(
 | `atingimento_cota` | `receita_total / cota_total` |
 | `qtd_ticket_total` | `COUNT(DISTINCT chave_pedido)` por VENDEDOR |
 | `qtd_ticket_fisico` | `COUNT(DISTINCT chave_pedido) WHERE TIPO_VENDA = 'VENDA_LOJA'` por VENDEDOR |
-| `pa_total` | `SUM(QTDE_PROD) / qtd_ticket_total` |
-| `pa_fisico` | `SUM(QTDE_PROD) WHERE TIPO_VENDA = 'VENDA_LOJA' / qtd_ticket_fisico` |
+| `qtd_pecas_total` | `SUM(QTDE_PROD - QTDE_TROCA_PROD)` |
+| `qtd_pecas_fisico` | `SUM(QTDE_PROD - QTDE_TROCA_PROD) WHERE TIPO_VENDA = 'VENDA_LOJA'` |
+| `pa_total` | `qtd_pecas_total / qtd_ticket_total` |
+| `pa_fisico` | `qtd_pecas_fisico / qtd_ticket_fisico` |
 | `ticket_medio_total` | `receita_total / qtd_ticket_total` |
 | `ticket_medio_fisico` | `receita_fisica / qtd_ticket_fisico` |
-| `pv_medio_total` | `receita_total / SUM(QTDE_PROD)` |
-| `pv_medio_fisico` | `receita_fisica / SUM(QTDE_PROD) WHERE TIPO_VENDA = 'VENDA_LOJA'` |
+| `pv_medio_total` | `receita_total / qtd_pecas_total` |
+| `pv_medio_fisico` | `receita_fisica / qtd_pecas_fisico` |
 | `upsell_troca` | `receita_liquida_troca / devolucao_troca` (§4.4) |
 | `venda_mala` | `SUM(VALOR_PAGO_PROD) WHERE mala = TRUE` por VENDEDOR |
 
@@ -1456,4 +1459,5 @@ Não inventar próximos passos genéricos. Deve ser específico ao resultado.
 | 2026-05-07 | v6 — §4 TROCA: PA troca/venda, positiva/zerada, upsell, taxa. |
 | 2026-05-07 | v7 — §13 Fluxo: normalização de nomes (regex acentos, sufixo CM). |
 | 2026-05-07 | v8 — §8 Vendedor: métricas físicas adicionadas. |
+| 2026-05-13 | v10 — §7.1 e §8.1: `qtd_pecas_total` corrigido para `SUM(QTDE_PROD - QTDE_TROCA_PROD)`; `qtd_pecas_fisico` criado. `pa_total`, `pa_fisico`, `pv_medio_*` atualizados para usar as novas métricas. |
 | 2026-05-07 | v9 — Resgatados tópicos do arquivo original: LINHA vs GRUPO_PRODUTO, fotos de produto, formato HTML, tipos de análise catalogados, cota mista, taxa devolução (competência/peças), métrica default. Histórico unificado. |

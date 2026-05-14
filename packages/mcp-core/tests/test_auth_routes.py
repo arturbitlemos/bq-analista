@@ -254,3 +254,40 @@ def test_callback_state_is_single_use() -> None:
     # Second request with same state must fail
     r2 = c.get(f"/auth/callback?code=abc&state={state}")
     assert r2.status_code == 400
+
+
+# --- RFC 7591 Dynamic Client Registration ---
+
+
+def test_register_returns_client_id() -> None:
+    c = _app(["exec@azzas.com.br"])
+    r = c.post("/oauth/register", json={
+        "client_name": "Claude",
+        "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"],
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "token_endpoint_auth_method": "none",
+    })
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["client_id"]
+    assert isinstance(body["client_id"], str)
+    assert len(body["client_id"]) > 8
+    assert body["client_name"] == "Claude"
+    assert body["redirect_uris"] == ["https://claude.ai/api/mcp/auth_callback"]
+    assert body["token_endpoint_auth_method"] == "none"
+
+
+def test_register_empty_body_returns_client_id() -> None:
+    """Some clients POST with an empty body just to discover the contract."""
+    c = _app(["exec@azzas.com.br"])
+    r = c.post("/oauth/register", json={})
+    assert r.status_code == 201, r.text
+    assert r.json()["client_id"]
+
+
+def test_oauth_metadata_advertises_registration_endpoint() -> None:
+    c = _app(["exec@azzas.com.br"])
+    r = c.get("/.well-known/oauth-authorization-server")
+    assert r.status_code == 200
+    assert r.json()["registration_endpoint"].endswith("/oauth/register")

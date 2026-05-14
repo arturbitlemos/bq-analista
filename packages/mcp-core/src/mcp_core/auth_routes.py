@@ -188,6 +188,38 @@ def build_auth_app(
             "token_type": "Bearer",
         })
 
+    @app.post("/oauth/register", status_code=201)
+    async def register(req: Request) -> JSONResponse:
+        """RFC 7591 Dynamic Client Registration.
+
+        claude.ai expects this endpoint so it can register itself before the
+        authorize step. We run a public-client/PKCE model — every grant is
+        bound to its PKCE code_challenge, not to a stored client secret — so
+        we don't need to persist client metadata: the returned client_id is
+        opaque and never validated against a database. PKCE + single-use
+        codes carry the security guarantees.
+        """
+        try:
+            body = await req.json()
+        except Exception:
+            body = {}
+        if not isinstance(body, dict):
+            body = {}
+
+        client_id = secrets.token_urlsafe(16)
+        response: dict[str, object] = {
+            "client_id": client_id,
+            "client_id_issued_at": int(time.time()),
+            "token_endpoint_auth_method": body.get("token_endpoint_auth_method", "none"),
+            "grant_types": body.get("grant_types", ["authorization_code", "refresh_token"]),
+            "response_types": body.get("response_types", ["code"]),
+        }
+        # Echo back optional fields the client supplied
+        for key in ("client_name", "redirect_uris", "scope", "client_uri", "logo_uri"):
+            if key in body:
+                response[key] = body[key]
+        return JSONResponse(response, status_code=201)
+
     @app.post("/auth/refresh")
     async def refresh(req: Request) -> JSONResponse:
         try:
@@ -244,6 +276,7 @@ def build_auth_app(
             "issuer": base_url,
             "authorization_endpoint": f"{base_url}/auth/start",
             "token_endpoint": f"{base_url}/auth/token",
+            "registration_endpoint": f"{base_url}/oauth/register",
             "response_types_supported": ["code"],
             "grant_types_supported": ["authorization_code", "refresh_token"],
             "token_endpoint_auth_methods_supported": ["none"],

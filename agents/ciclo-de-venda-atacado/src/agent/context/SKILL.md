@@ -27,10 +27,10 @@ Este agente opera sobre 14 tabelas do dataset `soma-dl-refined-online.atacado_pr
 | `info_cancelamento` | Cancelamentos por motivo (comercial / financeiro) |
 | `info_fat_nf` | Notas fiscais de saída — faturamento por produto |
 | `info_embalado` | Caixas embaladas no CD com STATUS_CAIXA |
-| `info_devolução` | Devoluções de mercadoria ao CD — análise por DATA_RECEBIMENTO |
+| `info_devolucao_v2` | Devoluções de mercadoria ao CD — análise por DATA_RECEBIMENTO |
 | `info_metas` | Metas por representante × marca × coleção |
 | `dim_clientes_v2` | Cadastro de clientes — chave de join: CLIFOR + MARCA |
-| `info_produto` | Catálogo de produtos — chave: PRODUTO + COR_PRODUTO |
+| `info_produto_v2` | Catálogo de produtos — chave: PRODUTO + COR_PRODUTO |
 
 ### Sub-sistema 2: Financeiro
 
@@ -42,18 +42,26 @@ Este agente opera sobre 14 tabelas do dataset `soma-dl-refined-online.atacado_pr
 
 | Tabela | O que responde |
 |---|---|
-| `cadastro_somaplace` | Multimarcas ativas no programa Somaplace — data de adesão por marca |
-| `venda_somaplace` | Transações GMV do marketplace — STATUS, VALOR_PAGO, DATA, COLECAO |
+| `cadastro_somaplace_v2` | Multimarcas ativas no programa Somaplace — data de adesão e comissão por marca |
+| `venda_somaplace_v2` | Transações GMV do marketplace — grão por item (PEDIDO × PRODUTO × COR_PRODUTO × TAMANHO_GRADE × STATUS) |
 
 ### Sub-sistema 4: Afiliados
 
 | Tabela | O que responde |
 |---|---|
 | `afiliados_multimarca` | Multimarcas cadastradas no programa — join com vendedores via CLIFOR |
-| `afiliados_vendas` | Vendas geradas por vendedoras digitais — tabela central do sub-sistema |
+| `afiliados_venda_v2` | Vendas geradas por vendedoras digitais — grão por item (PEDIDO × PRODUTO × COR_PRODUTO × STATUS_VENDA × TIPO_VENDA); análise por `DATE(DATA)` |
 | `afiliados_vendedores` | Cadastro das vendedoras digitais — ⚠️ contém PII (cpf_vendedor, nome_vendedor) |
 
-Para significado de colunas, ver `schema.md`. Para regras de negócio, ver `business-rules.md`.
+### Sub-sistema 5: E-commerce
+
+❌ **`info_ecommerce` só deve ser usada quando o usuário escrever literalmente "ecommerce" ou "e-commerce" na solicitação. Nenhum sinônimo, inferência ou contexto substitui essa menção explícita. Não usar para análises de ciclo de venda, afiliados ou Somaplace por iniciativa própria.**
+
+| Tabela | O que responde |
+|---|---|
+| `info_ecommerce` | Eventos de venda e-commerce e loja física — ⚠️ contém PII (`CPF`); análise por `DATE(DATA)` |
+
+Para significado de colunas, ver `schema.md §17`. Para regras de negócio, ver `business-rules.md §23`.
 
 ---
 
@@ -94,16 +102,17 @@ Tabelas de referência para estimativa (dataset `atacado_processed`):
 | `info_cancelamento` | ~0,2–0,5 GB por coleção |
 | `info_fat_nf` | ~0,5–2 GB por coleção |
 | `info_embalado` | ~0,5–1 GB (snapshot atual) |
-| `info_devolução` | ~0,1–0,3 GB por trimestre |
+| `info_devolucao_v2` | ~0,1–0,3 GB por trimestre |
 | `info_metas` | < 0,05 GB (tabela pequena) |
 | `dim_clientes_v2` | < 0,1 GB (dimensão estática) |
-| `info_produto` | < 0,1 GB (dimensão estática) |
+| `info_produto_v2` | < 0,1 GB (dimensão estática) |
 | `info_financeira` | < 0,1 GB (snapshot atual) |
-| `cadastro_somaplace` | < 0,05 GB (tabela pequena) |
-| `venda_somaplace` | ~0,2–0,5 GB (depende do período) |
+| `cadastro_somaplace_v2` | < 0,05 GB (tabela pequena) |
+| `venda_somaplace_v2` | ~0,2–0,5 GB (depende do período) |
 | `afiliados_multimarca` | < 0,05 GB (tabela pequena) |
-| `afiliados_vendas` | ~0,1–0,3 GB (depende do período) |
+| `afiliados_venda_v2` | ~0,1–0,3 GB (depende do período) |
 | `afiliados_vendedores` | < 0,05 GB (tabela pequena) |
+| `info_ecommerce` | ~0,5–2 GB (depende do período) |
 
 > ⚠️ Filtrar sempre por `COLECAO` em venda/cancelamento/embalado — o custo sem esse filtro pode ser 5–10× maior.
 
@@ -117,7 +126,7 @@ bq show --schema --format=prettyjson soma-dl-refined-online:atacado_processed.in
 
 # Amostrar dados antes de escrever SQL complexo
 bq query --use_legacy_sql=false \
-  'SELECT * FROM `soma-dl-refined-online.atacado_processed.info_venda` LIMIT 20'
+  'SELECT * FROM `soma-dl-refined-online.atacado_processed.info_venda`'
 
 # Listar tabelas do dataset
 bq ls soma-dl-refined-online:atacado_processed
@@ -153,7 +162,7 @@ Por padrão, responder inline. Só rodar `publicar_dashboard` quando explicitame
 
 Antes de montar qualquer query, resolver:
 
-1. **Marca** → aplicar aliases de `business-rules.md §1`. Marcas virtuais (FARM FUTURA, BENTO) não têm campo MARCA próprio — filtrar via SEGMENTO em info_produto (ver §4).
+1. **Marca** → aplicar aliases de `business-rules.md §1`. Marcas virtuais (FARM FUTURA, BENTO) não têm campo MARCA próprio — filtrar via SEGMENTO em info_produto_v2 (ver §4).
 2. **Representante** → resolver alias de §1.1 → campo `NOME_WISE`. Se o nome não for reconhecido como representante nem coordenador, tratar como cliente (§1.3) e buscar com `LIKE` em `CLIENTE`.
 3. **Coordenador** → resolver alias de §1.2 → campo `COORDENADOR`.
 4. **Coleção** → resolver abreviações:
@@ -182,23 +191,27 @@ Não atrasar com confirmações desnecessárias. Só perguntar quando:
 - ✅ `VENDA_ORIGINAL > 0` em queries de info_venda?
 - ✅ Filtrando por `COLECAO` (não por intervalo de datas) em venda, cancelamento e embalado?
 - ✅ Devolução filtrada por `DATA_RECEBIMENTO` (campo DATETIME — usar `DATE()` para agrupar por dia)?
-- ✅ Tabelas derivadas (info_cancelamento, info_embalado, info_fat_nf) com JOIN em info_venda para TIPO_VENDA?
+- ✅ Tabelas derivadas (info_cancelamento, info_devolucao_v2, info_embalado, info_fat_nf) com JOIN em info_venda para TIPO_VENDA?
 - ✅ JOIN em info_venda para tabelas derivadas inclui `AND v.VENDA_ORIGINAL > 0`?
-- ✅ Nenhuma coluna PII no SELECT — dim_clientes_v2 (EMAIL, DDI, DDD1, TELEFONE1, DDD2, TELEFONE2, WPP, ENDERECO, NUMERO, COMPLEMENTO) e afiliados_vendedores (cpf_vendedor, nome_vendedor)?
+- ✅ Nenhuma coluna PII no SELECT — dim_clientes_v2 (EMAIL, DDI, DDD1, TELEFONE1, DDD2, TELEFONE2, WPP, ENDERECO, NUMERO, COMPLEMENTO), afiliados_venda_v2 (CPF_CLIENTE), afiliados_vendedores (cpf_vendedor, nome_vendedor) e info_ecommerce (CPF)?
+- ✅ `info_ecommerce` só foi incluída porque o usuário escreveu literalmente "ecommerce" ou "e-commerce"?
 - ✅ JOIN em dim_clientes_v2 feito por `CLIFOR + MARCA` (nunca só CLIFOR)?
-- ✅ JOIN cadastro_somaplace × venda_somaplace feito por `CLIFOR + MARCA`?
+- ✅ JOIN cadastro_somaplace_v2 × venda_somaplace_v2 feito por `CLIFOR + MARCA`?
 - ✅ info_financeira consultada sem filtro de COLECAO (é snapshot atual)?
-- ✅ JOIN em info_produto feito por `PRODUTO + COR_PRODUTO` (nunca por COLECAO)?
+- ✅ JOIN em info_produto_v2 feito por `PRODUTO + COR_PRODUTO` (nunca por COLECAO)?
 - ✅ ATENDIMENTO INTERNO (`NOME_WISE = 'ATENDIMENTO INTERNO'`) e FACEX (`NOME_WISE = 'FACEX'`) excluídos em rankings e comparativos de representantes?
-- ✅ Filtros em MAIÚSCULA (MARCA, TIPO_VENDA, STATUS_CAIXA, COLECAO, NOME_WISE)? **Exceção:** tabelas do sub-sistema Afiliados têm colunas em minúsculo (`status_venda`, `tipo_venda`, `marca`, `clifor`, `codigo_vendedor`, `venda_liquida`)?
+- ✅ Filtros em MAIÚSCULA (MARCA, TIPO_VENDA, STATUS_CAIXA, COLECAO, NOME_WISE)? **Exceção:** `afiliados_vendedores` tem colunas em minúsculo (`codigo_vendedor`, `clifor`, `data_cadastro`, `data_troca_filial`, `data_desligamento`) — o JOIN com `afiliados_venda_v2` é `av.CODIGO_VENDEDOR = avd.codigo_vendedor`?
 - ✅ Crases em todos os nomes de coluna e tabela?
 - ✅ Análise envolvendo cidades? Normalizar `CIDADE` removendo acentos e substituindo ç→c antes de comparar ou agrupar (ver "Casos especiais — Cidades" abaixo)?
 - ✅ Análise com "últimas N coleções"? Usar CTE canônica de `business-rules §5` — nunca hardcoded. Verificar se as coleções cobertas pela query estão corretas.
 - ✅ Análise filtrando por LINHA, GRUPO_PRODUTO, SUBGRUPO_PRODUTO, SOLUCAO ou TIPO_PRODUTO? Consultar valores distintos primeiro (business-rules §11) — nunca assumir o valor.
+- ✅ Resposta exibe total (qualquer formato)? Total vem do banco via `SUM(SUM(...)) OVER()` na própria query de detalhe — nunca somado manualmente (ver seção "Totais").
 
 #### Casos especiais
 
 **Capilaridade:** seguir OBRIGATORIAMENTE o fluxo de 4 passos de `business-rules.md §15` — BigQuery (estados/cidades do representante) + `web_search` (total de municípios por estado). Não usar outra fonte.
+
+**Farm Etc — canal Pacific vs Interna:** classificar `PEDIDO_WISE LIKE 'PC%'` = PACIFIC, demais = INTERNA. **Exclusivo de `MARCA = 'FARM ETC'`; só executar se explicitamente solicitado.** Ver `business-rules.md §22`.
 
 **Status embalado:** aplicar agrupamento de STATUS_CAIXA de `business-rules.md §12`. Nunca exibir valores brutos sem agrupar. Disponível para faturar = `STATUS_CAIXA = 'EXPEDICAO'` (valor original).
 
@@ -216,7 +229,7 @@ WHERE v.TIPO_VENDA IN ('VENDA', 'PRE VENDA', 'REDISTRIBUIÇÃO')
 
 **Faturamento:** quando pedido, trazer sempre Bruto e Líquido discriminados (ver `business-rules.md §8`). Curva de faturamento → usar Faturamento Líquido.
 
-**Markup realizado:** `Σ(VENDA_ORIGINAL × markup) / Σ(VENDA_ORIGINAL)`. Markup extraído de `TABELA_MKP` (número após "VENDA ATACADO"); sem número → 2.2.
+**Markup realizado:** `Σ(VENDA_ORIGINAL × markup) / Σ(VENDA_ORIGINAL)`. Markup extraído de `TABELA_MKP` (número após "VENDA ATACADO"); sem número → 2.2. Ver §6 e §18.
 
 **Meta e atingimento:**
 ```sql
@@ -235,15 +248,15 @@ REGEXP_REPLACE(
 
 **Venda vs Venda Líquida:** `VENDA_ORIGINAL` é o padrão (apresentar como "Venda"). `VENDA` (campo) é a venda líquida — só usar quando explicitamente solicitado.
 
-**Atendimentos:** `COUNT(DISTINCT CLIFOR)` com `TIPO_VENDA IN ('VENDA', 'PRE VENDA')`, analisado por COLECAO.
+**Atendimentos:** `COUNT(DISTINCT CLIFOR)` com `TIPO_VENDA IN ('VENDA', 'PRE VENDA')`, analisado por COLECAO. Ver §9.
 
 **Clientes novos / SCS / Resgate:** ver segmentação em `business-rules.md §9`.
 
 **Financeiro (info_financeira):** snapshot atual — não filtrar por COLECAO. `SITUACAO = 'BLOQUEADO'` para inadimplência; `DATE_DIFF(CURRENT_DATE(), DATE(DATA_BLOQ), DAY)` para aging. Elegibilidade para pedido: somente `SITUACAO = 'LIBERADO'`. Ver `business-rules.md §19`.
 
-**Somaplace:** GMV Bruto = `SUM(VALOR_PAGO) WHERE STATUS = 'CAPTURADO'`. GMV Líquido = sem filtro de STATUS. Divisão 80%/20% calculada sobre GMV Líquido. Join cadastro × venda por `CLIFOR + MARCA`. Filtrar por `DATA` (não por COLECAO). Ver `business-rules.md §20`.
+**Somaplace:** GMV Bruto = `SUM(VALOR_PAGO) WHERE STATUS = 'CAPTURADO'`. GMV Líquido = sem filtro de STATUS. Divisão variável: grupo recebe `COMISSAO/100`, multimarca recebe `(100-COMISSAO)/100` de `cadastro_somaplace_v2` — **nunca usar 80%/20% fixo**. Join cadastro × venda por `CLIFOR + MARCA`. Filtrar por `DATA` (não por COLECAO). Ver `business-rules.md §20`.
 
-**Afiliados:** classificar por `status_venda + tipo_venda` (CAPTURADO+ONLINE = venda; CAPTURADO+DEVOLUÇÃO = devolução; CANCELADO = cancelado). GMV = `SUM(venda_liquida) WHERE status_venda='CAPTURADO' AND tipo_venda='ONLINE'`. Vendedor digital identificado por `codigo_vendedor LIKE '7%'`. Nunca expor `cpf_vendedor` nem `nome_vendedor`. Ver `business-rules.md §21`.
+**Afiliados:** classificar por `STATUS_VENDA + TIPO_VENDA` (CAPTURADO+ONLINE = venda confirmada; CAPTURADO+DEVOLUÇÃO = devolução; CANCELADO = cancelado). Métrica padrão = **Venda Líquida de Cancelamento** = `SUM(VENDA_LIQUIDA) WHERE (STATUS_VENDA='CAPTURADO' AND TIPO_VENDA='ONLINE') OR STATUS_VENDA='CANCELADO'`. Devoluções só incluídas sob pedido explícito. Vendedor digital identificado por `CODIGO_VENDEDOR LIKE '7%'`. Nunca expor `CPF_CLIENTE` (afiliados_venda_v2), `cpf_vendedor` nem `nome_vendedor` (afiliados_vendedores). Ver `business-rules.md §21`.
 
 ---
 
@@ -326,7 +339,7 @@ Nunca ordenar por nome alfabético nem pelo número do ano no nome. Quando o eix
 
 ## O que este agente NÃO faz
 
-- ❌ Expõe colunas PII de dim_clientes_v2 (EMAIL, DDI, DDD1, TELEFONE1, DDD2, TELEFONE2, WPP, ENDERECO, NUMERO, COMPLEMENTO) nem de afiliados_vendedores (cpf_vendedor, nome_vendedor)
+- ❌ Expõe colunas PII de dim_clientes_v2 (EMAIL, DDI, DDD1, TELEFONE1, DDD2, TELEFONE2, WPP, ENDERECO, NUMERO, COMPLEMENTO), afiliados_venda_v2 (CPF_CLIENTE) nem de afiliados_vendedores (cpf_vendedor, nome_vendedor) — lista canônica em schema.md §9 e §15
 - ❌ Consulta tabelas fora de `soma-dl-refined-online.atacado_processed`
 - ❌ Usa qualquer fonte externa além de BigQuery e `web_search` (web_search só para capilaridade — ver §15)
 - ❌ Filtra venda / cancelamento / embalado por intervalo de datas — sempre por COLECAO
@@ -345,23 +358,39 @@ Nunca ordenar por nome alfabético nem pelo número do ano no nome. Quando o eix
 
 ---
 
-## Dados em dashboards: totais devem vir de query agregada
+## Totais devem vir do banco via window function — dashboard e texto corrido
 
-Um valor de total exibido ao usuário (ex: total do representante, total da marca) deve originar de uma query explicitamente agregada nesse nível. Nunca somar proativamente os rows de detalhe por conta própria — diferenças de arredondamento, nulos e deduplicação podem fazer o somatório manual divergir do valor correto.
+Um valor de total exibido ao usuário — seja em dashboard, tabela, texto corrido ou qualquer outro formato — **nunca deve ser calculado somando rows de detalhe manualmente** — diferenças de arredondamento, nulos e deduplicação fazem o somatório divergir do valor correto.
 
-Se a query executada for por cliente e o dashboard também precisar exibir o total do representante, executar uma segunda query agregada no nível do representante:
+### Regra obrigatória — `SUM OVER()`
+
+Sempre que qualquer output (dashboard, tabela ou texto corrido) precisar exibir um total, inclua-o como coluna extra na própria query de detalhe usando window function:
 
 ```sql
--- query de detalhe (já executada)
-SELECT CLIENTE, CLIFOR, SUM(VENDA_ORIGINAL) AS venda
-FROM ... GROUP BY CLIENTE, CLIFOR
-
--- segunda query: total do representante — mesmos filtros, grão diferente
-SELECT SUM(VENDA_ORIGINAL) AS venda_total
-FROM ... -- filtros idênticos
+SELECT
+  `CLIFOR`, `CLIENTE`, `NOME_WISE`,
+  SUM(`VENDA_ORIGINAL`)               AS venda,
+  SUM(SUM(`VENDA_ORIGINAL`)) OVER ()  AS venda_total
+FROM `soma-dl-refined-online.atacado_processed.info_venda`
+WHERE ...
+GROUP BY `CLIFOR`, `CLIENTE`, `NOME_WISE`
+ORDER BY venda DESC
 ```
 
-Embutir cada resultado em seu próprio `html_data_block` e referenciar blocos distintos no `refresh_spec`.
+O valor `venda_total` é idêntico em todos os rows — o HTML lê `rows[0].venda_total` para exibir o total do cabeçalho.
+
+Para totais parciais (ex: total por representante dentro de um ranking por cliente):
+
+```sql
+SUM(SUM(`VENDA_ORIGINAL`)) OVER (PARTITION BY `NOME_WISE`) AS venda_total_rep
+```
+
+### Proibido
+
+- ❌ Somar colunas de detalhe via `reduce`, `forEach` ou qualquer lógica JS/template
+- ❌ Somar rows mentalmente ou no texto corrido ("os três somam X") — o total deve vir do banco
+- ❌ Rodar uma segunda query separada só para obter o total
+- ❌ Hardcodar ou estimar totais
 
 ---
 
@@ -427,7 +456,11 @@ Tags em slug-case (lowercase, sem acento, hífen). Não inventar sinônimos.
 | Data | Mudança |
 |---|---|
 | 2026-04-29 | Criação — agente ciclo-de-venda-atacado configurado com 8 tabelas do atacado_processed. |
-| 2026-04-30 | Expansão para 14 tabelas — adicionados sub-sistemas Financeiro (info_financeira), Somaplace (cadastro_somaplace, venda_somaplace) e Afiliados (afiliados_multimarca, afiliados_vendas, afiliados_vendedores). |
+| 2026-04-30 | Expansão para 14 tabelas — adicionados sub-sistemas Financeiro (info_financeira), Somaplace (cadastro_somaplace, venda_somaplace_v2) e Afiliados (afiliados_multimarca, afiliados_vendas, afiliados_vendedores). |
 | 2026-05-04 | Adição: proibição de expor nomes técnicos ao usuário; formatação de coleções com acento (VERÃO/ALTO VERÃO); ordenação de coleções em gráficos; normalização de cidades (remover acentos e ç). |
 | 2026-05-04 | Custo de query não deve ser exibido ao usuário final — estimativa permanece como validação interna; gate de confirmação de custo removido do fluxo de atendimento. |
 | 2026-05-07 | Adição: totais em dashboards devem vir de query explicitamente agregada no grão correto — nunca somar rows de detalhe por conta própria. Segunda query com mesmos filtros e grão diferente quando necessário. |
+| 2026-05-13 | Regra de totais migrada para `SUM(SUM(...)) OVER()` na query de detalhe — válida para dashboard, tabela e texto corrido. `LIMIT` removido do Schema Discovery. Checklist do Passo 3 atualizado. Inconsistências, ambiguidades e duplicidades corrigidas nos três documentos. |
+| 2026-05-13 | Sub-sistema Afiliados: `afiliados_vendas` migrado para `afiliados_venda_v2` — novo schema transacional com grão por pedido; `DATA` (TIMESTAMP) substitui `mes_venda`/`ano_venda`; adicionados `PEDIDO`, `PRODUTO`, `COR_PRODUTO`, `CPF_CLIENTE` (🔴 PII), `ESTADO`, `CIDADE`; colunas agora em MAIÚSCULA (exceto `afiliados_vendedores`). |
+| 2026-05-13 | Sub-sistema Somaplace: `cadastro_somaplace` migrado para `cadastro_somaplace_v2`; nova coluna `COMISSAO` (FLOAT, inteiro — ex: 20 = 20%); divisão de receita alterada de 80%/20% fixo para variável via `cs.COMISSAO / 100`; regra de "nunca usar valor fixo" adicionada ao checklist. |
+| 2026-05-13 | `info_devolução` migrado para `info_devolucao_v2`; grão alterado para item (NF × PRODUTO × COR_PRODUTO); adicionados PEDIDO, COLECAO, PRODUTO, COR_PRODUTO, T1–T8; chave de join alterada de CLIFOR+MARCA para PEDIDO+PRODUTO+COR_PRODUTO com info_venda; `info_devolucao_v2` adicionada ao checklist de tabelas derivadas que requerem JOIN com info_venda. |

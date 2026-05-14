@@ -104,6 +104,10 @@ _EXEMPLOS = """\
 - "Qual a venda por cliente e marca no Somaplace em 2026?"
 - "Quantos clientes que venderam no Somaplace esse ano não venderam no programa todas as marcas que compraram nas últimas 4 coleções?"
 
+## E-commerce
+- "Qual foi a receita do ecommerce por marca no último mês?"
+- "Em quais estados e cidades temos mais vendas físicas e online no ecommerce da FARM em {período}?"
+
 ## Afiliados
 - "Quantas multimarcas e vendedores afiliados tiveram venda por ano no Programa Afiliados?"
 - "Qual a venda líquida de cancelamento do Programa Afiliados por mês em 2026?"

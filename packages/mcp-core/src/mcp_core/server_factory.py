@@ -18,6 +18,7 @@ from typing import Callable, Literal, cast
 import uvicorn
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.streamable_http_manager import TransportSecuritySettings as _TSS
+from starlette.middleware.cors import CORSMiddleware
 
 from mcp_core.allowlist import Allowlist
 from mcp_core.audit import AuditLog, PgAuditLog
@@ -676,6 +677,48 @@ def build_mcp_app(
         )
 
         auth_app.mount("/", mcp.streamable_http_app())
+
+        # CORS — required for browser-based OAuth clients (e.g. claude.ai connector)
+        auth_app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["Authorization", "Content-Type", "Accept", "Mcp-Session-Id"],
+            expose_headers=["Mcp-Session-Id", "WWW-Authenticate"],
+        )
+
+        # MCP Auth gate — returns 401 + WWW-Authenticate on unauthenticated /mcp
+        # requests so OAuth clients (claude.ai) can discover and start the auth flow.
+        # Paths outside /mcp (/.well-known/*, /auth/*, /health) bypass this gate.
+        _mcp_host = os.environ.get("MCP_PUBLIC_HOST", "localhost:3000")
+        _mcp_proto = "http" if _mcp_host.startswith(("localhost", "127.", "0.0.0.0")) else "https"
+        _resource_meta = f"{_mcp_proto}://{_mcp_host}/.well-known/oauth-protected-resource"
+
+        class _MCPAuthGate:
+            """Pure-ASGI middleware: 401 on /mcp requests missing a Bearer token."""
+            def __init__(self, app: object) -> None:
+                self._app = app
+
+            async def __call__(self, scope: dict, receive: object, send: object) -> None:
+                if scope.get("type") == "http" and scope.get("path") == "/mcp":
+                    headers = {k.lower(): v for k, v in scope.get("headers", [])}
+                    auth = headers.get(b"authorization", b"").decode()
+                    if not auth.lower().startswith("bearer "):
+                        body = b'{"error":"unauthorized","error_description":"Bearer token required"}'
+                        www_auth = f'Bearer resource_metadata="{_resource_meta}"'
+                        await send({  # type: ignore[operator]
+                            "type": "http.response.start",
+                            "status": 401,
+                            "headers": [
+                                [b"content-type", b"application/json"],
+                                [b"www-authenticate", www_auth.encode()],
+                                [b"content-length", str(len(body)).encode()],
+                            ],
+                        })
+                        await send({"type": "http.response.body", "body": body, "more_body": False})  # type: ignore[operator]
+                        return
+                await self._app(scope, receive, send)  # type: ignore[operator]
+
         port = int(os.environ.get("PORT", settings.server.port))
         # In-memory state (refresh-token families in TokenIssuer, OAuth states
         # in auth_routes._pending_states / _pending_exchanges) is per-process.
@@ -690,6 +733,6 @@ def build_mcp_app(
                 "in-process; multi-worker would silently break their reuse detection. "
                 "Move to a shared store (Redis) before scaling."
             )
-        uvicorn.run(auth_app, host=settings.server.host, port=port, workers=1)
+        uvicorn.run(_MCPAuthGate(auth_app), host=settings.server.host, port=port, workers=1)
 
     return mcp, main

@@ -39,7 +39,7 @@ Canal de venda complementar ao pedido inicial da coleção. Envolve produtos já
 Multimarcas recrutam vendedores digitais que divulgam as marcas com códigos personalizados. Comissão: 10% → 4% ao vendedor, **5% à multimarca** (crédito para abater títulos a vencer — reduz inadimplência), 1% ao representante.
 
 #### Somaplace
-Marketplace onde a multimarca inclui seus produtos comprados na coleção nos sites oficiais das marcas do grupo. Expande visibilidade e atuação geográfica da loja parceira usando o tráfego dos e-commerces próprios do Grupo. Divisão de receita: **80% para a multimarca, 20% para o grupo** — calculado sobre o GMV Líquido (sem filtro de STATUS).
+Marketplace onde a multimarca inclui seus produtos comprados na coleção nos sites oficiais das marcas do grupo. Expande visibilidade e atuação geográfica da loja parceira usando o tráfego dos e-commerces próprios do Grupo. Divisão de receita: **variável por cliente** — grupo retém `COMISSAO`% (padrão 20%), multimarca recebe o restante, calculado sobre o GMV Líquido. Clientes com logística via Correios pagam comissão superior ao padrão. Ver §20.
 
 ---
 
@@ -454,7 +454,7 @@ Ver nota na coluna `CIDADE` em schema.md §7.
 
 - A coluna `PRODUTO` **nunca deve ser analisada sozinha** — a unidade mínima de análise é sempre a chave composta `PRODUTO` + `COR_PRODUTO`.
 - Resultado deve incluir `DESC_PRODUTO` e `DESC_COR_PRODUTO`.
-- JOIN com `info_produto` **nunca** usa `COLECAO` — apenas `PRODUTO` + `COR_PRODUTO`.
+- JOIN com `info_produto_v2` **nunca** usa `COLECAO` — apenas `PRODUTO` + `COR_PRODUTO`.
 - Para filtros de característica, aplicar OR em todos os campos:
 ```sql
 (`LINHA` = 'X' OR `LINHA_MIX` = 'X' OR `GRUPO_PRODUTO` = 'X'
@@ -469,7 +469,7 @@ Os campos `LINHA`, `LINHA_MIX`, `GRUPO_PRODUTO`, `SUBGRUPO_PRODUTO`, `SOLUCAO` e
 ```sql
 SELECT
   DISTINCT `LINHA`, `LINHA_MIX`, `GRUPO_PRODUTO`, `SUBGRUPO_PRODUTO`, `SOLUCAO`, `TIPO_PRODUTO`
-FROM `soma-dl-refined-online.atacado_processed.info_produto`
+FROM `soma-dl-refined-online.atacado_processed.info_produto_v2`
 WHERE `MARCA` = '<MARCA>'   -- filtrar pela marca relevante quando aplicável
 ORDER BY 1, 2, 3, 4, 5, 6
 ```
@@ -831,7 +831,7 @@ Pessoa física recrutada por multimarca para divulgar as marcas via canais digit
 
 ### Somaplace
 **Sinônimos:** Marketplace Somaplace, Soma Marketplace, Marketplace
-Multimarcas incluem produtos da coleção nos sites das marcas do grupo. 80% para a multimarca, 20% para o grupo. Pagamento todo dia 13. GMV = `SUM(VALOR_PAGO)` onde `STATUS = 'CAPTURADO'`. GMV Líquido = sem filtros (cancelados e devoluções entram negativos). Comissão calculada sobre GMV Líquido. **Cliente ativo** = cadastrado em `cadastro_somaplace` + ao menos 1 transação `CAPTURADO` nos últimos 2 meses — ver §20 para queries completas e distinção ativo vs inativo.
+Multimarcas incluem produtos da coleção nos sites das marcas do grupo. Comissão variável por cliente: padrão 20% para o grupo / 80% para a multimarca. Clientes com logística via Correios pagam comissão superior — usar sempre `COMISSAO` de `cadastro_somaplace_v2`, nunca valor fixo. Pagamento todo dia 13. GMV = `SUM(VALOR_PAGO)` onde `STATUS = 'CAPTURADO'`. GMV Líquido = sem filtros (cancelados e devoluções entram negativos). Comissão calculada sobre GMV Líquido. **Cliente ativo** = cadastrado em `cadastro_somaplace_v2` + ao menos 1 transação `CAPTURADO` nos últimos 2 meses — ver §20 para queries completas e distinção ativo vs inativo.
 
 ### GMV
 **Sinônimos:** Gross Merchandise Volume, Volume Bruto de Vendas
@@ -847,11 +847,11 @@ Identificado por `PRODUTO + COR_PRODUTO`. Segmento determina submarca quando `MA
 
 ### Linha
 **Sinônimos:** Linha de Produto, Product Line
-Campo `LINHA` em `info_produto`. Agrupamento por tipo de fabricação (ex: Malha, Denim). Análise de mix de produto.
+Campo `LINHA` em `info_produto_v2`. Agrupamento por tipo de fabricação (ex: Malha, Denim). Análise de mix de produto.
 
 ### Segmento
 **Sinônimos:** Público-Alvo, Segment
-Campo `SEGMENTO` em `info_produto`. Classifica submarcas dentro de Fábula: `MENINA TEEN` = FARM FUTURA; `MENINO` / `BEBE MENINO` = BENTO; demais = Fábula. Filtros SQL: ver §4.
+Campo `SEGMENTO` em `info_produto_v2`. Classifica submarcas dentro de Fábula: `MENINA TEEN` = FARM FUTURA; `MENINO` / `BEBE MENINO` = BENTO; demais = Fábula. Filtros SQL: ver §4.
 
 ---
 
@@ -924,7 +924,7 @@ WHERE `SITUACAO` = 'BLOQUEADO'
 
 ## 20. Somaplace — regras de consulta
 
-Somaplace é analisado via `venda_somaplace` (transações) e `cadastro_somaplace` (adesões). Sub-sistema **independente** de info_venda — não aplicar filtros de TIPO_VENDA.
+Somaplace é analisado via `venda_somaplace_v2` (transações) e `cadastro_somaplace_v2` (adesões e comissão). Sub-sistema **independente** de info_venda — não aplicar filtros de TIPO_VENDA.
 
 ### GMV
 
@@ -937,45 +937,53 @@ Somaplace é analisado via `venda_somaplace` (transações) e `cadastro_somaplac
 
 ### Divisão de receita
 
-A divisão é calculada sobre o **GMV Líquido** (sem filtro de STATUS — cancelamentos e devoluções entram negativos):
+A divisão é calculada sobre o **GMV Líquido** (sem filtro de STATUS — cancelamentos e devoluções entram negativos). O percentual do grupo é definido pelo campo `COMISSAO` de `cadastro_somaplace_v2`, armazenado como inteiro (ex: `20` = 20%). Nunca usar valor fixo.
 
-| Destinatário | Percentual | Base de cálculo |
+| Destinatário | Percentual | Cálculo |
 |---|---|---|
-| Multimarca | 80% | GMV Líquido |
-| Grupo Azzas 2154 | 20% | GMV Líquido |
+| Grupo Azzas 2154 | `COMISSAO`% (padrão: 20%) | `gmv_liquido * (cs.COMISSAO / 100)` |
+| Multimarca | `(100 - COMISSAO)`% (padrão: 80%) | `gmv_liquido * ((100 - cs.COMISSAO) / 100)` |
+
+> Clientes com logística via Correios têm custo maior e pagam `COMISSAO` superior ao padrão de 20% — sempre buscar o valor da coluna, nunca assumir 20%.
 
 ```sql
--- GMV Líquido (base para divisão)
+-- GMV Líquido com divisão variável por COMISSAO
 WITH gmv_liq AS (
-  SELECT `CLIFOR`, `MARCA`, SUM(`VALOR_PAGO`) AS gmv_liquido
-  FROM `soma-dl-refined-online.atacado_processed.venda_somaplace`
+  SELECT vs.`CLIFOR`, vs.`MARCA`, SUM(vs.`VALOR_PAGO`) AS gmv_liquido
+  FROM `soma-dl-refined-online.atacado_processed.venda_somaplace_v2` vs
   GROUP BY 1, 2
 )
-SELECT `CLIFOR`, `MARCA`,
-  gmv_liquido,
-  gmv_liquido * 0.80 AS receita_multimarca,
-  gmv_liquido * 0.20 AS receita_grupo
-FROM gmv_liq
+SELECT
+  gl.`CLIFOR`, gl.`MARCA`,
+  cs.`COMISSAO`,
+  gl.gmv_liquido,
+  gl.gmv_liquido * ((100 - cs.`COMISSAO`) / 100) AS receita_multimarca,
+  gl.gmv_liquido * (cs.`COMISSAO` / 100)          AS receita_grupo
+FROM gmv_liq gl
+JOIN `soma-dl-refined-online.atacado_processed.cadastro_somaplace_v2` cs
+  ON gl.`CLIFOR` = cs.`CLIFOR` AND gl.`MARCA` = cs.`MARCA`
 ```
 
 ### Filtros de STATUS
 
-| STATUS | Classificação |
-|---|---|
-| `'CAPTURADO'` | Venda confirmada (entra no GMV Bruto) |
-| `'CANCELADO'` | Transação cancelada |
-| `'DEVOLVIDO'` | Mercadoria devolvida (entra no GMV Líquido com valor negativo) |
+| STATUS | Classificação | `VALOR_PAGO` na tabela |
+|---|---|---|
+| `'CAPTURADO'` | Venda confirmada (entra no GMV Bruto) | Positivo |
+| `'CANCELADO'` | Transação cancelada (entra no GMV Líquido como dedução) | **Negativo** |
+| `'DEVOLVIDO'` | Mercadoria devolvida (entra no GMV Líquido como dedução) | **Negativo** |
+
+> `CANCELADO` e `DEVOLVIDO` têm `VALOR_PAGO` negativo na tabela. Por isso o GMV Líquido (sem filtro de `STATUS`) subtrai automaticamente cancelamentos e devoluções.
 
 ### Filtros de período
 
-- Filtrar por `DATA` (campo DATE) — não por COLECAO.
+- Filtrar por `DATA` (campo TIMESTAMP) — usar `DATE(DATA)` para filtrar por dia. Não filtrar por COLECAO (usar DATA).
 - `COLECAO` disponível para análise de mix, mas não é o critério de período principal.
 
 ### Cliente ativo no Somaplace
 
-Multimarca **cadastrada** em `cadastro_somaplace` que possui ao menos uma transação com `STATUS = 'CAPTURADO'` nos **últimos 2 meses** (campo `DATA` de `venda_somaplace`).
+Multimarca **cadastrada** em `cadastro_somaplace_v2` que possui ao menos uma transação com `STATUS = 'CAPTURADO'` nos **últimos 2 meses** (campo `DATA` de `venda_somaplace_v2`).
 
-> **Desambiguação:** "cliente ativo" ≠ "cliente cadastrado". Um cliente pode constar em `cadastro_somaplace` sem nunca ter gerado venda — não é considerado ativo.
+> **Desambiguação:** "cliente ativo" ≠ "cliente cadastrado". Um cliente pode constar em `cadastro_somaplace_v2` sem nunca ter gerado venda — não é considerado ativo.
 
 #### Classificação de atividade
 
@@ -990,11 +998,11 @@ Multimarca **cadastrada** em `cadastro_somaplace` que possui ao menos uma transa
 SELECT
   cs.`MARCA`,
   COUNT(DISTINCT cs.`CLIFOR`) AS clientes_ativos
-FROM `soma-dl-refined-online.atacado_processed.cadastro_somaplace` cs
-INNER JOIN `soma-dl-refined-online.atacado_processed.venda_somaplace` vs
+FROM `soma-dl-refined-online.atacado_processed.cadastro_somaplace_v2` cs
+INNER JOIN `soma-dl-refined-online.atacado_processed.venda_somaplace_v2` vs
   ON cs.`CLIFOR` = vs.`CLIFOR` AND cs.`MARCA` = vs.`MARCA`
 WHERE vs.`STATUS` = 'CAPTURADO'
-  AND vs.`DATA` >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH)
+  AND DATE(vs.`DATA`) >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH)
 GROUP BY 1
 ORDER BY 2 DESC
 ```
@@ -1008,13 +1016,13 @@ SELECT
   CASE
     WHEN MAX(
       CASE WHEN vs.`STATUS` = 'CAPTURADO'
-                AND vs.`DATA` >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH)
+                AND DATE(vs.`DATA`) >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH)
            THEN 1 ELSE 0 END
     ) = 1 THEN 'ATIVO'
     ELSE 'INATIVO'
   END AS status_atividade
-FROM `soma-dl-refined-online.atacado_processed.cadastro_somaplace` cs
-LEFT JOIN `soma-dl-refined-online.atacado_processed.venda_somaplace` vs
+FROM `soma-dl-refined-online.atacado_processed.cadastro_somaplace_v2` cs
+LEFT JOIN `soma-dl-refined-online.atacado_processed.venda_somaplace_v2` vs
   ON cs.`CLIFOR` = vs.`CLIFOR` AND cs.`MARCA` = vs.`MARCA`
 GROUP BY 1, 2
 ```
@@ -1022,8 +1030,8 @@ GROUP BY 1, 2
 ### Join cadastro → venda
 
 ```sql
-FROM `soma-dl-refined-online.atacado_processed.cadastro_somaplace` cs
-LEFT JOIN `soma-dl-refined-online.atacado_processed.venda_somaplace` vs
+FROM `soma-dl-refined-online.atacado_processed.cadastro_somaplace_v2` cs
+LEFT JOIN `soma-dl-refined-online.atacado_processed.venda_somaplace_v2` vs
   ON cs.`CLIFOR` = vs.`CLIFOR` AND cs.`MARCA` = vs.`MARCA`
 ```
 
@@ -1031,36 +1039,36 @@ LEFT JOIN `soma-dl-refined-online.atacado_processed.venda_somaplace` vs
 
 ## 21. Afiliados — regras de consulta
 
-Programa de afiliados analisado via `afiliados_vendas` (tabela central), com JOINs opcionais a `afiliados_multimarca` e `afiliados_vendedores`. Sub-sistema **independente** de info_venda.
+Programa de afiliados analisado via `afiliados_venda_v2` (tabela central), com JOINs opcionais a `afiliados_multimarca` e `afiliados_vendedores`. Sub-sistema **independente** de info_venda.
 
-### Classificação de status em `afiliados_vendas`
+### Classificação de status em `afiliados_venda_v2`
 
-| Classificação | `status_venda` | `tipo_venda` |
+| Classificação | `STATUS_VENDA` | `TIPO_VENDA` |
 |---|---|---|
 | Venda confirmada | `'CAPTURADO'` | `'ONLINE'` |
 | Devolução | `'CAPTURADO'` | `'DEVOLUÇÃO'` |
-| Cancelado | `'CANCELADO'` | (qualquer) |
+| Cancelado | `'CANCELADO'` | `'ONLINE'` |
 
 ### Venda Afiliados
 
-O campo `venda_liquida` já representa o valor líquido da transação. A métrica padrão é a **Venda Líquida de Cancelamento**: soma de venda confirmada (CAPTURADO + ONLINE) e cancelamentos (CANCELADO). Devoluções (`CAPTURADO + DEVOLUÇÃO`) são excluídas por padrão e só entram quando explicitamente solicitadas.
+O campo `VENDA_LIQUIDA` já representa o valor líquido da transação. A métrica padrão é a **Venda Líquida de Cancelamento**: soma de venda confirmada (CAPTURADO + ONLINE) e cancelamentos (CANCELADO). Devoluções (`CAPTURADO + DEVOLUÇÃO`) são excluídas por padrão e só entram quando explicitamente solicitadas.
 
 ```sql
 -- Venda Líquida de Cancelamento (PADRÃO)
-SELECT SUM(`venda_liquida`) AS venda_liquida_cancelamento
-FROM `soma-dl-refined-online.atacado_processed.afiliados_vendas`
-WHERE (`status_venda` = 'CAPTURADO' AND `tipo_venda` = 'ONLINE')
-   OR `status_venda` = 'CANCELADO'
+SELECT SUM(`VENDA_LIQUIDA`) AS venda_liquida_cancelamento
+FROM `soma-dl-refined-online.atacado_processed.afiliados_venda_v2`
+WHERE (`STATUS_VENDA` = 'CAPTURADO' AND `TIPO_VENDA` = 'ONLINE')
+   OR `STATUS_VENDA` = 'CANCELADO'
 
 -- Apenas venda confirmada (sob pedido explícito)
-SELECT SUM(`venda_liquida`) AS venda_confirmada
-FROM `soma-dl-refined-online.atacado_processed.afiliados_vendas`
-WHERE `status_venda` = 'CAPTURADO' AND `tipo_venda` = 'ONLINE'
+SELECT SUM(`VENDA_LIQUIDA`) AS venda_confirmada
+FROM `soma-dl-refined-online.atacado_processed.afiliados_venda_v2`
+WHERE `STATUS_VENDA` = 'CAPTURADO' AND `TIPO_VENDA` = 'ONLINE'
 
 -- Incluindo devoluções (sob pedido explícito)
-SELECT SUM(`venda_liquida`) AS venda_liquida_com_devolucao
-FROM `soma-dl-refined-online.atacado_processed.afiliados_vendas`
-WHERE `status_venda` = 'CAPTURADO'  -- inclui ONLINE e DEVOLUÇÃO
+SELECT SUM(`VENDA_LIQUIDA`) AS venda_liquida_com_devolucao
+FROM `soma-dl-refined-online.atacado_processed.afiliados_venda_v2`
+WHERE `STATUS_VENDA` = 'CAPTURADO'  -- inclui ONLINE e DEVOLUÇÃO
 ```
 
 ### Estrutura de comissão
@@ -1075,47 +1083,84 @@ WHERE `status_venda` = 'CAPTURADO'  -- inclui ONLINE e DEVOLUÇÃO
 > A comissão da multimarca (5%) é creditada como abatimento de títulos a vencer — reduz inadimplência potencial.
 
 ```sql
-SUM(`venda_liquida`) * 0.04 AS comissao_vendedor,
-SUM(`venda_liquida`) * 0.05 AS comissao_multimarca,
-SUM(`venda_liquida`) * 0.01 AS comissao_representante
+SUM(`VENDA_LIQUIDA`) * 0.04 AS comissao_vendedor,
+SUM(`VENDA_LIQUIDA`) * 0.05 AS comissao_multimarca,
+SUM(`VENDA_LIQUIDA`) * 0.01 AS comissao_representante
 ```
 
 ### Identificação de vendedor digital
 
-`codigo_vendedor` iniciado em `'7'` identifica vendedoras digitais:
+`CODIGO_VENDEDOR` iniciado em `'7'` identifica vendedoras digitais:
 
 ```sql
-WHERE `codigo_vendedor` LIKE '7%'
+WHERE `CODIGO_VENDEDOR` LIKE '7%'
 ```
 
 ### Definição de ativo
 
 | Entidade | Critério de ativo |
 |---|---|
-| Vendedor digital | Venda confirmada nos **últimos 2 meses** (`mes_venda` / `ano_venda`) |
+| Vendedor digital | Venda confirmada nos **últimos 2 meses** — `DATE(DATA) >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH)` |
 | Multimarca (cliente) | Venda confirmada nos **últimos 2 meses** |
 
-### Regras de PII — `afiliados_vendedores`
+### Regras de PII
 
-`cpf_vendedor` e `nome_vendedor` são 🔴 PII — **nunca incluir no SELECT**. Usar somente colunas seguras:
+`CPF_CLIENTE` em `afiliados_venda_v2` e `cpf_vendedor`, `nome_vendedor` em `afiliados_vendedores` são 🔴 PII — **nunca incluir no SELECT**.
 
 ```sql
 -- ✅ Seguro
+SELECT av.`CLIFOR`, av.`MARCA`, av.`CODIGO_VENDEDOR`,
+       av.`ESTADO`, av.`CIDADE`, SUM(av.`VENDA_LIQUIDA`) AS venda_total
+FROM `soma-dl-refined-online.atacado_processed.afiliados_venda_v2` av
+GROUP BY 1, 2, 3, 4, 5
+
+-- ✅ Seguro — afiliados_vendedores
 SELECT avd.`codigo_vendedor`, avd.`clifor`, avd.`data_cadastro`, avd.`data_desligamento`
 
 -- ❌ Proibido
--- SELECT avd.`cpf_vendedor`, avd.`nome_vendedor`
+-- SELECT av.`CPF_CLIENTE`           -- PII em afiliados_venda_v2
+-- SELECT avd.`cpf_vendedor`, avd.`nome_vendedor`  -- PII em afiliados_vendedores
 ```
 
 ### Padrão de JOIN
 
 ```sql
-FROM `soma-dl-refined-online.atacado_processed.afiliados_vendas` av
+FROM `soma-dl-refined-online.atacado_processed.afiliados_venda_v2` av
 LEFT JOIN `soma-dl-refined-online.atacado_processed.afiliados_multimarca` am
-  ON av.`clifor` = am.`CLIFOR` AND av.`marca` = am.`MARCA`
+  ON av.`CLIFOR` = am.`CLIFOR` AND av.`MARCA` = am.`MARCA`
 LEFT JOIN `soma-dl-refined-online.atacado_processed.afiliados_vendedores` avd
-  ON av.`codigo_vendedor` = avd.`codigo_vendedor`
+  ON av.`CODIGO_VENDEDOR` = avd.`codigo_vendedor`
 ```
+
+### Filtro de pedidos cancelados
+
+Pedidos cancelados possuem `STATUS_VENDA = 'CANCELADO'` com `TIPO_VENDA = 'ONLINE'` — `CANCELADO` nunca ocorre com `TIPO_VENDA = 'DEVOLUÇÃO'`. O filtro por `STATUS_VENDA` é suficiente:
+
+```sql
+-- Apenas cancelamentos
+SELECT FORMAT_DATE('%Y-%m', DATE(`DATA`)) AS mes,
+       `MARCA`,
+       `CLIFOR`,
+       COUNT(DISTINCT `PEDIDO`) AS qtd_pedidos_cancelados,
+       SUM(`VENDA_LIQUIDA`) AS valor_cancelado
+FROM `soma-dl-refined-online.atacado_processed.afiliados_venda_v2`
+WHERE `STATUS_VENDA` = 'CANCELADO'
+GROUP BY 1, 2, 3
+ORDER BY 1 DESC
+
+-- Taxa de cancelamento: cancelados ÷ total de pedidos capturados
+SELECT `MARCA`,
+       COUNTIF(`STATUS_VENDA` = 'CANCELADO') AS qtd_cancelados,
+       COUNTIF(`STATUS_VENDA` = 'CAPTURADO' AND `TIPO_VENDA` = 'ONLINE') AS qtd_confirmados,
+       SAFE_DIVIDE(
+         COUNTIF(`STATUS_VENDA` = 'CANCELADO'),
+         COUNTIF(`STATUS_VENDA` = 'CAPTURADO' AND `TIPO_VENDA` = 'ONLINE')
+       ) AS taxa_cancelamento
+FROM `soma-dl-refined-online.atacado_processed.afiliados_venda_v2`
+GROUP BY 1
+```
+
+> Não confundir com devolução (`STATUS_VENDA = 'CAPTURADO' AND TIPO_VENDA = 'DEVOLUÇÃO'`): cancelamento ocorre antes da entrega; devolução ocorre após. São sempre mutuamente exclusivos nos dados — nenhum registro tem `STATUS_VENDA = 'CANCELADO' AND TIPO_VENDA = 'DEVOLUÇÃO'`.
 
 ### Vendedores desligados
 
@@ -1123,6 +1168,132 @@ LEFT JOIN `soma-dl-refined-online.atacado_processed.afiliados_vendedores` avd
 
 ```sql
 WHERE avd.`data_desligamento` IS NULL
+```
+
+---
+
+## 22. Farm Etc — canal Pacific vs Interna
+
+> ⚠️ Esta análise é **exclusiva de `MARCA = 'FARM ETC'`** e **só deve ser executada quando explicitamente solicitada** — ex: *"venda de Farm Etc com quebra entre venda Pacific e venda Interna"*. Nunca aplicar automaticamente ou em outras marcas.
+
+O número do pedido Wise (`PEDIDO_WISE` em `info_venda`) identifica o canal de venda da Farm Etc:
+
+| Classificação | Critério | Descrição |
+|---|---|---|
+| **PACIFIC** | `PEDIDO_WISE LIKE 'PC%'` | Pedido originado pelo canal Pacific |
+| **INTERNA** | `PEDIDO_WISE NOT LIKE 'PC%'` | Pedido originado pelo canal interno |
+
+```sql
+SELECT
+  CASE WHEN v.`PEDIDO_WISE` LIKE 'PC%' THEN 'PACIFIC' ELSE 'INTERNA' END AS canal_venda,
+  SUM(v.`VENDA_LIQUIDA`) AS venda_liquida
+FROM `soma-dl-refined-online.atacado_processed.info_venda` v
+WHERE v.`MARCA` = 'FARM ETC'
+  AND v.`TIPO_VENDA` IN ('VENDA', 'PRE VENDA')
+  AND v.`VENDA_ORIGINAL` > 0
+  AND v.`COLECAO` = '<COLECAO>'
+GROUP BY 1
+ORDER BY 2 DESC
+```
+
+---
+
+## 23. E-commerce — regras de consulta (`info_ecommerce`)
+
+> ❌ **Usar esta tabela somente quando o usuário escrever literalmente "ecommerce" ou "e-commerce" na solicitação. Nenhum sinônimo, inferência ou contexto substitui essa menção explícita. Não usar para análises de ciclo de venda, afiliados ou Somaplace por iniciativa própria.**
+
+### STATUS_EVENTO
+
+| Classificação | `STATUS_EVENTO` | Descrição |
+|---|---|---|
+| Venda confirmada | `'CAPTURADO'` | Evento efetivado |
+| Cancelado | `'CANCELADO'` | Evento cancelado |
+
+> ⚠️ **Diferença de nomenclatura em relação a `afiliados_venda_v2`:** o campo de status aqui é `STATUS_EVENTO` (não `STATUS_VENDA`). Devoluções são `TIPO_VENDA = 'DEVOLUCAO'` sem acento (diferente de `'DEVOLUÇÃO'` com acento em `afiliados_venda_v2`). Não reutilizar filtros entre as duas tabelas sem ajustar nome do campo e grafia.
+
+### TIPO_VENDA
+
+| Valor | Descrição |
+|---|---|
+| `'ONLINE'` | Venda realizada por canal digital |
+| `'FISICO'` | Compra realizada em loja física — indica presença de ponto de venda na cidade do cliente |
+| `'DEVOLUCAO'` | Devolução de item |
+
+```sql
+-- Apenas loja física
+WHERE `TIPO_VENDA` = 'FISICO'
+
+-- Apenas venda online
+WHERE `TIPO_VENDA` = 'ONLINE'
+
+-- Excluir devoluções
+WHERE `TIPO_VENDA` != 'DEVOLUCAO'
+```
+
+### Identificação de transação única
+
+Não há coluna `PEDIDO` nesta tabela. Transações únicas são identificadas pela combinação `PRODUTO + COR_PRODUTO + DATE(DATA) + CPF + STATUS_EVENTO + TIPO_VENDA`.
+
+### COLECAO
+
+Não disponível como coluna direta — obter via join com `info_produto_v2` usando `PRODUTO + COR_PRODUTO`.
+
+### PROGRAMA_VENDEDOR — classificação de canal
+
+| Critério | Classificação | Relação |
+|---|---|---|
+| `PROGRAMA_VENDEDOR = 'MULTIMARCA'` | **AFILIADO (ATACADO)** | Vendedor do programa de afiliados — relacionado ao atacado |
+| `PROGRAMA_VENDEDOR IS NOT NULL` (outro valor) | **VAREJO** | Vendedor do canal varejo |
+| `PROGRAMA_VENDEDOR IS NULL` | **SEM VENDEDOR** | Venda sem vendedor associado |
+
+Ver SQL de classificação em `schema.md §17`.
+
+> Vendas com `PROGRAMA_VENDEDOR = 'MULTIMARCA'` também estão registradas em `afiliados_venda_v2`. Para qualquer análise do programa de afiliados, usar sempre `afiliados_venda_v2` — não `info_ecommerce`.
+
+### Métrica padrão
+
+`SUM(VALOR_PAGO)` com `STATUS_EVENTO = 'CAPTURADO'` e `TIPO_VENDA != 'DEVOLUCAO'` — equivalente ao GMV Bruto. Devoluções (`TIPO_VENDA = 'DEVOLUCAO'`) são excluídas por padrão e só entram quando explicitamente solicitadas.
+
+```sql
+SELECT
+  `MARCA`,
+  `TIPO_VENDA`,
+  SUM(`VALOR_PAGO`) AS receita
+FROM `soma-dl-refined-online.atacado_processed.info_ecommerce`
+WHERE `STATUS_EVENTO` = 'CAPTURADO'
+  AND `TIPO_VENDA` != 'DEVOLUCAO'
+  AND DATE(`DATA`) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+GROUP BY 1, 2
+ORDER BY 3 DESC
+```
+
+### Análise por cidade / estado
+
+`CIDADE` e `ESTADO` permitem cruzar presença geográfica com outras análises (loja física, produto vendido por região). Normalizar `CIDADE` removendo acentos e ç antes de comparar (mesma regra de `business-rules.md §16`).
+
+```sql
+SELECT
+  `ESTADO`, `CIDADE`,
+  COUNT(*) AS qtd_eventos,
+  SUM(`VALOR_PAGO`) AS receita
+FROM `soma-dl-refined-online.atacado_processed.info_ecommerce`
+WHERE `STATUS_EVENTO` = 'CAPTURADO'
+GROUP BY 1, 2
+ORDER BY 4 DESC
+```
+
+### Regra de PII
+
+`CPF` é 🔴 PII — **nunca incluir no SELECT**. Usar apenas para COUNT(DISTINCT) quando necessário contar clientes únicos, sem expor o valor.
+
+```sql
+-- ✅ Seguro — contagem sem expor CPF
+SELECT COUNT(DISTINCT `CPF`) AS clientes_unicos
+FROM `soma-dl-refined-online.atacado_processed.info_ecommerce`
+WHERE `STATUS_EVENTO` = 'CAPTURADO'
+
+-- ❌ Proibido
+-- SELECT `CPF`, `VALOR_PAGO` FROM info_ecommerce
 ```
 
 ---
@@ -1139,3 +1310,6 @@ WHERE avd.`data_desligamento` IS NULL
 | 2026-05-12 | §20 Somaplace: expansão do conceito de cliente ativo — distinção cadastrado vs ativo vs inativo; queries completas de contagem e classificação adicionadas. Glossário §18 Somaplace atualizado com referência a §20. |
 | 2026-05-12 | §21 Afiliados: métrica padrão alterada para Venda Líquida de Cancelamento (CAPTURADO+ONLINE + CANCELADO). Devoluções excluídas por padrão — entram só sob pedido explícito. SKILL.md atualizado para refletir novo padrão. |
 | 2026-05-13 | Revisão geral: §4 FARM FUTURA com instrução para consultas anteriores ao VERÃO 2026; §9 Resgate uniformizado para "coleções"; §9 Cluster esclarece inclusão da coleção de referência; "Cliente Ativo (recorrência)" renomeado para "análise de coleção"; desambiguação de "ativo" expandida para Somaplace/Afiliados; §18 Faturamento Líquido adicionado ao glossário; desambiguação de "Perda" vs TIPO_BLOQUEIO em §18 e §19; labels de anti-hallucination uniformizados com SKILL.md. |
+| 2026-05-13 | §21 Afiliados: `afiliados_vendas` migrado para `afiliados_venda_v2`; grão alterado para pedido × produto × cor_produto; `DATA` (TIMESTAMP) substitui `mes_venda`/`ano_venda`; colunas em MAIÚSCULA; `CPF_CLIENTE` (🔴 PII) adicionado; regra de ativo atualizada para `DATE(DATA)`; filtro de pedidos cancelados documentado com queries de isolamento e taxa de cancelamento. |
+| 2026-05-13 | §20 Somaplace: `cadastro_somaplace` migrado para `cadastro_somaplace_v2`; nova coluna `COMISSAO` (FLOAT, inteiro — ex: 20 = 20%); divisão de receita atualizada de 80%/20% fixo para variável via `cs.COMISSAO / 100`; todas as queries do §20 atualizadas; glossário Somaplace atualizado. |
+| 2026-05-14 | Revisão de gaps/ambiguidades/duplicidades em ecommerce. §20: DATA corrigido para TIMESTAMP; CANCELADO e DEVOLVIDO documentados como VALOR_PAGO negativo na tabela de STATUS. §21: CANCELADO restrito a TIPO_VENDA='ONLINE' (nunca 'DEVOLUÇÃO'); CANCELADO+DEVOLUÇÃO confirmados como mutuamente exclusivos. §23: SQL de PROGRAMA_VENDEDOR removido (ver schema.md §17); TIPO_VENDA FISICO contextualizado; seções "Identificação de transação única" e "COLECAO" adicionadas; nota sobre overlap info_ecommerce×afiliados_venda_v2; alerta de nomenclatura STATUS_EVENTO/DEVOLUCAO vs STATUS_VENDA/DEVOLUÇÃO. schema.md §17: mesmas adições + regra de literalidade alinhada. SKILL.md: regra de literalidade alinhada com business-rules.md §23. |

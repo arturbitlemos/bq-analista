@@ -239,7 +239,7 @@ def test_callback_expired_state_returns_400() -> None:
     c = _app(["exec@azzas.com.br"])
     state = _start_and_get_state(c)
     # Backdate the stored timestamp by more than 10 minutes
-    _pending_states[state] = time.time() - 601
+    _pending_states[state] = (time.time() - 601, None, None, None)
     r = c.get(f"/auth/callback?code=abc&state={state}")
     assert r.status_code == 400
     assert "expired" in r.json()["detail"]

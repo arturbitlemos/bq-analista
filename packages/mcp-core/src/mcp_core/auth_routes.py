@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import os
 import secrets
 import time
@@ -17,19 +19,26 @@ from mcp_core.jwt_tokens import TokenError, TokenIssuer, TokenPair
 
 _LifespanT = Callable[[Any], AbstractAsyncContextManager[None]] | None
 
-# In-memory CSRF state store: state_token → creation timestamp (time.time()).
+# In-memory CSRF state store:
+#   state_token → (creation_timestamp, client_redirect_uri | None, client_state | None, code_challenge | None)
 # Single-process Railway deployments only — no Redis needed.
-_pending_states: dict[str, float] = {}
+_pending_states: dict[str, tuple[float, str | None, str | None, str | None]] = {}
 
 _STATE_TTL_S = 600  # 10 minutes
 
-# In-memory exchange-code store: code → (TokenPair, email, created_at).
-# /auth/callback mints a code and renders an HTML success page (no tokens
-# leak to the browser); the OAuth client back-channels POST /auth/token
-# to redeem the code for the actual tokens.
-_pending_exchanges: dict[str, tuple[TokenPair, str, float]] = {}
+# In-memory exchange-code store: code → (TokenPair, email, created_at, code_challenge | None).
+# /auth/callback mints a code; the OAuth client back-channels POST /auth/token to redeem it.
+# When client_redirect_uri is present (claude.ai flow), the code is delivered via redirect
+# instead of the HTML page used by the DXT client.
+_pending_exchanges: dict[str, tuple[TokenPair, str, float, str | None]] = {}
 
 _EXCHANGE_TTL_S = 60  # 1 minute — code is meant to be redeemed immediately
+
+
+def _verify_pkce(code_verifier: str, code_challenge: str) -> bool:
+    digest = hashlib.sha256(code_verifier.encode()).digest()
+    computed = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+    return computed == code_challenge
 
 
 def build_auth_app(
@@ -43,30 +52,38 @@ def build_auth_app(
     app = FastAPI(redirect_slashes=False, lifespan=lifespan)
 
     @app.get("/auth/start")
-    def start() -> RedirectResponse:
+    def start(
+        redirect_uri: str | None = None,
+        state: str | None = None,
+        code_challenge: str | None = None,
+        code_challenge_method: str | None = None,
+    ) -> RedirectResponse:
+        if code_challenge and code_challenge_method and code_challenge_method != "S256":
+            raise HTTPException(status_code=400, detail="unsupported code_challenge_method: only S256 accepted")
+
         # Prune expired entries
         now = time.time()
-        stale = [k for k, v in _pending_states.items() if now - v > _STATE_TTL_S]
+        stale = [k for k, v in _pending_states.items() if now - v[0] > _STATE_TTL_S]
         for k in stale:
             del _pending_states[k]
 
-        state = secrets.token_urlsafe(16)
-        _pending_states[state] = time.time()
-        return RedirectResponse(azure.authorization_url(state=state), status_code=302)
+        azure_state = secrets.token_urlsafe(16)
+        _pending_states[azure_state] = (time.time(), redirect_uri, state, code_challenge)
+        return RedirectResponse(azure.authorization_url(state=azure_state), status_code=302)
 
-    @app.get("/auth/callback")
-    def callback(code: str, state: str | None = None) -> HTMLResponse:
+    @app.get("/auth/callback", response_model=None)
+    def callback(code: str, state: str | None = None) -> HTMLResponse | RedirectResponse:
         """Browser-facing OAuth redirect handler.
 
-        Exchanges the Azure code for tokens, then mints a single-use exchange
-        code and renders a tokenless HTML page. The OAuth client back-channels
-        POST /auth/token with the exchange code to retrieve the actual tokens —
-        tokens never reach the browser address bar, history, or response body.
+        Two paths depending on whether a client redirect_uri was registered:
+
+        - Standard OAuth 2.1 (claude.ai): redirects to redirect_uri?code=...&state=...
+        - DXT legacy path: returns an HTML page; DXT reads window.location.hash
         """
         # CSRF state validation
         if state is None or state not in _pending_states:
             raise HTTPException(status_code=400, detail="invalid_state: missing or unknown state parameter")
-        created_at = _pending_states.pop(state)
+        created_at, client_redirect_uri, client_state, code_challenge = _pending_states.pop(state)
         if time.time() - created_at > _STATE_TTL_S:
             raise HTTPException(status_code=400, detail="invalid_state: state parameter has expired")
 
@@ -83,11 +100,18 @@ def build_auth_app(
         for k in [k for k, v in _pending_exchanges.items() if now - v[2] > _EXCHANGE_TTL_S]:
             del _pending_exchanges[k]
         exchange_code = secrets.token_urlsafe(32)
-        _pending_exchanges[exchange_code] = (pair, info.email, now)
+        _pending_exchanges[exchange_code] = (pair, info.email, now, code_challenge)
 
-        # Surface the exchange code via URL fragment (never sent to the server,
-        # per RFC 6749 §3.1.2). OAuth clients listening for window.location.hash
-        # pick it up and POST it to /auth/token.
+        if client_redirect_uri:
+            # Standard OAuth 2.1 path — deliver code to the client's redirect_uri
+            sep = "&" if "?" in client_redirect_uri else "?"
+            location = f"{client_redirect_uri}{sep}code={exchange_code}"
+            if client_state:
+                location += f"&state={client_state}"
+            return RedirectResponse(location, status_code=302)
+
+        # DXT legacy path — surface the exchange code via URL fragment
+        # (never sent to the server, per RFC 6749 §3.1.2)
         return HTMLResponse(
             "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
             "<title>Login completo</title>"
@@ -143,9 +167,17 @@ def build_auth_app(
         entry = _pending_exchanges.pop(code, None)
         if entry is None:
             raise HTTPException(status_code=400, detail="invalid_grant")
-        pair, email, created_at = entry
+        pair, email, created_at, stored_challenge = entry
         if time.time() - created_at > _EXCHANGE_TTL_S:
             raise HTTPException(status_code=400, detail="invalid_grant: code expired")
+
+        # PKCE verification — required when the authorization request included code_challenge
+        if stored_challenge:
+            code_verifier = body.get("code_verifier")
+            if not isinstance(code_verifier, str) or not code_verifier:
+                raise HTTPException(status_code=400, detail="code_verifier required")
+            if not _verify_pkce(code_verifier, stored_challenge):
+                raise HTTPException(status_code=400, detail="invalid_grant: code_verifier mismatch")
 
         return JSONResponse({
             "access_token": pair.access_token,
@@ -215,6 +247,7 @@ def build_auth_app(
             "response_types_supported": ["code"],
             "grant_types_supported": ["authorization_code", "refresh_token"],
             "token_endpoint_auth_methods_supported": ["none"],
+            "code_challenge_methods_supported": ["S256"],
             "revocation_endpoint_supported": False,
             "introspection_endpoint_supported": False,
         }

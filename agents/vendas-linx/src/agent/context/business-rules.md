@@ -841,7 +841,7 @@ END AS codigo_filial_mais_vendas
 
 O campo `tipo_venda` em `refined_captacao` tem valores **diferentes** da tabela faturada:
 - Faturado: `VENDA_LOJA`, `VENDA_ECOM`, `VENDA_OMNI`, `VENDA_VITRINE`
-- Captado (raw): `FISICO`, `ONLINE`, `DEVOLUCAO`, NULL
+- Captado (raw): `FISICO`, `ONLINE`, `DEVOLUCAO`, `ESTOQUE PROPRIO`, `SOMASTORE`, `VITRINE`, NULL
 
 **Regra de classificação (default — universal para todas as marcas):**
 

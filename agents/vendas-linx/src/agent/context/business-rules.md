@@ -219,7 +219,7 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 | `tickets_troca` | `COUNT(DISTINCT chave_pedido) WHERE caso_venda = 'TROCA'` | TROCA |
 | `tickets_venda` | `COUNT(DISTINCT chave_pedido) WHERE caso_venda = 'VENDA NORMAL'` | VENDA NORMAL |
 | `pa_troca` | `SUM(QTDE_PROD - QTDE_TROCA_PROD) / COUNT(DISTINCT chave_pedido)` | TROCA |
-| `pa_venda` | `SUM(QTDE_PROD) / COUNT(DISTINCT chave_pedido)` | VENDA NORMAL |
+| `pa_venda` | `SUM(QTDE_PROD - QTDE_TROCA_PROD) / COUNT(DISTINCT chave_pedido)` | VENDA NORMAL |
 | `taxa_troca` | `tickets_troca / (tickets_troca + tickets_venda)` | — |
 
 ### 4.3 Troca positiva vs troca zerada

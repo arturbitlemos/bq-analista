@@ -32,6 +32,26 @@ O produto é uma biblioteca de BI cujo valor é "abrir e ver o número rápido, 
 
 Alto impacto + alavancagem barata: **U1, U2, U3, U4, U6, F2** e **U5** (decisão de produto reversível: cair em "Público" quando "Minhas" está vazio no first-run). U7/U8/U9 ficam como P2 priorizados no relatório final.
 
+## Resultado (verificado via Playwright + Lighthouse)
+
+| Critério | Meta | Resultado |
+|----------|------|-----------|
+| Lighthouse perf (home, mobile) | ≥ 90 | **93–94** (FCP 3.1s → 1.0s) |
+| Lighthouse a11y | ≥ 95 | **100** |
+| Lighthouse best-practices | ≥ 95 | **100** |
+| Fluxos funcionais (sweep desktop+mobile) | 0 bug | **0 pageerror, todos navOk** |
+
+Implementado e verificado com antes/depois (`scripts/uiux-audit/screenshots/{pre,post}.*`):
+U1 overlay de loading no iframe · U2 tela de login com marca · U3 erro com marca + retry · U4 erro de library in-grid · U5 first-run cai em Público · U6 empty state com CTA · U8 aria-selected + contraste AA · F2 admin gate limpo · perf: fontes non-render-blocking.
+
+### Pendentes (P2/P3 — não bloqueiam)
+
+- **U7** header mobile espremido (marca + 3 links + chip sem colapsar) — refator de layout, maior.
+- **U9** naming "Instalar no Claude" vs título da página de onboarding.
+- **F3** probe `/api/admin/analytics` loga 403 no console pra não-admin (ruído de devtools, não visível ao usuário; some-lo exigiria mexer na API).
+- i18n: `state-error` ainda mostra "Failed to load Azure config" (mensagem técnica do throw) em inglês.
+- LCP ~3s no `vercel dev` é cold-start do dev server; em prod `/` é HTML estático no CDN. Reavaliar com Lighthouse contra a URL de produção.
+
 ## Nota de ambiente (não é bug de produto)
 
 `vercel env pull` deixou `portal/.env.local` sem `AZURE_CLIENT_ID/TENANT_ID`, então `/api/config` dava 500 no dev local e a SPA nunca bootava. Corrigido localmente (env não versionado). Vale alinhar o `vercel env pull` / documentar no README de dev local.

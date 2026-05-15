@@ -1,7 +1,7 @@
 // Manifest servido em /api/mcp/agents e constantes de versão /api/mcp/version.
 // Adicionar/remover agente = editar aqui + deploy Vercel.
 // URL do Railway tem que bater com o endpoint onde o agente Python está deployed.
-// Agents: vendas-linx e devolucoes (agents/<name>/ no repo).
+// Agents: vendas-linx, devolucoes, ciclo-de-venda-atacado, clientes (agents/<name>/ no repo).
 
 const TOOL_SCHEMAS = {
   get_context: {
@@ -136,6 +136,13 @@ const MANIFEST = {
       label: 'Atacado',
       description: 'Análise de ciclo de venda no canal atacado.',
       url: 'https://agent-atacado-production.up.railway.app',
+      tools: BASE_TOOLS,
+    },
+    {
+      name: 'clientes',
+      label: 'Clientes',
+      description: 'Base de clientes, segmentação Novo/Retido/Reativado, VA, MACO, frequência. Receita não bate com vendas (marketplaces) — uso sob ótica de clientes apenas.',
+      url: 'https://agent-clientes-production.up.railway.app', // TODO: atualizar quando o Railway estiver provisionado
       tools: BASE_TOOLS,
     },
   ],

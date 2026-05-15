@@ -4,7 +4,7 @@ let msalInstance = null
 
 async function initMsal() {
   const res = await fetch('/api/config')
-  if (!res.ok) throw new Error('Failed to load Azure config')
+  if (!res.ok) throw new Error('Não consegui carregar a configuração de login. Tente novamente em instantes.')
 
   const { clientId, tenantId } = await res.json()
 

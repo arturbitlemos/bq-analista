@@ -83,6 +83,24 @@ Verificado: collab-post sem pageerror, fluxos intactos; onboarding desktop+mobil
 
 **Pendente (decisão de produto, P2):** O4 — Passo 2 (skill) é co-igual ao Passo 1 mas opcional e técnico (jargão pra exec); dois CTAs de download competindo. Reestruturar como progressive disclosure precisa de call de produto.
 
+## Rodada 4 — P2/P3
+
+| ID | Achado → Correção | Verificação |
+|----|-------------------|-------------|
+| U7 | Header mobile espremido: email full-width quebrava o layout, nav ragged. → CSS-only: nav vira faixa própria organizada, chip de email truncado (ellipsis, `max-width:46vw`), alvos de toque maiores. | Sweep mobile 390px: header limpo, 0 regressão. |
+| U9 | `onboarding.html` `<title>` era "Azzas MCP — Onboarding" — quebrava o padrão "Azzas 2154 — \<Página\>" e não batia com o nav "Instalar no Claude". → `Azzas 2154 — Instalar no Claude`. | — |
+| i18n | `msal-init.js` lançava "Failed to load Azure config" (inglês) que vazava pro card de erro com marca. → Mensagem em PT acionável. | — |
+
+Sweep `p23-post`: 10 páginas, **0 regressões**, deep-dive (busca/abrir análise) intacto, zero pageerror.
+
+**Removido após validação do usuário:** o bypass dev-only de MSAL (commit dropado) era só auxílio de navegação local; não faz parte do produto.
+
+### Backlog remanescente (não acionável nesta rodada)
+
+- **O4** (decisão de produto): Passo 2 (skill) no onboarding é co-igual ao Passo 1 mas opcional/técnico; dois CTAs de download competem. Reestruturar como progressive disclosure precisa de call de produto — não implementado unilateralmente.
+- **F3**: probe `/api/admin/analytics` loga 403 no console pra não-admin. Ruído de devtools, não visível ao usuário; suprimir exigiria mudar a API — custo > benefício.
+- **Lighthouse em produção**: só mensurável após deploy (as mudanças ainda não estão em `bq-analista.vercel.app`). Rodar pós-merge.
+
 ## Nota de ambiente (não é bug de produto)
 
 `vercel env pull` deixou `portal/.env.local` sem `AZURE_CLIENT_ID/TENANT_ID`, então `/api/config` dava 500 no dev local e a SPA nunca bootava. Corrigido localmente (env não versionado). Vale alinhar o `vercel env pull` / documentar no README de dev local.

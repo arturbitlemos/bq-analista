@@ -217,8 +217,13 @@
       #grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); padding: 1.25rem; }
     }
     @media (max-width: 600px) {
-      header { padding: 0.85rem 1rem; flex-wrap: wrap; gap: 0.75rem; }
-      nav { flex-wrap: wrap; gap: 0.75rem; font-size: 0.8rem; }
+      header { padding: 0.7rem 1rem; flex-wrap: wrap; gap: 0.5rem 0.75rem; }
+      .brand { flex: 0 0 auto; }
+      /* nav vira uma faixa própria, alinhada à esquerda, links com alvo de toque maior */
+      nav { order: 2; flex: 1 1 100%; flex-wrap: wrap; gap: 0.4rem 1.1rem; font-size: 0.82rem; }
+      nav a { padding: 0.3rem 0; }
+      /* email longo não pode estourar o header — trunca com reticências */
+      .user-chip { max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .hero { padding: 1.5rem 1rem; }
       .tabs { padding: 0 1rem; }
       .tab { padding: 0.75rem 0.85rem; }

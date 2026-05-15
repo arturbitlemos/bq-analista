@@ -1,0 +1,8 @@
+{
+  "allowed_emails": [
+    "luiz.vasconcelos@somagrupo.com.br",
+    "artur.lemos@somagrupo.com.br",
+    "mateus.portelinha@somagrupo.com.br"
+  ],
+  "notes": "Lista inicial restrita. Adicionar e-mails conforme demanda de acesso ao agente de clientes."
+}

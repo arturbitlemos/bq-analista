@@ -1,0 +1,48 @@
+# Agent settings — checked into the repo, reviewable via PR.
+#
+# Governance fields (stay here): domain, allowed_datasets, query limits,
+# retention, auth ttl. These define what this agent is allowed to do.
+#
+# Deployment fields (overridable via env vars): project_id,
+# billing_project_id, github.author_email/author_name/branch.
+# Env convention: MCP_<SECTION>_<FIELD> (see README § "Configuração dos agentes MCP").
+# Env wins over toml. Secrets NEVER go here.
+
+[server]
+host = "0.0.0.0"
+port = 3000
+domain = "clientes"
+
+[bigquery]
+project_id = "soma-crm-bi"
+max_bytes_billed = 15000000000
+query_timeout_s = 60
+max_rows = 100000
+# Datasets read by this agent.
+# - dashboards_corp: acomp_clientes_base (perspectiva "ano de competência")
+# - dashboards: crm_clientes_tabela1 (view da perspectiva "janela móvel 12m")
+# - tabelas: crm_pesquisa_vendas (fato físico sob a view de janela 12m)
+# - marketing / soma_online_refined: tabelas joinadas internamente pela view
+#   (cliente, filial, refined_entrega) — sem acesso a estas, o SELECT na view falha
+allowed_datasets = [
+  "soma-crm-bi.dashboards_corp",
+  "soma-crm-bi.dashboards",
+  "soma-crm-bi.tabelas",
+  "soma-dl-refined-online.marketing",
+  "soma-dl-refined-online.soma_online_refined",
+]
+
+[github]
+repo_path = "/app/repo"
+branch = "main"
+author_name = "Luiz Vasconcelos"
+author_email = "luiz.vasconcelos@somagrupo.com.br"
+
+[auth]
+jwt_issuer = "mcp-exec-azzas"
+access_token_ttl_s = 1800
+refresh_token_ttl_s = 2592000
+
+[audit]
+db_path = "/var/mcp/audit.db"
+retention_days = 90

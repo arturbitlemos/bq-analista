@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Azzas MCP — Onboarding</title>
+  <title>Azzas 2154 — Instalar no Claude</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Red+Hat+Display:wght@300;400;600&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --ink: #000; --ink-soft: #595959; --ink-faint: #999;
+      --ink: #000; --ink-soft: #595959; --ink-faint: #767676;
       --surface: #fff; --surface-cream: #F9F6EA; --surface-warm: #E8E8E4;
       --navy: #274566; --steel: #3D5A73; --blue-soft: #A1C6ED; --blue-light: #C5D9ED;
       --font-primary: 'Red Hat Display', Arial, sans-serif;
@@ -42,6 +42,10 @@
     h1 { font-weight: 400; font-size: clamp(2rem, 5vw, 2.75rem); letter-spacing: -0.02em; line-height: 1.08; margin-bottom: 0.5rem; }
     .editorial { font-family: var(--font-editorial); font-style: italic; font-weight: 400; font-size: clamp(1.1rem, 2.5vw, 1.4rem); color: var(--blue-light); margin-bottom: 1.75rem; line-height: 1.3; }
     .hero p { max-width: 560px; font-size: 1rem; font-weight: 300; color: #D6E2ED; line-height: 1.6; margin-bottom: 2rem; }
+    .example { display: flex; flex-direction: column; gap: 0.4rem; max-width: 560px; background: rgba(255,255,255,0.06); border-left: 3px solid var(--blue-soft); border-radius: 0 6px 6px 0; padding: 1rem 1.25rem; margin-bottom: 2rem; }
+    .example-label { font-size: 0.65rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--blue-soft); font-weight: 600; }
+    .example-q { font-family: var(--font-editorial); font-style: italic; font-size: 1.05rem; color: var(--surface); line-height: 1.35; }
+    .example-a { font-size: 0.85rem; color: #D6E2ED; font-weight: 300; }
     .cta { display: inline-block; background: var(--surface); color: var(--navy); padding: 1rem 1.75rem; border-radius: 4px; font-weight: 600; font-size: 0.95rem; text-decoration: none; letter-spacing: 0.02em; transition: transform 0.1s; }
     .cta:hover { transform: translateY(-1px); }
     .sub-cta { font-size: 0.8rem; color: var(--blue-soft); margin-top: 0.85rem; }
@@ -70,6 +74,21 @@
     .troubleshooting p { margin-bottom: 0.85rem; }
     .troubleshooting strong { color: var(--ink); font-weight: 600; display: block; margin-bottom: 0.1rem; }
     .troubleshooting a { color: var(--navy); text-decoration: underline; }
+
+    /* Optional disclosure (progressive disclosure for the skill) */
+    .optional-disclosure { max-width: 760px; margin: 0 auto; border: 1px solid var(--surface-warm); border-radius: 8px; background: var(--surface); }
+    .optional-disclosure summary { list-style: none; cursor: pointer; padding: 1.25rem 1.5rem; display: flex; align-items: baseline; gap: 0.65rem; flex-wrap: wrap; }
+    .optional-disclosure summary::-webkit-details-marker { display: none; }
+    .optional-disclosure summary::after { content: '+'; margin-left: auto; font-size: 1.4rem; color: var(--ink-faint); line-height: 1; align-self: center; }
+    .optional-disclosure[open] summary::after { content: '\2013'; }
+    .optional-disclosure summary:hover { background: var(--surface-cream); border-radius: 8px; }
+    .disc-tag { font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; }
+    .disc-title { font-size: 0.95rem; font-weight: 600; color: var(--ink); }
+    .disc-sub { flex-basis: 100%; font-size: 0.85rem; color: var(--ink-soft); font-weight: 300; line-height: 1.5; }
+    .disc-body { padding: 0 1.5rem 1.5rem; }
+    .disc-body p { color: var(--ink-soft); font-weight: 300; line-height: 1.6; }
+    .btn-secondary { display: inline-block; background: transparent; color: var(--navy); border: 1px solid var(--navy); padding: 0.7rem 1.4rem; border-radius: 4px; font-weight: 600; font-size: 0.88rem; text-decoration: none; }
+    .btn-secondary:hover { background: var(--navy); color: var(--surface); }
 
     /* Footer */
     footer { padding: 2rem; text-align: center; font-size: 0.8rem; color: var(--ink-faint); }
@@ -103,14 +122,19 @@
       <h1>Análises onde você já está conversando.</h1>
       <p class="editorial">Uma extensão. Seu BigQuery. Sua identidade corporativa.</p>
       <p>Instale a extensão Azzas no Claude Desktop e faça perguntas aos dados sem sair do chat. As respostas usam sua permissão de acesso — nada mais, nada menos.</p>
-      <a id="download-btn" class="cta" href="/api/download-dxt">Baixar Azzas MCP v<span id="dxt-version">—</span> ↓</a>
-      <p class="sub-cta">macOS e Windows · última atualização: <span id="last-updated">—</span></p>
+      <div class="example">
+        <span class="example-label">Você pergunta</span>
+        <span class="example-q">"Venda da FARM essa semana vs. mesma semana do ano passado, por canal"</span>
+        <span class="example-a">→ recebe a análise pronta, com número, comparativo vs LY e o tier de cada dado.</span>
+      </div>
+      <a id="download-btn" class="cta" href="/api/download-dxt">Baixar Azzas MCP<span id="dxt-version"></span> ↓</a>
+      <p class="sub-cta">macOS e Windows · grátis pra contas <strong>@somagrupo.com.br</strong></p>
     </div>
   </section>
 
   <section class="content">
     <div class="content-inner">
-      <h2 class="section-heading">Passo 1 · Extensão MCP</h2>
+      <h2 class="section-heading">Instalação</h2>
       <ol class="steps">
         <li><div class="step-text">Baixe o arquivo <strong>.dxt</strong> acima.</div></li>
         <li><div class="step-text">No Claude Desktop, clique no seu nome (canto inferior esquerdo) → <strong>Configurações</strong> → <strong>Extensões</strong> → <strong>Configurações avançadas</strong> → <strong>Instalar extensão</strong>.</div></li>
@@ -121,19 +145,25 @@
   </section>
 
   <section class="content alt">
-    <div class="content-inner">
-      <h2 class="section-heading">Passo 2 · Skill do analista</h2>
-      <p style="color: var(--ink-soft); font-weight: 300; line-height: 1.6; margin-bottom: 1.25rem;">A extensão dá o <strong>acesso</strong> aos dados. A skill ensina o Claude a <strong>interpretar</strong> como um analista do grupo — Prime Directive anti-alucinação, comparação obrigatória vs LY, tiers de dado (✅/📈/🔶/❓) e protocolo de PII antes de qualquer query. Sem ela, o Claude responde mais genérico.</p>
-      <p style="margin-bottom: 1.5rem;">
-        <a id="download-skill-btn" class="cta" style="background: var(--navy); color: var(--surface);" href="/api/download-skill">Baixar Skill v<span id="skill-version">—</span> ↓</a>
-      </p>
-      <ol class="steps">
-        <li><div class="step-text">Baixe o <strong>.zip</strong> e <strong>descompacte</strong>. Você terá uma pasta <code>azzas-analista/</code>.</div></li>
-        <li><div class="step-text">No Claude Desktop, <strong>Configurações</strong> → <strong>Capabilities</strong> → <strong>Skills</strong> → <strong>Install skill</strong> e selecione a pasta descompactada.</div></li>
-        <li><div class="step-text">A skill é ativada automaticamente quando você pedir análise de vendas, KPI, comparação vs LY, etc.</div></li>
-        <li><div class="step-text">Quando sair nova versão, baixe de novo aqui e reinstale (sobrescreve a anterior).</div></li>
-      </ol>
-    </div>
+    <details class="optional-disclosure">
+      <summary>
+        <span class="disc-tag">Opcional</span>
+        <span class="disc-title">Skill do analista</span>
+        <span class="disc-sub">Faz o Claude <strong>interpretar</strong> como analista do grupo (anti-alucinação, comparação vs LY, tiers de dado, PII). Recomendado pra quem usa direto — a extensão sozinha já funciona.</span>
+      </summary>
+      <div class="disc-body">
+        <p style="margin-bottom: 1.25rem;">A extensão dá o <strong>acesso</strong> aos dados. A skill ensina o Claude a interpretar como um analista do grupo — Prime Directive anti-alucinação, comparação obrigatória vs LY, tiers de dado (✅/📊/🔶/❓) e protocolo de PII antes de qualquer query. Sem ela, o Claude responde mais genérico.</p>
+        <p style="margin-bottom: 1.5rem;">
+          <a id="download-skill-btn" class="btn-secondary" href="/api/download-skill">Baixar Skill<span id="skill-version"></span> ↓</a>
+        </p>
+        <ol class="steps" style="grid-template-columns: 1fr;">
+          <li><div class="step-text">Baixe o <strong>.zip</strong> e <strong>descompacte</strong>. Você terá uma pasta <code>azzas-analista/</code>.</div></li>
+          <li><div class="step-text">No Claude Desktop, <strong>Configurações</strong> → <strong>Capabilities</strong> → <strong>Skills</strong> → <strong>Install skill</strong> e selecione a pasta descompactada.</div></li>
+          <li><div class="step-text">A skill é ativada automaticamente quando você pedir análise de vendas, KPI, comparação vs LY, etc.</div></li>
+          <li><div class="step-text">Quando sair nova versão, baixe de novo aqui e reinstale (sobrescreve a anterior).</div></li>
+        </ol>
+      </div>
+    </details>
   </section>
 
   <section class="content">
@@ -179,8 +209,10 @@
     document.getElementById('user-info').textContent = email ?? '—';
 
     fetch('/api/mcp/version').then(r => r.json()).then(v => {
-      document.getElementById('dxt-version').textContent = v.latest;
-      if (v.skill) document.getElementById('skill-version').textContent = v.skill;
+      // Texto do CTA fica limpo enquanto carrega ("Baixar Azzas MCP ↓") e
+      // ganha a versão quando resolve — nunca mostra "v—" ou "v?".
+      if (v.latest) document.getElementById('dxt-version').textContent = ' v' + v.latest;
+      if (v.skill) document.getElementById('skill-version').textContent = ' v' + v.skill;
       const lastKnown = localStorage.getItem('mcp_last_known_version');
       if (lastKnown && lastKnown !== v.latest) {
         const ribbon = document.getElementById('ribbon');
@@ -188,10 +220,7 @@
         ribbon.classList.add('visible');
       }
       localStorage.setItem('mcp_last_known_version', v.latest);
-    }).catch(() => {
-      document.getElementById('dxt-version').textContent = '?';
-      document.getElementById('skill-version').textContent = '?';
-    });
+    }).catch(() => {});
 
     fetch('/api/mcp/agents').then(r => r.json()).then(m => {
       const ul = document.getElementById('agents-list');
@@ -212,8 +241,6 @@
     }).catch(() => {
       document.getElementById('agents-list').innerHTML = '<li class="agent"><h3>Não consegui carregar a lista.</h3></li>';
     });
-
-    document.getElementById('last-updated').textContent = new Date().toLocaleDateString('pt-BR');
   </script>
 </body>
 </html>

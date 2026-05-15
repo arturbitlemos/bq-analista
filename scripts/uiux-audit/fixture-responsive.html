@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fixture — contrato responsivo do guia</title>
+<style>
+  :root{
+    --ink:#000;--ink-soft:#595959;--ink-faint:#767676;--surface:#fff;
+    --surface-warm:#E8E8E4;--surface-cream:#F9F6EA;--navy:#274566;--steel:#3D5A73;
+    --blue-light:#C5D9ED;--font-primary:'Red Hat Display',Arial,sans-serif;
+    --font-editorial:'Playfair Display',Georgia,serif;--radius-md:8px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--font-primary)}
+  .page{width:100%;max-width:1200px;margin:0 auto;padding:clamp(1rem,3vw,2.5rem)}
+  .hero{background:var(--navy);color:#fff;border-radius:var(--radius-md);padding:1.75rem;margin-bottom:1.5rem}
+  .hero h1{font-weight:400;font-size:clamp(1.4rem,3vw,2rem);margin:0 0 .3rem}
+  .hero .ed{font-family:var(--font-editorial);font-style:italic;opacity:.75}
+  .kpi-row{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:1.5rem}
+  .kpi{background:var(--surface-cream);border:1px solid var(--surface-warm);border-radius:var(--radius-md);padding:1.1rem 1.25rem}
+  .kpi .l{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint)}
+  .kpi .v{font-size:1.7rem;font-weight:600;margin-top:.25rem}
+  h2{font-size:1.1rem;margin:2rem 0 .75rem}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--surface-warm);border-radius:var(--radius-md)}
+  .table-wrap table{width:100%;border-collapse:collapse;min-width:640px}
+  th,td{padding:.6rem .8rem;font-size:.875rem;white-space:nowrap;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  thead th{background:var(--surface-warm);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--steel)}
+  tbody tr:nth-child(even){background:#fafafa}
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>Venda YTD por Marca &amp; Canal</h1>
+      <div class="ed">2026 vs 2025 · Todos os canais · ✅ dado real</div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="l">Receita YTD ✅</div><div class="v">R$ 908,0M</div></div>
+      <div class="kpi"><div class="l">MACO ✅</div><div class="v">R$ 650,0M</div></div>
+      <div class="kpi"><div class="l">Peças ✅</div><div class="v">1.620k</div></div>
+      <div class="kpi"><div class="l">Unidades ✅</div><div class="v">2.763k</div></div>
+    </div>
+    <h2>Por marca × canal</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Marca</th><th>Receita</th><th>vs LY</th><th>MACO</th><th>Markup</th><th>Desc. médio</th><th>Peças</th><th>Ticket</th></tr></thead>
+        <tbody>
+          <tr><td>ANIMALE</td><td>R$ 210,4M</td><td>+8,2%</td><td>R$ 151M</td><td>2,8x</td><td>12,1%</td><td>320k</td><td>R$ 657</td></tr>
+          <tr><td>FARM</td><td>R$ 188,9M</td><td>+5,1%</td><td>R$ 138M</td><td>2,7x</td><td>14,0%</td><td>301k</td><td>R$ 627</td></tr>
+          <tr><td>MARIA FILÓ</td><td>R$ 121,2M</td><td>−2,4%</td><td>R$ 86M</td><td>2,5x</td><td>15,3%</td><td>205k</td><td>R$ 591</td></tr>
+          <tr><td>CRIS BARROS</td><td>R$ 98,7M</td><td>+11,9%</td><td>R$ 71M</td><td>2,9x</td><td>10,8%</td><td>140k</td><td>R$ 705</td></tr>
+          <tr><td>FABULA</td><td>R$ 77,3M</td><td>+3,0%</td><td>R$ 52M</td><td>2,4x</td><td>16,2%</td><td>168k</td><td>R$ 460</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

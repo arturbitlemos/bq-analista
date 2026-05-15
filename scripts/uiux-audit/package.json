@@ -1,0 +1,14 @@
+{
+  "name": "portal-uiux-audit",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "discover": "node audit.mjs discover",
+    "smoke": "node audit.mjs smoke",
+    "lighthouse": "node lighthouse.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.49.1"
+  }
+}

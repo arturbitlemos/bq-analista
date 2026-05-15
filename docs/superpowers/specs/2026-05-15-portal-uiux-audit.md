@@ -108,6 +108,16 @@ Sweep `p23-post`: 10 páginas, **0 regressões**, deep-dive (busca/abrir anális
 
 Decisão de produto que ficou pendente na Rodada 4 — usuário aprovou explicitamente nesta sessão. A narrativa de ativação agora tem um caminho primário inequívoco; a skill continua descobrível mas não compete pela atenção no primeiro contato.
 
+## Rodada 6 — Admin/Analytics (ponto cego das rodadas anteriores)
+
+A identidade de teste cai em 403 no `/api/admin/analytics`, então as rodadas 1-5 só auditaram o **gate** de não-admin (F2), nunca o **dashboard logado como admin**. Coberto agora com `admin.mjs`: stub dos dois endpoints admin com **fixtures sintéticas de agregados** (dado real do admin contém e-mails individuais = PII; CLAUDE.md proíbe trazer pro contexto — fixture fake é a escolha PII-safe e suficiente, já que o que se audita é o render, não o número).
+
+| ID | Impacto | Achado → Correção | Verificação |
+|----|---------|-------------------|-------------|
+| A1 | **MÉD-ALTO** | `admin.html` não tinha **nenhuma** media query: `main` fixo + 6 tabelas de 6 colunas com `width:100%`. No mobile 390px a página estourava **332px** além do viewport, texto microscópico — viola o mesmo contrato responsivo canonizado pros dashboards (D2/D3). → `@media (max-width:760px)`: KPIs em grid 2-col, tabelas viram `display:block; overflow-x:auto; white-space:nowrap` (dado largo scrolla dentro do container, zero overflow de página), header/padding/chart-controls compactados. | `admin-fixed`: overflow mobile **332px → 0**, desktop intacto (0), chart renderiza, switch 7/30/90d funciona, 0 pageerror nos dois viewports. Before/after: `screenshots/admin-post.admin.mobile.png` vs `admin-fixed.admin.mobile.png`. Desktop confirmado limpo (`admin-post.admin.desktop.png`). |
+
+Desktop do admin estava **bom** (dashboard denso porém legível dentro do container de 1100px, chart e tabelas ok) — o defeito era exclusivamente responsivo no mobile.
+
 ## Nota de ambiente (não é bug de produto)
 
 `vercel env pull` deixou `portal/.env.local` sem `AZURE_CLIENT_ID/TENANT_ID`, então `/api/config` dava 500 no dev local e a SPA nunca bootava. Corrigido localmente (env não versionado). Vale alinhar o `vercel env pull` / documentar no README de dev local.

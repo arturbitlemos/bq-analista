@@ -46,6 +46,21 @@
     .denied-msg { font-size: .9rem; color: #52525b; line-height: 1.55; margin-bottom: 22px; }
     .denied-btn { display: inline-block; padding: 10px 20px; background: #18181b; color: #fff; border: none; border-radius: 8px; font-size: .875rem; font-weight: 600; text-decoration: none; cursor: pointer; }
     .denied-btn:hover { background: #3f3f46; }
+
+    /* Responsivo — admin não tinha nenhuma media query; tabelas de 6 colunas
+       estouravam o viewport. Contrato: zero overflow de página; dado largo
+       scrolla dentro do próprio container. */
+    @media (max-width: 760px) {
+      header { padding: 14px 16px; }
+      main { padding: 20px 14px; }
+      .cards { grid-template-columns: repeat(2, 1fr); }
+      .card { padding: 16px 14px; }
+      .card .value { font-size: 1.5rem; }
+      table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+      .chart-wrap { padding: 12px; }
+      .chart-controls { flex-direction: column; align-items: flex-start; gap: 8px; }
+      select.user-select { width: 100%; }
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>

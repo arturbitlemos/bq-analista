@@ -258,6 +258,80 @@ Copiar direto no `:root` de qualquer projeto HTML:
 
 ---
 
+## Layout & Responsividade (obrigatório em todo dashboard HTML)
+
+Estas regras não são opcionais. Um dashboard que trava numa coluna estreita no desktop, ou com número ilegível, é entrega rejeitada — mesmo com a paleta e tipografia corretas.
+
+### Regra de ouro
+
+**Mobile-first ≠ mobile-only.** O HTML tem que ficar bom no celular (390px) **e** aproveitar a tela no desktop (1440px). Nunca renderizar uma coluna fixa de ~400px com 70% de tela vazia no laptop — é o erro mais comum e mais grave.
+
+### Container padrão (copiar)
+
+```css
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--surface); color: var(--ink);
+       font-family: var(--font-primary); }
+.page {                       /* envolve TODO o conteúdo */
+  width: 100%;
+  max-width: 1200px;          /* legível no desktop, não uma coluna de phone */
+  margin: 0 auto;             /* centraliza, sem desperdiçar a tela */
+  padding: clamp(1rem, 3vw, 2.5rem);
+}
+```
+
+### Grids fluidos (KPIs e seções)
+
+Nunca largura fixa. Use auto-fit pra ir de 1 coluna no celular a N no desktop, sem media query:
+
+```css
+.kpi-row    { display: grid; gap: 1rem;
+              grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.card-grid  { display: grid; gap: 1.25rem;
+              grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+```
+
+### Piso de legibilidade de dados (não negociável)
+
+| Elemento | Mínimo | Observação |
+|----------|--------|------------|
+| Corpo / parágrafo | `1rem` (16px) | nunca abaixo |
+| Célula de tabela / número | `0.875rem` (14px) | **nunca** abaixo de `0.8rem` (≈13px) |
+| Label / caption / eyebrow | `0.75rem` (12px) | só p/ rótulo, jamais p/ dado |
+
+Não diminua a fonte pra caber tabela larga. Em vez disso:
+
+### Tabela larga → scroll horizontal (não encolher fonte)
+
+```css
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch;
+              border-radius: var(--radius-md); }
+.table-wrap table { width: 100%; border-collapse: collapse;
+                    min-width: 640px; /* segura as colunas; o wrap rola */ }
+th, td { padding: 0.6rem 0.8rem; font-size: 0.875rem; white-space: nowrap; }
+```
+```html
+<div class="table-wrap"><table> … </table></div>
+```
+
+### Viewport meta (sempre no `<head>`)
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1">
+```
+
+### Checklist antes de fechar o HTML
+
+- [ ] Todo conteúdo dentro de `.page` (centralizado, `max-width`, fluido)
+- [ ] No desktop 1440px o conteúdo ocupa a largura útil (não uma faixa estreita)
+- [ ] Nenhum texto de dado abaixo de `0.8rem`
+- [ ] Tabelas largas em `.table-wrap` com scroll, não com fonte minúscula
+- [ ] `<meta viewport>` presente
+- [ ] Sem scroll horizontal na página (só dentro de `.table-wrap`)
+- [ ] Todo número citado tem label de tier (✅ real / 📊 benchmark / 🔶 estimativa / ❓ indisponível) — ver `analyst-principles.md`
+
+---
+
 ## Diretrizes Gerais
 
 1. **Paleta restrita** - A identidade usa essencialmente preto, branco e azuis. Não introduzir cores vibrantes (sem verde, roxo, laranja, etc).

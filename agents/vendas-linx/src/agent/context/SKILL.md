@@ -107,7 +107,7 @@ Antes de executar qualquer query, classifique o pedido:
 3. **Sample data** to verify column names and value formats
 4. **Dry-run** the query
 5. **Execute** and interpret results in business context
-6. **Se relatório analítico**: Build HTML dashboard (mobile-first, dark green theme — see existing dashboards for reference) e renderize inline (Artifact / `present_files`). **Inline é o padrão — só rodar `publicar_dashboard` quando o usuário pedir explicitamente (ex.: "publica", "salva na biblioteca", "compartilha no portal").**
+6. **Se relatório analítico**: Build HTML dashboard seguindo **`identidade-visual-azzas.md`** (paleta navy/azul — **sem verde, sem cor vibrante** — tipografia, e a seção **"Layout & Responsividade"**: container `.page` centralizado com `max-width`, grids fluidos, piso de fonte pra dados, tabela larga em scroll). Renderize inline (Artifact / `present_files`). **Inline é o padrão — só rodar `publicar_dashboard` quando o usuário pedir explicitamente (ex.: "publica", "salva na biblioteca", "compartilha no portal").**
    - **Grão produto × cor → foto é OBRIGATÓRIA e deve ser a PRIMEIRA coluna da tabela.** Usar `https://images.somalabs.com.br/brands/{RL_DESTINO}/products/reference_id/{PRODUTO}_{COR_PRODUTO}/image` com `loading="lazy"` e `onerror="this.style.display='none'"`. Detalhes completos em `.claude/skills/product-photos/SKILL.md`. **Omitir a foto é erro de entrega — não fechar o HTML sem ela.**
    - **Canal obrigatório no cabeçalho:** todo relatório deve exibir explicitamente o escopo de canal aplicado — ex.: "Todos os canais (Físico + Digital + Omni)", "Somente Físico", "Somente Digital (Ecom + Omni + Vitrine)". Nunca omitir.
    - **Coluna de pedidos em relatório de produto:** quando o relatório incluir contagem de pedidos por produto, rotular como **"Pedidos"** (não "Atendimentos"). "Pedidos" = `COUNT(DISTINCT chave_pedido)` dos pedidos que continham aquele produto — é diferente de atendimentos totais da loja.
@@ -153,7 +153,9 @@ Quando o fluxo exigir um relatório analítico (ver Passo 0), **renderize o HTML
 **Nunca** devolva o HTML num bloco ```` ```html ... ``` ```` a não ser no fallback (passo 3) e só após avisar o usuário.
 
 ### Conteúdo do HTML
-- Mobile-first, tema verde escuro, padrão visual dos dashboards existentes.
+- Identidade visual **canônica** em `identidade-visual-azzas.md` — paleta navy/azul (preto, branco, azuis; **sem verde, sem cor vibrante**), tipografia Red Hat + Playfair. Não copiar dashboards antigos "de memória": eles têm drift; o guia é a fonte de verdade.
+- **Responsivo de verdade** (ver "Layout & Responsividade" no guia): mobile-first **mas** aproveitando o desktop — conteúdo em `.page` (`max-width: 1200px`, centralizado, fluido), grids `auto-fit`, fonte de dado nunca < `0.8rem`, tabela larga em `.table-wrap` com scroll (não encolher fonte). Nunca uma coluna estreita com a tela vazia no laptop.
+- Todo número com label de tier (✅/📊/🔶/❓) — `analyst-principles.md`.
 - Sem dependências externas além de CDN (Chart.js, fontes).
 - Logo após criar o artifact/arquivo, resuma os principais achados no chat em 3–6 bullets, seguindo o padrão do `analyst-principles.md` (número + tier + contexto).
 

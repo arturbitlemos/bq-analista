@@ -52,6 +52,20 @@ U1 overlay de loading no iframe · U2 tela de login com marca · U3 erro com mar
 - i18n: `state-error` ainda mostra "Failed to load Azure config" (mensagem técnica do throw) em inglês.
 - LCP ~3s no `vercel dev` é cold-start do dev server; em prod `/` é HTML estático no CDN. Reavaliar com Lighthouse contra a URL de produção.
 
+## Rodada 2 — Dashboards dentro do iframe (o produto em si)
+
+Auditadas 3 análises reais (Farm devolução / Azzas YTD / Maria Filó tamanho) em desktop+mobile via `dashboards.mjs`. São HTMLs **bespoke** gerados pelo Claude a cada análise (não pelo `exec_template.py`, que está desativado p/ entrega inline). Logo o leverage está na **guidance de geração**, não em arquivos individuais.
+
+| ID | Impacto | Achado |
+|----|---------|--------|
+| D1 | **ALTO** | `SKILL.md` manda "tema **verde escuro**" — contradiz o guia canônico `identidade-visual-azzas.md` (navy/azul, **sem verde**, sem cor vibrante). Dashboards saem off-brand e inconsistentes. |
+| D2 | **ALTO** | Zero guidance de layout responsivo. Azzas-YTD trava numa coluna ~400px no desktop 1440px (~70% da tela vazia); Farm usa a largura. Inconsistência que mata credibilidade pra executivo no laptop. |
+| D3 | MÉD-ALTO | Sem piso de fonte pra dados: 284 nós sub-11px no Azzas-YTD — tabela densa ilegível. |
+| D4 | MÉDIO | `SKILL.md` aponta "padrão visual dos dashboards existentes" (referência circular que perpetua o drift) em vez do guia canônico. |
+| D5 | MÉDIO | Tier de dado inconsistente: Maria Filó com 0 labels ✅📊🔶❓ — viola a Prime Directive do `analyst-principles.md`. Não reforçado no momento de gerar o HTML. |
+
+**Correção (atinge todas as análises futuras):** seção "Layout & Responsividade" + piso de legibilidade + reforço de tier no `identidade-visual-azzas.md` (injetado em todo `get_context`); e correção do `SKILL.md` (remove "verde escuro", aponta pro guia canônico, exige o contrato responsivo). Os 3 dashboards existentes vivem no Blob, bespoke — tratados como legado; o ganho é na guidance.
+
 ## Nota de ambiente (não é bug de produto)
 
 `vercel env pull` deixou `portal/.env.local` sem `AZURE_CLIENT_ID/TENANT_ID`, então `/api/config` dava 500 no dev local e a SPA nunca bootava. Corrigido localmente (env não versionado). Vale alinhar o `vercel env pull` / documentar no README de dev local.

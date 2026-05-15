@@ -153,7 +153,7 @@ END AS canal_venda
 | `ESTOQUE PROPRIO`, `SOMASTORE`, `VITRINE`, `NULL` | `VENDA FISICA` | Tudo que não é ONLINE/DEVOLUCAO cai em FISICA |
 
 > 🔒 **`DEVOLUCAO` é sempre `VENDA ONLINE` — sem exceção, sem variante.**
-> Não criar uma terceira categoria de canal para devoluções. Para ver o valor de devoluções isolado, usar a métrica `receita_devolucao` (§7.1).
+> Não criar uma terceira categoria de canal para devoluções. Para ver o valor de devoluções isolado, usar a métrica Receita devolução (§7.1).
 
 ```sql
 CASE
@@ -330,7 +330,7 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 
 > ⚠️ `tipo_venda = 'DEVOLUCAO'` existe apenas no captado e representa devoluções de vendas digitais.
 > Reduzir para dois estados (TROCA / VENDA NORMAL) é o erro mais comum: inclui devoluções digitais
-> como VENDA NORMAL, deflacionando o PA e inflando `tickets_venda`. **Não simplificar.**
+> como VENDA NORMAL, deflacionando o PA e inflando Tickets venda. **Não simplificar.**
 
 ```sql
 CASE
@@ -353,9 +353,9 @@ END AS caso_venda
 |---|---|---|
 | Substituir o JOIN por `QTDE_TROCA_PROD > 0` no item | Itens "normais" do mesmo ticket não são marcados como TROCA | Usar o padrão JOIN verbatim do §4.1 |
 | Detectar troca por `VALOR_PAGO_PROD < 0` | Confunde devolução com troca; falsos positivos em cancelamentos | Usar `QTDE_TROCA_PROD > 0` como critério, não o sinal da receita |
-| Classificação binária no captado (TROCA / VENDA NORMAL) | `pa_venda` deflacionado; `tickets_venda` inflado | Adicionar `WHEN tipo_venda = 'DEVOLUCAO' THEN 'DEVOLUCAO'` |
-| Filtrar `tipo_venda = 'FISICO'` em `pa_venda` | `pa_venda` inflado (2–3x) | Usar `caso_venda = 'VENDA NORMAL'` sem filtro de `tipo_venda` |
-| Filtrar `quantidade > 0` no numerador | `pa_venda` levemente inflado | Usar `SUM(quantidade)` líquido — cancelamentos parciais são parte do resultado |
+| Classificação binária no captado (TROCA / VENDA NORMAL) | PA venda deflacionado; Tickets venda inflado | Adicionar `WHEN tipo_venda = 'DEVOLUCAO' THEN 'DEVOLUCAO'` |
+| Filtrar `tipo_venda = 'FISICO'` em PA venda | PA venda inflado (2–3x) | Usar `caso_venda = 'VENDA NORMAL'` sem filtro de `tipo_venda` |
+| Filtrar `quantidade > 0` no numerador | PA venda levemente inflado | Usar `SUM(quantidade)` líquido — cancelamentos parciais são parte do resultado |
 
 ---
 
@@ -449,13 +449,13 @@ Para a definição de **refined_captacao_filtrado**, olhar §1.3, onde são expl
 > ⚠️ **Tipo das colunas `emissao` e `encerramento`:** são INT64 (Unix timestamp em milissegundos), não DATE.
 > Conversão obrigatória: `DATE(TIMESTAMP_MILLIS(r.emissao))` e `DATE(TIMESTAMP_MILLIS(r.encerramento))`.
 
-### Métrica `venda_mala`
+### Métrica Venda mala
 
 ```sql
 SUM(CASE WHEN mala = TRUE THEN SAFE_CAST(VALOR_PAGO_PROD AS NUMERIC) ELSE 0 END) AS venda_mala
 ```
 
-> **`venda_mala`** é a receita total dos itens marcados como mala. Não é um tipo de venda separado — é um **flag transversal** que indica as vendas que foram influenciadas por mala enviadas a clientes.
+> **Venda mala** é a receita total dos itens marcados como mala. Não é um tipo de venda separado — é um **flag transversal** que indica as vendas que foram influenciadas por mala enviadas a clientes.
 
 ---
 
@@ -578,8 +578,8 @@ Internamente no grupo, **MACO = Margem Bruta**. Quando o usuário pedir "MACO", 
 
 | Coluna | Fórmula |
 |---|---|
-| `maco_rs` | `venda_liquida - cmv` |
-| `maco_pct` | `maco_rs / venda_liquida` |
+| MACO R$ | `venda líquida - cmv` |
+| MACO % | MACO R$ / venda líquida |
 
 Nunca entregar só o percentual — o valor absoluto (R$) é obrigatório.
 
@@ -626,25 +626,25 @@ Nunca entregar só o percentual — o valor absoluto (R$) é obrigatório.
 
 | KPI | Conceito | Filtro / Fonte |
 |---|---|---|
-| `receita_total` | `SUM(receita líquida)` | — |
-| `receita_fisica` | `SUM(receita líquida)` | `CANAL_VENDA = 'VENDA FISICA'` |
-| `receita_codigo` | `SUM(receita líquida)` | `CANAL_VENDA = 'VENDA ONLINE'` AND filial ≠ ECOMMERCE (§2.3) |
-| `qtd_pecas_total` | `SUM(qtd peças)` | — |
-| `qtd_pecas_fisico` | `SUM(qtd peças)` | `CANAL_VENDA = 'VENDA FISICA'` |
-| `cota` | `SUM(previsao_valor)` | FROM `lojas_previsao_vendas` (§11) |
-| `fluxo` | `SUM(visitantes)` | FROM `seed_fluxo_loja` (§12) |
-| `qtd_ticket_total` | `COUNT(DISTINCT chave_pedido)` | — |
-| `qtd_ticket_fisico` | `COUNT(DISTINCT chave_pedido)` | `CANAL_VENDA = 'VENDA FISICA'` |
-| `atingimento_cota` | `receita_total / cota` | 0 se cota = 0 |
-| `ticket_medio_total` | `receita_total / qtd_ticket_total` | — |
-| `ticket_medio_fisico` | `receita_fisica / qtd_ticket_fisico` | — |
-| `conversao` | `qtd_ticket_fisico / fluxo` | cap 30% — ver §7.2 |
-| `pa_total` | `qtd_pecas_total / qtd_ticket_total` | — |
-| `pa_fisico` | `qtd_pecas_fisico / qtd_ticket_fisico` | — |
-| `pv_medio_total` | `receita_total / qtd_pecas_total` | — |
-| `pv_medio_fisico` | `receita_fisica / qtd_pecas_fisico` | — |
-| `venda_mala` | `SUM(receita líquida)` | `mala = TRUE` via EXISTS (§5) |
-| `receita_devolucao` | `SUM(receita líquida)` | `tipo_venda = 'DEVOLUCAO'` (captado) / `receita líquida < 0` (faturado) |
+| Receita total | `SUM(receita líquida)` | — |
+| Receita física | `SUM(receita líquida)` | `CANAL_VENDA = 'VENDA FISICA'` |
+| Receita código | `SUM(receita líquida)` | `CANAL_VENDA = 'VENDA ONLINE'` AND filial ≠ ECOMMERCE (§2.3) |
+| Qtd peças total | `SUM(qtd peças)` | — |
+| Qtd peças físico | `SUM(qtd peças)` | `CANAL_VENDA = 'VENDA FISICA'` |
+| Cota | `SUM(previsao_valor)` | FROM `lojas_previsao_vendas` (§11) |
+| Fluxo | `SUM(visitantes)` | FROM `seed_fluxo_loja` (§12) |
+| Tickets total | `COUNT(DISTINCT chave_pedido)` | — |
+| Tickets físico | `COUNT(DISTINCT chave_pedido)` | `CANAL_VENDA = 'VENDA FISICA'` |
+| Atingimento cota | Receita total / Cota | 0 se Cota = 0 |
+| Ticket médio total | Receita total / Tickets total | — |
+| Ticket médio físico | Receita física / Tickets físico | — |
+| Conversão | Tickets físico / Fluxo | cap 30% — ver §7.2 |
+| PA total | Qtd peças total / Tickets total | — |
+| PA físico | Qtd peças físico / Tickets físico | — |
+| PV médio total | Receita total / Qtd peças total | — |
+| PV médio físico | Receita física / Qtd peças físico | — |
+| Venda mala | `SUM(receita líquida)` | `mala = TRUE` via EXISTS (§5) |
+| Receita devolução | `SUM(receita líquida)` | `tipo_venda = 'DEVOLUCAO'` (captado) / `receita líquida < 0` (faturado) |
 
 - **Sempre que usar markup/margem:** dois joins com `PRODUTOS_PRECOS` (CT e C0) — ver §6.
 - **Sempre que usar PA ou ticket:** usar `chave_pedido` via §3.
@@ -654,11 +654,11 @@ Nunca entregar só o percentual — o valor absoluto (R$) é obrigatório.
 
 | Métrica | Conceito | Filtro de caso_venda |
 |---|---|---|
-| `tickets_troca` | `COUNT(DISTINCT chave_pedido)` | `caso_venda = 'TROCA'` |
-| `tickets_venda` | `COUNT(DISTINCT chave_pedido)` | `caso_venda = 'VENDA NORMAL'` |
-| `pa_troca` | `SUM(qtd peças) / tickets_troca` | `caso_venda = 'TROCA'` |
-| `pa_venda` | `SUM(qtd peças) / tickets_venda` | `caso_venda = 'VENDA NORMAL'` |
-| `taxa_troca` | `tickets_troca / (tickets_troca + tickets_venda)` | — |
+| Tickets troca | `COUNT(DISTINCT chave_pedido)` | `caso_venda = 'TROCA'` |
+| Tickets venda | `COUNT(DISTINCT chave_pedido)` | `caso_venda = 'VENDA NORMAL'` |
+| PA troca | Qtd peças total / Tickets troca | `caso_venda = 'TROCA'` |
+| PA venda | Qtd peças total / Tickets venda | `caso_venda = 'VENDA NORMAL'` |
+| Taxa troca | Tickets troca / (Tickets troca + Tickets venda) | — |
 
 > ⚠️ **Captado — PA usa `quantidade` (já líquido) e três casos obrigatórios:**
 
@@ -693,7 +693,7 @@ Valores acima de 30% indicam inconsistência no dado de fluxo — retornar 0.
 ### 7.3 Filiais ecommerce — zerar métricas físicas
 
 Filiais cujo nome contém 'ECOMMERCE' ou 'MARKET PLACE':
-- `receita_fisica = 0`, `qtd_pecas_fisico = 0`, `ticket_medio_fisico = 0`, `pa_fisico = 0`
+- Receita física = 0, Qtd peças físico = 0, Ticket médio físico = 0, PA físico = 0
 
 ### 7.4 Taxa de Desconto
 
@@ -716,29 +716,29 @@ Análise de vendedor = **§7.1 inteiro com `GROUP BY VENDEDOR`**, com três exce
 
 **✅ Herdam de §7.1 sem alteração** (só muda o `GROUP BY`):
 
-`receita_total`, `receita_fisica`, `receita_codigo`, `qtd_pecas_total`, `qtd_pecas_fisico`, `qtd_ticket_total`, `qtd_ticket_fisico`, `ticket_medio_total`, `ticket_medio_fisico`, `pa_total`, `pa_fisico`, `pv_medio_total`, `pv_medio_fisico`, `venda_mala`, `receita_devolucao` — e todos os KPIs de troca de §7.1.1.
+Receita total, Receita física, Receita código, Qtd peças total, Qtd peças físico, Tickets total, Tickets físico, Ticket médio total, Ticket médio físico, PA total, PA físico, PV médio total, PV médio físico, Venda mala, Receita devolução — e todos os KPIs de troca de §7.1.1 (Tickets troca, Tickets venda, PA troca, PA venda, Taxa troca).
 
 **⚠️ Modificadas** (mesma lógica, fonte diferente):
 
 | KPI | Diferença |
 |---|---|
-| `cota_total` | Fonte: `lojas_previsao_vendas_vendedor` JOIN `vendedor` ON `id_vendedor` (§11.5) — não usa `lojas_previsao_vendas` |
-| `atingimento_cota` | `receita_total / cota_total` — idem §7.1, mas usando a cota do vendedor acima |
+| Cota total | Fonte: `lojas_previsao_vendas_vendedor` JOIN `vendedor` ON `id_vendedor` (§11.5) — não usa `lojas_previsao_vendas` |
+| Atingimento cota | Receita total / Cota total — idem §7.1, mas usando a cota do vendedor acima |
 
 **➕ Exclusiva de vendedor** (não existe em §7.1):
 
 | KPI | Ver |
 |---|---|
-| `upsell_troca` | §8.4 |
+| Upsell troca | §8.4 |
 
 **❌ Não se aplicam** (conceito de loja, não de vendedor):
 
 | KPI | Motivo |
 |---|---|
-| `fluxo` | Fluxo é contado por porta de loja — não existe por vendedor |
-| `conversao` | Depende de `fluxo` — idem |
+| Fluxo | Fluxo é contado por porta de loja — não existe por vendedor |
+| Conversão | Depende de Fluxo — idem |
 
-> **Default em análise de vendedor:** apresentar métricas físicas (`receita_fisica`, `pa_fisico`, `ticket_medio_fisico`) como principal — vendedores operam primariamente em loja. Incluir `receita_codigo` como complemento para evidenciar captação digital.
+> **Default em análise de vendedor:** apresentar métricas físicas (Receita física, PA físico, Ticket médio físico) como principal — vendedores operam primariamente em loja. Incluir Receita código como complemento para evidenciar captação digital.
 
 ### 8.2 Troca positiva vs zerada
 
@@ -794,7 +794,7 @@ WHERE caso_venda = 'TROCA'
 GROUP BY VENDEDOR
 ```
 
-**Interpretação do `upsell_troca`:**
+**Interpretação do Upsell troca:**
 - `> 0` → vendedor gerou receita incremental além do devolvido (bom)
 - `= 0` → troca pura sem ganho (cliente levou exatamente o mesmo valor)
 - `< 0` → vendedor não conseguiu repor o valor devolvido (cliente levou menos)
@@ -1475,6 +1475,7 @@ Não inventar próximos passos genéricos. Deve ser específico ao resultado.
 | 2026-05-15 | v14 — Introduzido conceito `CANAL_VENDA` (campo derivado) para distinguir do nome de coluna `TIPO_VENDA` (faturado) e `tipo_venda` (captado), que têm valores raw completamente diferentes. §2.1 reescrito com tabelas separadas por visão. §7.0 ampliado com linha de `CANAL_VENDA`. Alias `tipo_venda_classificado` → `canal_venda` em todo o doc. |
 | 2026-05-15 | v15 — §7.1 e §7.1.1 reescritos com conceitos (receita líquida, qtd peças, CANAL_VENDA, chave_pedido) em vez de colunas raw. Tabela passa a ser válida para faturado e captado sem ambiguidade. |
 | 2026-05-15 | v16 — `DEVOLUCAO` no captado passa a ser sempre `VENDA ONLINE`, sem variante. Removida a opção de separar DEVOLUCAO em canal próprio. Criada métrica `receita_devolucao` em §7.1 para quem precisar do valor isolado. |
+| 2026-05-15 | v17 — Nomes das métricas de §7 e §8 padronizados para forma legível (ex: `pa_venda` → "PA venda", `receita_fisica` → "Receita física"). Aliases snake_case preservados nos blocos SQL. |
 | 2026-05-15 | v11 — §7.0 criado: tabela de mapeamento colunas faturado ↔ captado. §8.1 enxugado: remove duplicação de §7.1, mantém só métricas exclusivas de vendedor. |
 | 2026-05-13 | v10 — §7.1 e §8.1: `qtd_pecas_total` corrigido para `SUM(QTDE_PROD - QTDE_TROCA_PROD)`; `qtd_pecas_fisico` criado. `pa_total`, `pa_fisico`, `pv_medio_*` atualizados para usar as novas métricas. |
 | 2026-05-07 | v9 — Resgatados tópicos do arquivo original: LINHA vs GRUPO_PRODUTO, fotos de produto, formato HTML, tipos de análise catalogados, cota mista, taxa devolução (competência/peças), métrica default. Histórico unificado. |

@@ -41,6 +41,11 @@
     .agent-status { background: #fff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 16px; margin-bottom: 16px; font-size: .875rem; }
     .agent-status-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f4f4f5; }
     .agent-status-row:last-child { border-bottom: none; }
+    .denied { max-width: 440px; margin: 12vh auto 0; background: #fff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 40px 32px; text-align: center; }
+    .denied-title { font-size: 1.15rem; font-weight: 700; color: #18181b; margin-bottom: 10px; }
+    .denied-msg { font-size: .9rem; color: #52525b; line-height: 1.55; margin-bottom: 22px; }
+    .denied-btn { display: inline-block; padding: 10px 20px; background: #18181b; color: #fff; border: none; border-radius: 8px; font-size: .875rem; font-weight: 600; text-decoration: none; cursor: pointer; }
+    .denied-btn:hover { background: #3f3f46; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
@@ -289,19 +294,23 @@
 
   // ── Analytics section (portal events) ─────────────────────────────────────
 
-  async function renderAnalytics() {
+  async function renderAnalytics(prefetched) {
     const root = document.getElementById('analytics-root')
     let a
-    try {
-      a = await fetchJson('/api/admin/analytics')
-    } catch (e) {
-      if (e.message === 'unauthorized') return
-      if (e.message === 'forbidden') {
-        root.innerHTML = '<p class="msg error">⛔ Acesso restrito.</p>'
+    if (prefetched) {
+      a = prefetched
+    } else {
+      try {
+        a = await fetchJson('/api/admin/analytics')
+      } catch (e) {
+        if (e.message === 'unauthorized') return
+        if (e.message === 'forbidden') {
+          root.innerHTML = '<p class="msg error">⛔ Acesso restrito.</p>'
+          return
+        }
+        root.innerHTML = `<p class="msg error">Erro ao carregar analytics: ${escHtml(e.message)}</p>`
         return
       }
-      root.innerHTML = `<p class="msg error">Erro ao carregar analytics: ${escHtml(e.message)}</p>`
-      return
     }
 
     let html = ''
@@ -383,9 +392,38 @@
   }
 
   // ── Boot ───────────────────────────────────────────────────────────────────
-  // BQ stats loads first (most important section), analytics loads in parallel
-  renderBqStats(_activeDays)
-  renderAnalytics()
+  // Gate de acesso primeiro: prova um único endpoint admin. Se não for admin,
+  // mostra uma tela limpa de acesso negado em vez do chrome inteiro coberto
+  // de erros vermelhos (que parecia o app quebrado).
+  async function gateAndBoot() {
+    let analytics
+    try {
+      analytics = await fetchJson('/api/admin/analytics')
+    } catch (e) {
+      if (e.message === 'unauthorized') return  // fetchJson já redireciona pra /
+      if (e.message === 'forbidden') {
+        document.querySelector('main').innerHTML = `
+          <div class="denied">
+            <p class="denied-title">Acesso restrito</p>
+            <p class="denied-msg">Esta área é só para administradores do portal. Se você precisa de acesso, fale com o time de dados.</p>
+            <a class="denied-btn" href="/">← Voltar para as análises</a>
+          </div>`
+        return
+      }
+      // Erro transitório (rede, 5xx): deixa o usuário tentar de novo sem perder a página.
+      document.querySelector('main').innerHTML = `
+        <div class="denied">
+          <p class="denied-title">Não consegui carregar o admin</p>
+          <p class="denied-msg">${escHtml(e.message)}</p>
+          <button class="denied-btn" onclick="window.location.reload()">Tentar novamente</button>
+        </div>`
+      return
+    }
+    // Acesso liberado — renderiza as duas seções (analytics já em mãos).
+    renderBqStats(_activeDays)
+    renderAnalytics(analytics)
+  }
+  gateAndBoot()
 
   // Make selectDays accessible from inline onclick
   window.selectDays = selectDays

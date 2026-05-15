@@ -22,7 +22,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --ink: #000; --ink-soft: #595959; --ink-faint: #999;
+      --ink: #000; --ink-soft: #595959; --ink-faint: #767676;
       --surface: #fff; --surface-warm: #E8E8E4; --surface-cream: #F9F6EA;
       --navy: #274566; --steel: #3D5A73; --blue-soft: #A1C6ED; --blue-light: #C5D9ED;
       --status-pending: #B5AFA8;
@@ -34,10 +34,34 @@
     a { color: inherit; }
     button { font-family: inherit; cursor: pointer; }
 
-    /* Loading */
-    #loading { display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; gap: 16px; color: var(--ink-soft); }
-    .spinner { width: 32px; height: 32px; border: 3px solid var(--surface-warm); border-top-color: var(--navy); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    /* Auth shell (loading / sign-in / error) */
+    #auth-shell { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; background: var(--surface-cream); }
+    .auth-card { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--surface-warm); border-radius: 16px; padding: 2.75rem 2.25rem; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px rgba(39,69,102,0.06); }
+    .auth-brand { font-size: 0.8rem; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 600; color: var(--ink); margin-bottom: 2rem; }
+    .auth-brand em { font-family: var(--font-editorial); font-style: italic; font-weight: 400; text-transform: none; letter-spacing: normal; color: var(--steel); font-size: 1.05rem; margin-left: 0.3rem; }
+    .auth-state { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .auth-state[hidden] { display: none; }
+    .spinner { width: 30px; height: 30px; border: 3px solid var(--surface-warm); border-top-color: var(--navy); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .auth-loading-p { color: var(--ink-soft); font-size: 0.9rem; }
+    .auth-lead { font-family: var(--font-editorial); font-style: italic; font-size: 1.35rem; color: var(--navy); line-height: 1.3; }
+    .auth-sub { color: var(--ink-soft); font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.5rem; }
+    .auth-btn { width: 100%; padding: 0.85rem 1.4rem; background: var(--navy); color: #fff; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 600; transition: background 0.15s, transform 0.05s; }
+    .auth-btn:hover { background: var(--steel); }
+    .auth-btn:active { transform: translateY(1px); }
+    .auth-fine { color: var(--ink-faint); font-size: 0.78rem; margin-top: 0.25rem; }
+    .auth-error-title { font-family: var(--font-editorial); font-style: italic; font-size: 1.2rem; color: var(--navy); }
+    .auth-error-msg { color: var(--ink-soft); font-size: 0.88rem; line-height: 1.5; }
+    /* Analysis iframe loading overlay */
+    #analysis-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--surface); z-index: 1; transition: opacity 0.25s; }
+    #analysis-loading[hidden] { display: none; }
+    #analysis-loading.fade { opacity: 0; pointer-events: none; }
+    #analysis-loading p { color: var(--ink-soft); font-size: 0.9rem; }
+    #analysis-loading .retry-wrap { display: none; flex-direction: column; align-items: center; gap: 12px; }
+    #analysis-loading.errored .spinner, #analysis-loading.errored > p { display: none; }
+    #analysis-loading.errored .retry-wrap { display: flex; }
+    #analysis-loading .retry-title { font-family: var(--font-editorial); font-style: italic; font-size: 1.1rem; color: var(--navy); }
+    #analysis-loading .auth-btn { width: auto; padding: 0.6rem 1.4rem; }
 
     /* Views */
     #library-view { display: none; }
@@ -103,7 +127,12 @@
 
     /* Empty states */
     .empty { grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--ink-faint); font-family: var(--font-editorial); font-style: italic; font-size: 1.1rem; }
-    .empty-hint { display: block; font-family: var(--font-primary); font-style: normal; font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.5rem; }
+    .empty-hint { display: block; font-family: var(--font-primary); font-style: normal; font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.5rem; max-width: 30rem; margin-left: auto; margin-right: auto; }
+    .empty-actions { display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; margin-top: 1.25rem; }
+    .empty-cta { font-family: var(--font-primary); font-style: normal; font-size: 0.85rem; font-weight: 600; padding: 0.6rem 1.15rem; border-radius: 9px; background: var(--navy); color: #fff; text-decoration: none; border: none; cursor: pointer; transition: background 0.15s; }
+    .empty-cta:hover { background: var(--steel); }
+    .empty-cta.ghost { background: transparent; color: var(--steel); border: 1px solid var(--surface-warm); }
+    .empty-cta.ghost:hover { background: var(--surface-warm); color: var(--navy); }
 
     /* Analysis view (iframe) */
     #analysis-topbar { background: var(--ink); color: var(--surface); padding: 0.85rem 1.5rem; display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; position: relative; }
@@ -223,9 +252,26 @@
   </style>
 </head>
 <body>
-  <div id="loading">
-    <div class="spinner"></div>
-    <p>Carregando…</p>
+  <div id="auth-shell">
+    <div class="auth-card">
+      <div class="auth-brand">AZZAS <em>análises</em></div>
+      <div id="auth-loading" class="auth-state">
+        <div class="spinner"></div>
+        <p class="auth-loading-p">Carregando…</p>
+      </div>
+      <div id="auth-signin" class="auth-state" hidden>
+        <p class="auth-lead">Análises do grupo Azzas 2154, num só lugar.</p>
+        <p class="auth-sub">Dashboards de BI prontos, atualizados e compartilháveis — gerados direto do seu Claude.</p>
+        <button id="auth-signin-btn" class="auth-btn">Entrar com conta corporativa</button>
+        <p class="auth-fine">Login seguro via Microsoft · conta @somagrupo.com.br</p>
+      </div>
+      <div id="auth-error" class="auth-state" hidden>
+        <p class="auth-error-title">Não foi possível carregar o portal</p>
+        <p class="auth-error-msg" id="auth-error-msg">—</p>
+        <button id="auth-retry-btn" class="auth-btn">Tentar novamente</button>
+        <p class="auth-fine">Se persistir, fale com o time de dados.</p>
+      </div>
+    </div>
   </div>
 
   <div id="library-view">
@@ -248,10 +294,10 @@
     </section>
 
     <div class="tabs" role="tablist">
-      <button class="tab active" data-tab="mine" role="tab">Minhas <span class="count" id="count-mine">0</span></button>
-      <button class="tab" data-tab="public" role="tab">Público <span class="count" id="count-public">0</span></button>
-      <button class="tab" data-tab="shared" role="tab">Compartilhadas<span class="tab-suffix"> comigo</span> <span class="count" id="count-shared">0</span></button>
-      <button class="tab" data-tab="archive" role="tab">Arquivadas <span class="count" id="count-archive">0</span></button>
+      <button class="tab active" data-tab="mine" role="tab" aria-selected="true">Minhas <span class="count" id="count-mine">0</span></button>
+      <button class="tab" data-tab="public" role="tab" aria-selected="false">Público <span class="count" id="count-public">0</span></button>
+      <button class="tab" data-tab="shared" role="tab" aria-selected="false">Compartilhadas<span class="tab-suffix"> comigo</span> <span class="count" id="count-shared">0</span></button>
+      <button class="tab" data-tab="archive" role="tab" aria-selected="false">Arquivadas <span class="count" id="count-archive">0</span></button>
     </div>
 
     <div class="toolbar">
@@ -283,6 +329,14 @@
       <span id="analysis-crumb"></span>
       <button id="analysis-menu" aria-label="Mais ações" title="Mais ações">⋯</button>
       <div id="analysis-menu-dropdown" class="card-menu-dropdown"></div>
+    </div>
+    <div id="analysis-loading" hidden>
+      <div class="spinner"></div>
+      <p>Abrindo análise…</p>
+      <div class="retry-wrap">
+        <p class="retry-title">Não consegui abrir esta análise</p>
+        <button class="auth-btn" id="analysis-retry-btn">Tentar novamente</button>
+      </div>
     </div>
     <iframe id="analysis-iframe" title="Análise"></iframe>
   </div>
@@ -400,6 +454,7 @@ let filterAgent = ''
 let filterBrand = ''
 let filterPeriod = ''
 let sortMode = 'recent'
+let _firstRunRouted = false
 
 // ─── Classificação por bucket (lê flags do servidor) ───────────────────────
 function inBucket(item, tab) {
@@ -439,22 +494,48 @@ function matchesPeriod(item, code) {
   return true
 }
 
+// ─── Auth shell (loading / sign-in / error) ────────────────────────────────
+function showAuth(state, msg) {
+  document.getElementById('auth-shell').style.display = 'flex'
+  for (const s of ['loading', 'signin', 'error']) {
+    document.getElementById(`auth-${s}`).hidden = (s !== state)
+  }
+  if (state === 'error' && msg) document.getElementById('auth-error-msg').textContent = msg
+}
+
+document.getElementById('auth-retry-btn').addEventListener('click', () => window.location.reload())
+
 // ─── Carregamento ──────────────────────────────────────────────────────────
 async function init() {
+  let msalInstance
   try {
-    const msalInstance = await initMsal()
+    msalInstance = await initMsal()
     await msalInstance.initialize()
     const redirectResult = await msalInstance.handleRedirectPromise()
     let idToken = null
     if (redirectResult) { idToken = redirectResult.idToken }
     else {
       const accounts = msalInstance.getAllAccounts()
-      if (accounts.length === 0) { await msalInstance.loginRedirect({ scopes: ['openid', 'profile'] }); return }
-      try {
-        const silent = await msalInstance.acquireTokenSilent({ account: accounts[0], scopes: ['openid', 'profile'] })
-        idToken = silent.idToken
-      } catch (e) {
-        await msalInstance.loginRedirect({ scopes: ['openid', 'profile'] })
+      let silentOk = false
+      if (accounts.length > 0) {
+        try {
+          const silent = await msalInstance.acquireTokenSilent({ account: accounts[0], scopes: ['openid', 'profile'] })
+          idToken = silent.idToken
+          silentOk = true
+        } catch (e) { silentOk = false }
+      }
+      // No account, or silent token failed/expired: show a branded sign-in
+      // screen with an explicit action instead of a blank auto-redirect.
+      if (!silentOk) {
+        const btn = document.getElementById('auth-signin-btn')
+        btn.onclick = () => {
+          btn.disabled = true
+          showAuth('loading')
+          msalInstance.loginRedirect({ scopes: ['openid', 'profile'] }).catch((e) => {
+            showAuth('error', e?.message || 'Falha ao iniciar o login.')
+          })
+        }
+        showAuth('signin')
         return
       }
     }
@@ -479,7 +560,7 @@ async function init() {
       .then(r => { if (r.ok) document.getElementById('admin-link').style.display = '' })
       .catch(() => {})
 
-    document.getElementById('loading').style.display = 'none'
+    document.getElementById('auth-shell').style.display = 'none'
     document.getElementById('library-view').style.display = 'block'
     document.getElementById('grid').innerHTML = Array.from({length: 6}).map(() => '<div class="skeleton-card"></div>').join('')
 
@@ -492,7 +573,7 @@ async function init() {
     // Hash-based deep link — F5 on `#/r/{id}` lands the user back on the report.
     openFromHash()
   } catch (err) {
-    document.getElementById('loading').textContent = `Erro: ${err.message}`
+    showAuth('error', err.message)
   }
 }
 
@@ -507,11 +588,22 @@ async function reloadLibrary() {
       }
     }
     allItems = [...merged.values()]
+    // First-run routing: um usuário novo (sem análises próprias) deve cair
+    // direto no valor do produto — as análises públicas do time — em vez de
+    // um beco vazio. Só na primeira carga, sem deep-link ativo.
+    if (!_firstRunRouted) {
+      _firstRunRouted = true
+      const hasHashRoute = location.hash.startsWith('#/r/')
+      const mineCount = allItems.filter(i => inBucket(i, 'mine')).length
+      const publicCount = allItems.filter(i => inBucket(i, 'public')).length
+      if (!hasHashRoute && activeTab === 'mine' && mineCount === 0 && publicCount > 0) {
+        selectTab('public', { rerender: false })
+      }
+    }
     render()
   } catch (err) {
-    showErrorBanner(`Não consegui carregar a library: ${err.message}. Tente atualizar a página.`)
     const grid = document.getElementById('grid')
-    if (grid) grid.innerHTML = ''
+    if (grid) grid.innerHTML = `<div class="empty">Não consegui carregar a biblioteca.<span class="empty-hint">${escapeHtml(err.message)}</span><span class="empty-actions"><button class="empty-cta" data-action="reload">Tentar novamente</button></span></div>`
   }
 }
 
@@ -626,9 +718,9 @@ function renderEmpty() {
       if (totalMine > 0) {
         return `<div class="empty">Todas as suas análises estão arquivadas.<span class="empty-hint">Veja a aba "Arquivadas" para restaurá-las.</span></div>`
       }
-      return `<div class="empty">Você ainda não publicou nenhuma análise.<span class="empty-hint">Peça uma análise no Claude Desktop com a extensão Azzas MCP instalada.</span></div>`
+      return `<div class="empty">Você ainda não publicou nenhuma análise.<span class="empty-hint">Gere análises pedindo em linguagem natural no Claude, com a extensão Azzas instalada.</span><span class="empty-actions"><a class="empty-cta" href="/onboarding">Instalar no Claude →</a><button class="empty-cta ghost" data-action="goto-public">Ver análises do time</button></span></div>`
     }
-    if (activeTab === 'public')  return `<div class="empty">O time ainda não publicou nada público.</div>`
+    if (activeTab === 'public')  return `<div class="empty">O time ainda não publicou nada público.<span class="empty-hint">Análises marcadas como públicas aparecem aqui pra todo mundo do grupo.</span></div>`
     if (activeTab === 'shared')  return `<div class="empty">Ninguém compartilhou nada com você ainda.</div>`
     if (activeTab === 'archive') return `<div class="empty">Nada arquivado.</div>`
   }
@@ -788,6 +880,26 @@ async function quickToggleAcl(item, { makePublic, shared }) {
 // ─── Iframe viewer ─────────────────────────────────────────────────────────
 let currentAnalysisItem = null
 
+// Carrega o iframe com overlay de loading — o momento de maior valor do
+// produto não pode ser uma tela branca sem feedback.
+let _analysisLoadTimer = null
+function loadAnalysisIframe(src) {
+  const overlay = document.getElementById('analysis-loading')
+  const iframe = document.getElementById('analysis-iframe')
+  clearTimeout(_analysisLoadTimer)
+  overlay.hidden = false
+  overlay.classList.remove('fade', 'errored')
+  const done = () => { clearTimeout(_analysisLoadTimer); overlay.classList.add('fade'); setTimeout(() => { overlay.hidden = true }, 280) }
+  iframe.onload = () => { if (iframe.src) done() }
+  _analysisLoadTimer = setTimeout(() => { overlay.classList.add('errored') }, 15000)
+  overlay._lastSrc = src
+  iframe.src = src
+}
+document.getElementById('analysis-retry-btn').addEventListener('click', () => {
+  const overlay = document.getElementById('analysis-loading')
+  if (overlay._lastSrc) loadAnalysisIframe(overlay._lastSrc)
+})
+
 function openAnalysis(item, { skipPushState = false } = {}) {
   currentAnalysisItem = item
   document.getElementById('library-view').style.display = 'none'
@@ -797,7 +909,7 @@ function openAnalysis(item, { skipPushState = false } = {}) {
   // Sempre via /api/analysis/<id> (com cache-bust quando há last_refreshed_at).
   let src = `/api/analysis/${encodeURIComponent(item.id)}`
   if (item.last_refreshed_at) src += `?v=${encodeURIComponent(item.last_refreshed_at)}`
-  document.getElementById('analysis-iframe').src = src
+  loadAnalysisIframe(src)
   // Make the report a real URL — survives F5 and works as a share link.
   // skipPushState = true when called from popstate or initial hash hydration,
   // so we don't pollute the history stack with duplicate entries.
@@ -808,6 +920,8 @@ function openAnalysis(item, { skipPushState = false } = {}) {
 
 function closeAnalysisView() {
   document.getElementById('analysis-view').style.display = 'none'
+  clearTimeout(_analysisLoadTimer)
+  document.getElementById('analysis-loading').hidden = true
   document.getElementById('analysis-iframe').src = ''
   document.getElementById('analysis-menu-dropdown').classList.remove('open')
   document.getElementById('library-view').style.display = 'block'
@@ -863,13 +977,24 @@ document.getElementById('analysis-menu').addEventListener('click', ev => {
 })
 
 // ─── Tabs e facets ─────────────────────────────────────────────────────────
-document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'))
-    t.classList.add('active')
-    activeTab = t.dataset.tab
-    render()
+function selectTab(name, { rerender = true } = {}) {
+  activeTab = name
+  document.querySelectorAll('.tab').forEach(x => {
+    const on = x.dataset.tab === name
+    x.classList.toggle('active', on)
+    x.setAttribute('aria-selected', on ? 'true' : 'false')
   })
+  if (rerender) render()
+}
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => selectTab(t.dataset.tab))
+})
+document.getElementById('grid').addEventListener('click', (ev) => {
+  const el = ev.target.closest('[data-action]')
+  if (!el) return
+  const action = el.dataset.action
+  if (action === 'goto-public') selectTab('public')
+  else if (action === 'reload') window.location.reload()
 })
 document.getElementById('search').addEventListener('input', ev => { searchQuery = ev.target.value; render() })
 document.getElementById('facet-agent').addEventListener('change', ev => { filterAgent = ev.target.value; render() })
@@ -1211,7 +1336,7 @@ refreshSubmitBtn.addEventListener('click', async () => {
       currentAnalysisItem = updated
       let src = `/api/analysis/${encodeURIComponent(updated.id)}`
       if (updated.last_refreshed_at) src += `?v=${encodeURIComponent(updated.last_refreshed_at)}`
-      document.getElementById('analysis-iframe').src = src
+      loadAnalysisIframe(src)
     }
   } catch (err) {
     refreshStatus.textContent = `Erro: ${err.message}`

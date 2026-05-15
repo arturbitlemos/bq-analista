@@ -816,7 +816,13 @@ function toggleMenu(dropdown, item) {
       else if (action === 'unarchive')  await setArchived(item, false)
       else if (action === 'copy-link')  copyLink(item)
       else if (action === 'share-people') openShareModal(item)
-      else if (action === 'make-public')  quickToggleAcl(item, { makePublic: true,  shared: item.shared_with || [] })
+      else if (action === 'make-public') {
+        // Tornar pública expõe a análise pra TODO o grupo Azzas com acesso ao
+        // portal — ação de alta visibilidade e fácil de disparar por engano
+        // num menu. Confirma antes (tornar privada de volta não precisa).
+        const ok = window.confirm(`Tornar "${item.title ?? 'esta análise'}" pública?\n\nQualquer pessoa do grupo Azzas com acesso ao portal vai poder ver. Você pode voltar a torná-la privada depois.`)
+        if (ok) quickToggleAcl(item, { makePublic: true, shared: item.shared_with || [] })
+      }
       else if (action === 'make-private') quickToggleAcl(item, { makePublic: false, shared: item.shared_with || [] })
       else if (action === 'refresh')      openRefreshModal(item)
     })

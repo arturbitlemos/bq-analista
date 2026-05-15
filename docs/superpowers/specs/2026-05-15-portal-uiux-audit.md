@@ -66,6 +66,23 @@ Auditadas 3 análises reais (Farm devolução / Azzas YTD / Maria Filó tamanho)
 
 **Correção (atinge todas as análises futuras):** seção "Layout & Responsividade" + piso de legibilidade + reforço de tier no `identidade-visual-azzas.md` (injetado em todo `get_context`); e correção do `SKILL.md` (remove "verde escuro", aponta pro guia canônico, exige o contrato responsivo). Os 3 dashboards existentes vivem no Blob, bespoke — tratados como legado; o ganho é na guidance.
 
+## Rodada 3 — Colaboração + Onboarding (funil de ativação)
+
+Exercitados via Playwright (`collab.mjs`) os fluxos de kebab → share modal → refresh modal (desktop+mobile) e auditado o onboarding. Modais bem desenhados (bottom-sheet no mobile, contexto claro, feedback via toast, trata erro) — funcionam sem pageerror.
+
+| ID | Impacto | Achado → Correção |
+|----|---------|-------------------|
+| C1 | **MÉD-ALTO** | "Tornar pública" no kebab era 1 clique sem confirmação, visualmente igual a "Copiar link" — misclique expõe dado de produção pro grupo inteiro. → Confirmação explícita antes de tornar pública (tornar privada de volta não precisa). |
+| O1 | **MÉD-ALTO** | Onboarding mostrava "última atualização: \<hoje\>" via `new Date()` — sempre a data de hoje, mentira que corrói confiança. → Removido; sub-cta agora diz "grátis pra contas @somagrupo.com.br". |
+| O2 | MÉDIO | CTA primário mostrava "Baixar Azzas MCP v— ↓" / "v?" no load/falha. → Texto limpo enquanto carrega, versão anexada quando resolve. |
+| O3 | MÉDIO | Hero abstrato ("faça perguntas aos dados"), sem mostrar valor. → Callout "Você pergunta → recebe pronto" com query de exemplo concreta (conversão). |
+| O5 | BAIXO | Emoji de tier inconsistente (📈) vs canônico (📊). → Corrigido. |
+| O6 | BAIXO | `--ink-faint #999` (contraste AA) — mesmo fix do portal. → `#767676`. |
+
+Verificado: collab-post sem pageerror, fluxos intactos; onboarding desktop+mobile navOk, zero erro. Before/after: `screenshots/collab-pre.*` e `ob-post.onboarding.*`.
+
+**Pendente (decisão de produto, P2):** O4 — Passo 2 (skill) é co-igual ao Passo 1 mas opcional e técnico (jargão pra exec); dois CTAs de download competindo. Reestruturar como progressive disclosure precisa de call de produto.
+
 ## Nota de ambiente (não é bug de produto)
 
 `vercel env pull` deixou `portal/.env.local` sem `AZURE_CLIENT_ID/TENANT_ID`, então `/api/config` dava 500 no dev local e a SPA nunca bootava. Corrigido localmente (env não versionado). Vale alinhar o `vercel env pull` / documentar no README de dev local.

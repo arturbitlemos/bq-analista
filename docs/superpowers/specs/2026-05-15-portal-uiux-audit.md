@@ -97,9 +97,16 @@ Sweep `p23-post`: 10 páginas, **0 regressões**, deep-dive (busca/abrir anális
 
 ### Backlog remanescente (não acionável nesta rodada)
 
-- **O4** (decisão de produto): Passo 2 (skill) no onboarding é co-igual ao Passo 1 mas opcional/técnico; dois CTAs de download competem. Reestruturar como progressive disclosure precisa de call de produto — não implementado unilateralmente.
 - **F3**: probe `/api/admin/analytics` loga 403 no console pra não-admin. Ruído de devtools, não visível ao usuário; suprimir exigiria mudar a API — custo > benefício.
 - **Lighthouse em produção**: só mensurável após deploy (as mudanças ainda não estão em `bq-analista.vercel.app`). Rodar pós-merge.
+
+## Rodada 5 — O4 (decisão de produto, aprovada pelo usuário)
+
+| ID | Achado → Correção | Verificação |
+|----|-------------------|-------------|
+| O4 | Onboarding tinha "Passo 1" e "Passo 2 · Skill" co-iguais: mesmo `section-heading`, dois CTAs primários navy competindo — usuário não sabia se a skill era obrigatória, diluindo o caminho de ativação. → **Progressive disclosure**: "Passo 1 · Extensão MCP" vira **"Instalação"** (caminho único; CTA primário do hero é o único download proeminente). "Passo 2 · Skill" vira `<details>` **"Opcional · Skill do analista"** fechado por default, download rebaixado a botão secundário (outline), summary deixa explícito que "a extensão sozinha já funciona". Versão da skill alinhada ao padrão do CTA principal (limpo→` v<versão>`→vazio se falhar). | Sweep `o4-post`: 10/10 navOk, **0 regressão**, 0 pageerror, deep-dive intacto. Checagem dedicada: **1 único `.cta` primário** (era 2), disclosure colapsada por default + expande no clique, botão da skill é `.btn-secondary`. Before/after: `screenshots/o4-post.onboarding.desktop.png` (colapsado) e `o4-post.onboarding-expanded.desktop.png` (expandido). |
+
+Decisão de produto que ficou pendente na Rodada 4 — usuário aprovou explicitamente nesta sessão. A narrativa de ativação agora tem um caminho primário inequívoco; a skill continua descobrível mas não compete pela atenção no primeiro contato.
 
 ## Nota de ambiente (não é bug de produto)
 

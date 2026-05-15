@@ -75,6 +75,21 @@
     .troubleshooting strong { color: var(--ink); font-weight: 600; display: block; margin-bottom: 0.1rem; }
     .troubleshooting a { color: var(--navy); text-decoration: underline; }
 
+    /* Optional disclosure (progressive disclosure for the skill) */
+    .optional-disclosure { max-width: 760px; margin: 0 auto; border: 1px solid var(--surface-warm); border-radius: 8px; background: var(--surface); }
+    .optional-disclosure summary { list-style: none; cursor: pointer; padding: 1.25rem 1.5rem; display: flex; align-items: baseline; gap: 0.65rem; flex-wrap: wrap; }
+    .optional-disclosure summary::-webkit-details-marker { display: none; }
+    .optional-disclosure summary::after { content: '+'; margin-left: auto; font-size: 1.4rem; color: var(--ink-faint); line-height: 1; align-self: center; }
+    .optional-disclosure[open] summary::after { content: '\2013'; }
+    .optional-disclosure summary:hover { background: var(--surface-cream); border-radius: 8px; }
+    .disc-tag { font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; }
+    .disc-title { font-size: 0.95rem; font-weight: 600; color: var(--ink); }
+    .disc-sub { flex-basis: 100%; font-size: 0.85rem; color: var(--ink-soft); font-weight: 300; line-height: 1.5; }
+    .disc-body { padding: 0 1.5rem 1.5rem; }
+    .disc-body p { color: var(--ink-soft); font-weight: 300; line-height: 1.6; }
+    .btn-secondary { display: inline-block; background: transparent; color: var(--navy); border: 1px solid var(--navy); padding: 0.7rem 1.4rem; border-radius: 4px; font-weight: 600; font-size: 0.88rem; text-decoration: none; }
+    .btn-secondary:hover { background: var(--navy); color: var(--surface); }
+
     /* Footer */
     footer { padding: 2rem; text-align: center; font-size: 0.8rem; color: var(--ink-faint); }
     footer a { color: var(--ink-soft); }
@@ -119,7 +134,7 @@
 
   <section class="content">
     <div class="content-inner">
-      <h2 class="section-heading">Passo 1 · Extensão MCP</h2>
+      <h2 class="section-heading">Instalação</h2>
       <ol class="steps">
         <li><div class="step-text">Baixe o arquivo <strong>.dxt</strong> acima.</div></li>
         <li><div class="step-text">No Claude Desktop, clique no seu nome (canto inferior esquerdo) → <strong>Configurações</strong> → <strong>Extensões</strong> → <strong>Configurações avançadas</strong> → <strong>Instalar extensão</strong>.</div></li>
@@ -130,19 +145,25 @@
   </section>
 
   <section class="content alt">
-    <div class="content-inner">
-      <h2 class="section-heading">Passo 2 · Skill do analista</h2>
-      <p style="color: var(--ink-soft); font-weight: 300; line-height: 1.6; margin-bottom: 1.25rem;">A extensão dá o <strong>acesso</strong> aos dados. A skill ensina o Claude a <strong>interpretar</strong> como um analista do grupo — Prime Directive anti-alucinação, comparação obrigatória vs LY, tiers de dado (✅/📊/🔶/❓) e protocolo de PII antes de qualquer query. Sem ela, o Claude responde mais genérico.</p>
-      <p style="margin-bottom: 1.5rem;">
-        <a id="download-skill-btn" class="cta" style="background: var(--navy); color: var(--surface);" href="/api/download-skill">Baixar Skill v<span id="skill-version">—</span> ↓</a>
-      </p>
-      <ol class="steps">
-        <li><div class="step-text">Baixe o <strong>.zip</strong> e <strong>descompacte</strong>. Você terá uma pasta <code>azzas-analista/</code>.</div></li>
-        <li><div class="step-text">No Claude Desktop, <strong>Configurações</strong> → <strong>Capabilities</strong> → <strong>Skills</strong> → <strong>Install skill</strong> e selecione a pasta descompactada.</div></li>
-        <li><div class="step-text">A skill é ativada automaticamente quando você pedir análise de vendas, KPI, comparação vs LY, etc.</div></li>
-        <li><div class="step-text">Quando sair nova versão, baixe de novo aqui e reinstale (sobrescreve a anterior).</div></li>
-      </ol>
-    </div>
+    <details class="optional-disclosure">
+      <summary>
+        <span class="disc-tag">Opcional</span>
+        <span class="disc-title">Skill do analista</span>
+        <span class="disc-sub">Faz o Claude <strong>interpretar</strong> como analista do grupo (anti-alucinação, comparação vs LY, tiers de dado, PII). Recomendado pra quem usa direto — a extensão sozinha já funciona.</span>
+      </summary>
+      <div class="disc-body">
+        <p style="margin-bottom: 1.25rem;">A extensão dá o <strong>acesso</strong> aos dados. A skill ensina o Claude a interpretar como um analista do grupo — Prime Directive anti-alucinação, comparação obrigatória vs LY, tiers de dado (✅/📊/🔶/❓) e protocolo de PII antes de qualquer query. Sem ela, o Claude responde mais genérico.</p>
+        <p style="margin-bottom: 1.5rem;">
+          <a id="download-skill-btn" class="btn-secondary" href="/api/download-skill">Baixar Skill<span id="skill-version"></span> ↓</a>
+        </p>
+        <ol class="steps" style="grid-template-columns: 1fr;">
+          <li><div class="step-text">Baixe o <strong>.zip</strong> e <strong>descompacte</strong>. Você terá uma pasta <code>azzas-analista/</code>.</div></li>
+          <li><div class="step-text">No Claude Desktop, <strong>Configurações</strong> → <strong>Capabilities</strong> → <strong>Skills</strong> → <strong>Install skill</strong> e selecione a pasta descompactada.</div></li>
+          <li><div class="step-text">A skill é ativada automaticamente quando você pedir análise de vendas, KPI, comparação vs LY, etc.</div></li>
+          <li><div class="step-text">Quando sair nova versão, baixe de novo aqui e reinstale (sobrescreve a anterior).</div></li>
+        </ol>
+      </div>
+    </details>
   </section>
 
   <section class="content">
@@ -191,7 +212,7 @@
       // Texto do CTA fica limpo enquanto carrega ("Baixar Azzas MCP ↓") e
       // ganha a versão quando resolve — nunca mostra "v—" ou "v?".
       if (v.latest) document.getElementById('dxt-version').textContent = ' v' + v.latest;
-      if (v.skill) document.getElementById('skill-version').textContent = v.skill;
+      if (v.skill) document.getElementById('skill-version').textContent = ' v' + v.skill;
       const lastKnown = localStorage.getItem('mcp_last_known_version');
       if (lastKnown && lastKnown !== v.latest) {
         const ribbon = document.getElementById('ribbon');
@@ -199,9 +220,7 @@
         ribbon.classList.add('visible');
       }
       localStorage.setItem('mcp_last_known_version', v.latest);
-    }).catch(() => {
-      document.getElementById('skill-version').textContent = 'atual';
-    });
+    }).catch(() => {});
 
     fetch('/api/mcp/agents').then(r => r.json()).then(m => {
       const ul = document.getElementById('agents-list');

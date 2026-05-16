@@ -652,12 +652,14 @@ Nunca entregar só o percentual — o valor absoluto (R$) é obrigatório.
 
 #### 7.1.1 KPIs de troca (requer marcação de caso_venda — §4.1, usar verbatim)
 
-| Métrica | Conceito | Filtro de caso_venda |
+| Métrica | Conceito | Filtro |
 |---|---|---|
 | Tickets troca | `COUNT(DISTINCT chave_pedido)` | `caso_venda = 'TROCA'` |
 | Tickets venda | `COUNT(DISTINCT chave_pedido)` | `caso_venda = 'VENDA NORMAL'` |
+| Tickets venda físico | `COUNT(DISTINCT chave_pedido)` | `caso_venda = 'VENDA NORMAL'` AND `CANAL_VENDA = 'VENDA FISICA'` |
 | PA troca | Qtd peças total / Tickets troca | `caso_venda = 'TROCA'` |
 | PA venda | Qtd peças total / Tickets venda | `caso_venda = 'VENDA NORMAL'` |
+| PA venda físico | Qtd peças físico / Tickets venda físico | `caso_venda = 'VENDA NORMAL'` AND `CANAL_VENDA = 'VENDA FISICA'` |
 | Taxa troca | Tickets troca / (Tickets troca + Tickets venda) | — |
 
 > ⚠️ **Captado — PA usa `quantidade` (já líquido) e três casos obrigatórios:**

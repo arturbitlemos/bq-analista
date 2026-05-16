@@ -333,20 +333,29 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 > como VENDA NORMAL, deflacionando o PA e inflando Tickets venda. **Não simplificar.**
 
 ```sql
-CASE
-  WHEN EXISTS (          -- pacote tem item FISICO com quantidade negativa → troca física
-    SELECT 1 FROM refined_captacao t
-    WHERE t.quantidade < 0
-      AND t.tipo_venda = 'FISICO'
-      AND t.status_evento <> 'CANCELADO'
-      AND t.data_evento = v.data_evento
-      AND t.filial = v.filial
-      AND t.pacote = v.pacote
-  ) THEN 'TROCA'
-  WHEN tipo_venda = 'DEVOLUCAO'   -- devolução digital pura
-    THEN 'DEVOLUCAO'
-  ELSE 'VENDA NORMAL'             -- FISICO, ONLINE, ESTOQUE PROPRIO, SOMASTORE, NULL
-END AS caso_venda
+-- Identificar pacotes de troca (item físico com quantidade negativa)
+WITH pacotes_troca AS (
+  SELECT DISTINCT data_evento, codigo_filial_mais_vendas, pacote
+  FROM `soma-dl-refined-online.soma_online_refined.refined_captacao`
+  WHERE quantidade < 0
+    AND tipo_venda = 'FISICO'
+    AND status_evento <> 'CANCELADO'
+    AND data_evento BETWEEN :start AND :end
+)
+
+-- Marcar caso_venda no dataset principal
+SELECT v.*,
+  CASE
+    WHEN t.pacote IS NOT NULL     THEN 'TROCA'       -- pacote tem item físico devolvido
+    WHEN v.tipo_venda = 'DEVOLUCAO' THEN 'DEVOLUCAO' -- devolução digital pura
+    ELSE 'VENDA NORMAL'                               -- FISICO, ONLINE, ESTOQUE PROPRIO, SOMASTORE, NULL
+  END AS caso_venda
+FROM `soma-dl-refined-online.soma_online_refined.refined_captacao` v
+LEFT JOIN pacotes_troca t
+  ON v.data_evento              = t.data_evento
+ AND v.codigo_filial_mais_vendas = t.codigo_filial_mais_vendas
+ AND v.pacote                   = t.pacote
+WHERE v.data_evento BETWEEN :start AND :end
 ```
 
 | Erro | Sintoma | Correção |

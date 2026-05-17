@@ -84,10 +84,16 @@ Quando um filtro adicional for necessário e não estiver coberto acima, **peça
 Aplicar **sempre** ao usar `refined_captacao`, antes de qualquer agregação:
 
 ```sql
--- 1. Remover cancelados com valor zero (evita distorção de contagem de tickets)
-WHERE (ultimo_status <> 'CANCELADO' OR valor_pago_produto <> 0)
+-- 1. Filtro de data — OBRIGATÓRIO: data_evento é DATETIME, não DATE.
+--    Sempre converter antes de comparar, senão os números não batem.
+WHERE CAST(data_evento AS DATE) BETWEEN :start AND :end
+--    ❌ NUNCA: data_evento BETWEEN '2026-01-01' AND '2026-01-31'
+--    ✅ SEMPRE: CAST(data_evento AS DATE) BETWEEN :start AND :end
 
--- 2. Somente filiais próprias (via refined_branches) — sem isso, números ficam inflados com multimarcas e franquias
+-- 2. Remover cancelados com valor zero (evita distorção de contagem de tickets)
+  AND (ultimo_status <> 'CANCELADO' OR valor_pago_produto <> 0)
+
+-- 3. Somente filiais próprias (via refined_branches) — sem isso, números ficam inflados com multimarcas e franquias
   AND codigo_filial_mais_vendas IN (
     SELECT codigo_filial
     FROM `soma-dl-refined-online.soma_online_refined.refined_branches`
@@ -410,16 +416,18 @@ WHERE v.DATA_VENDA BETWEEN :start AND :end
 
 **Visão Captado:**
 
+> ⚠️ **`refined_captacao` não tem coluna de nome de filial.** O nome (`rb.nome`) vem do JOIN com `refined_branches`. Dentro do EXISTS, **sempre prefixar com `rb.nome`** — nunca usar `filial` ou `nome` sem alias, pois qualquer outro JOIN na query (ex: para nome de marca) pode criar ambiguidade e o BigQuery resolverá para a coluna errada silenciosamente.
+
 ```sql
--- Na visão captado, o match de mala usa data_faturamento + filial (atribuição) + cpf_cliente
-SELECT v.*,
+-- Na visão captado, o match de mala usa data_faturamento + rb.nome (nome da filial) + cpf_cliente
+SELECT v.*, rb.nome AS filial,
   CASE
     WHEN v.cpf_cliente IS NOT NULL
       AND EXISTS (
         SELECT 1
         FROM `soma-pipeline-prd.silver_linx.LOJA_RESERVA` r
         WHERE r.codigo_cliente = v.cpf_cliente
-          AND r.filial = v.filial           -- filial de atribuição (codigo_filial_mais_vendas resolvido para nome)
+          AND r.filial = rb.nome            -- ✅ sempre prefixar: rb.nome vem do JOIN com refined_branches
           AND CAST(v.data_faturamento AS DATE) >= DATE(TIMESTAMP_MILLIS(r.emissao))
           AND CAST(v.data_faturamento AS DATE) <= DATE_ADD(DATE(TIMESTAMP_MILLIS(r.encerramento)), INTERVAL 7 DAY)
           AND r.encerramento IS NOT NULL
@@ -427,7 +435,11 @@ SELECT v.*,
       ) THEN TRUE
     ELSE FALSE
   END AS mala
-FROM refined_captacao_filtrado v
+FROM `soma-dl-refined-online.soma_online_refined.refined_captacao` v
+INNER JOIN `soma-dl-refined-online.soma_online_refined.refined_branches` rb
+  ON v.codigo_filial_mais_vendas = rb.codigo_filial
+  AND rb.programa_filial = 'próprio'
+WHERE CAST(v.data_evento AS DATE) BETWEEN :start AND :end
 ```
 
 > **Por que `data_faturamento` e não `data_evento`?**
@@ -457,6 +469,16 @@ Para a definição de **refined_captacao_filtrado**, olhar §1.3, onde são expl
 
 > ⚠️ **Tipo das colunas `emissao` e `encerramento`:** são INT64 (Unix timestamp em milissegundos), não DATE.
 > Conversão obrigatória: `DATE(TIMESTAMP_MILLIS(r.emissao))` e `DATE(TIMESTAMP_MILLIS(r.encerramento))`.
+
+> **⚠️ AVISO CRÍTICO — CONTEXTO DA CTE E VALIDADE DO EXISTS:**
+
+ O EXISTS contra LOJA_RESERVA é sensível ao escopo de dados coberto pela CTE que o precede. Nunca aplicar filtros de período, canal, tipo_venda, vendedor ou qualquer outro critério de negócio no base CTE antes da avaliação do EXISTS. Isso inclui:
+
+ - Nunca restringir o intervalo de datas da CTE ao período de análise. O scan deve cobrir um intervalo mais amplo que o período alvo; o filtro de data deve ser aplicado apenas  no SELECT final, após o EXISTS já ter sido avaliado.
+
+ - Nunca filtrar por vendedor no base CTE antes do EXISTS. O filtro de vendedor deve ser aplicado somente no SELECT final.
+
+ - Nunca filtrar por tipo_venda ou canal_venda antes do EXISTS.
 
 ### Métrica Venda mala
 
@@ -610,7 +632,7 @@ Nunca entregar só o percentual — o valor absoluto (R$) é obrigatório.
 | filtro digital (para `CANAL_VENDA='VENDA ONLINE'`) | `TIPO_VENDA IN ('VENDA_ECOM','VENDA_OMNI','VENDA_VITRINE')` | `tipo_venda IN ('ONLINE','DEVOLUCAO')` | |
 | filial (código) | `CODIGO_FILIAL_DESTINO` | `codigo_filial_mais_vendas` | |
 | filial (nome) | JOIN `FILIAIS` ON `COD_FILIAL` | JOIN `refined_branches` ON `codigo_filial` | |
-| data | `DATA_VENDA` | `CAST(data_evento AS DATE)` | |
+| data | `DATA_VENDA` | `CAST(data_evento AS DATE)` | `data_evento` é DATETIME — **sempre converter antes de filtrar** |
 | chave_pedido | `CONCAT(DATA_VENDA,'_',TICKET,'_',FILIAL_DESTINO)` | `CONCAT(data_evento,'_',pacote,'_',codigo_filial_mais_vendas)` | Ver §3 |
 | vendedor (código) | `VENDEDOR` | `vendedor` | Mesmo tipo STRING |
 | marca (rede) | `CAST(RL_DESTINO AS STRING)` | `CAST(rede_lojas_mais_vendas AS STRING)` | |
